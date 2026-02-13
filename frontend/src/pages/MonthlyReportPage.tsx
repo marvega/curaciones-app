@@ -424,7 +424,7 @@ export default function MonthlyReportPage() {
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+              className="w-28 px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
             >
               {MONTHS.map((m, i) => (
                 <option key={i} value={i + 1}>
