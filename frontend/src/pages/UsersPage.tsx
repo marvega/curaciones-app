@@ -91,7 +91,7 @@ export default function UsersPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, username: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                  className="form-control w-full"
                   required
                 />
               </div>
@@ -105,7 +105,7 @@ export default function UsersPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, password: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                  className="form-control w-full"
                   required
                   minLength={6}
                 />
@@ -119,7 +119,7 @@ export default function UsersPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, role: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                  className="form-control w-full"
                 >
                   <option value="user">Usuario</option>
                   <option value="admin">Administrador</option>

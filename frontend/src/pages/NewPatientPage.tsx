@@ -104,7 +104,7 @@ export default function NewPatientPage() {
                 onChange={handleChange}
                 placeholder="12.345.678-9"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                className="form-control w-full"
               />
             </div>
             <div>
@@ -116,7 +116,7 @@ export default function NewPatientPage() {
                 value={form.gender}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                className="form-control w-full"
               >
                 <option value="">Seleccionar</option>
                 <option value="Femenino">Femenino</option>
@@ -137,7 +137,7 @@ export default function NewPatientPage() {
                 value={form.firstName}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                className="form-control w-full"
               />
             </div>
             <div>
@@ -150,7 +150,7 @@ export default function NewPatientPage() {
                 value={form.lastName}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                className="form-control w-full"
               />
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function NewPatientPage() {
               value={form.birthDate}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+              className="form-control w-full"
             />
           </div>
 
@@ -179,7 +179,7 @@ export default function NewPatientPage() {
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                className="form-control w-full"
               />
             </div>
             <div>
@@ -191,7 +191,7 @@ export default function NewPatientPage() {
                 name="address"
                 value={form.address}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                className="form-control w-full"
               />
             </div>
           </div>

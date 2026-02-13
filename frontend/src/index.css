@@ -20,6 +20,11 @@ select.form-control {
   padding-right: 2.5rem;
 }
 
+textarea.form-control {
+  resize: vertical;
+  min-height: 5rem;
+}
+
 select {
   @apply bg-white;
   background-image: none;

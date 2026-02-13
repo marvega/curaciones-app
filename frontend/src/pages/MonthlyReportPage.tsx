@@ -313,7 +313,7 @@ export default function MonthlyReportPage() {
                   onChange={(e) => setYear(parseInt(e.target.value))}
                   min={2020}
                   max={2030}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none w-24 text-sm"
+                  className="form-control w-24 text-sm"
                 />
               </div>
             </div>
@@ -342,7 +342,7 @@ export default function MonthlyReportPage() {
                             value={edit?.startDate || ''}
                             min={getMinStartDate(m)}
                             onChange={(e) => handleCycleChange(m, 'startDate', e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-sm w-full"
+                            className="form-control text-sm w-full"
                           />
                         </td>
                         <td className="py-2 px-3">
@@ -352,7 +352,7 @@ export default function MonthlyReportPage() {
                             min={getMinEndDate(m)}
                             max={getMaxEndDate(m)}
                             onChange={(e) => handleCycleChange(m, 'endDate', e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-sm w-full"
+                            className="form-control text-sm w-full"
                           />
                         </td>
                         <td className="py-2 px-3">
