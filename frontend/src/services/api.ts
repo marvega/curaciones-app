@@ -23,7 +23,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // No redirigir en 401 para login (credenciales incorrectas)
+    const isLoginRequest = err.config?.url?.includes('/auth/login');
+    if (err.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('curaciones_token');
       localStorage.removeItem('curaciones_user');
       window.location.href = '/login';
