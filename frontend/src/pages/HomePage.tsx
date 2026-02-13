@@ -56,7 +56,7 @@ export default function HomePage() {
             value={rut}
             onChange={handleRutChange}
             placeholder="12.345.678-9"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-lg"
+            className="form-control flex-1 text-lg"
           />
           <button
             type="submit"

@@ -216,7 +216,7 @@ export default function PatientPage() {
                 type="text"
                 value={editForm.firstName}
                 onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                className="form-control w-full"
                 required
               />
             </div>
@@ -226,7 +226,7 @@ export default function PatientPage() {
                 type="text"
                 value={editForm.lastName}
                 onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                className="form-control w-full"
                 required
               />
             </div>
@@ -236,7 +236,7 @@ export default function PatientPage() {
                 type="date"
                 value={editForm.birthDate}
                 onChange={(e) => setEditForm(prev => ({ ...prev, birthDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                className="form-control w-full"
                 required
               />
             </div>
@@ -245,7 +245,7 @@ export default function PatientPage() {
               <select
                 value={editForm.gender}
                 onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                className="form-control w-full"
                 required
               >
                 <option value="Femenino">Femenino</option>
@@ -259,7 +259,7 @@ export default function PatientPage() {
                 type="text"
                 value={editForm.phone}
                 onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                className="form-control w-full"
               />
             </div>
             <div className="col-span-1">
@@ -268,7 +268,7 @@ export default function PatientPage() {
                 type="text"
                 value={editForm.address}
                 onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                className="form-control w-full"
               />
             </div>
             <div className="col-span-1 sm:col-span-2 flex flex-col-reverse sm:flex-row justify-end gap-2 mt-2">
@@ -346,7 +346,7 @@ export default function PatientPage() {
                       type: e.target.value as CuracionType,
                     }))
                   }
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  className="form-control w-full"
                 >
                   <option value="avanzada">Curación Avanzada</option>
                   <option value="pie_diabetico">
@@ -371,7 +371,7 @@ export default function PatientPage() {
                     }))
                   }
                   required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  className="form-control w-full"
                 />
               </div>
               <div>
@@ -389,7 +389,7 @@ export default function PatientPage() {
                     }))
                   }
                   required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  className="form-control w-full"
                 />
               </div>
             </div>
@@ -409,7 +409,7 @@ export default function PatientPage() {
                       nextAppointmentTime: '', // Reset time when date changes
                     }))
                   }
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  className="form-control w-full"
                 />
               </div>
               <div>
@@ -425,7 +425,7 @@ export default function PatientPage() {
                     }))
                   }
                   disabled={!curacionForm.nextAppointmentDate || loadingAvailability}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none disabled:bg-gray-50"
+                  className="form-control w-full disabled:bg-gray-50"
                 >
                   <option value="">{loadingAvailability ? 'Cargando disponibilidad...' : 'Seleccionar hora'}</option>
                   {availability.map((slot) => (
@@ -455,7 +455,7 @@ export default function PatientPage() {
                   }))
                 }
                 rows={3}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none"
+                className="form-control w-full resize-none"
               />
             </div>
 
