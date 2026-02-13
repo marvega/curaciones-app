@@ -125,6 +125,16 @@ export default function Layout() {
       </main>
       <footer className="bg-gray-100 border-t text-center py-3 text-xs sm:text-sm text-gray-500">
         Sistema de Gestión de Curaciones &copy; {new Date().getFullYear()}
+        {' · '}
+        <a
+          href="https://marcelovega.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Contactar"
+          className="text-teal-600 hover:text-teal-700 hover:underline"
+        >
+          marcelovega.com
+        </a>
       </footer>
     </div>
   );
