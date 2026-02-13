@@ -117,12 +117,12 @@ export default function AgendaPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-800">
             Agenda de Citas
           </h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {viewButtons.map((btn) => (
               <button
                 key={btn.mode}
@@ -139,14 +139,14 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <button
             onClick={() => navigateDate(-1)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
           >
             &larr; Anterior
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             {viewMode === 'month' ? (
               <span className="px-4 py-2 text-lg font-semibold text-gray-700 capitalize">
                 {getPeriodLabel()}
@@ -210,9 +210,9 @@ export default function AgendaPage() {
                           apt.patient &&
                           navigate(`/paciente/${apt.patient.id}`)
                         }
-                        className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-teal-50 cursor-pointer transition-colors border border-transparent hover:border-teal-200"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-gray-50 rounded-xl hover:bg-teal-50 cursor-pointer transition-colors border border-transparent hover:border-teal-200"
                       >
-                        <div className="text-lg font-bold text-teal-700 w-16 text-center">
+                        <div className="text-lg font-bold text-teal-700 sm:w-16 text-center">
                           {apt.nextAppointmentTime || '--:--'}
                         </div>
                         <div className="flex-1">

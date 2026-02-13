@@ -270,8 +270,8 @@ export default function MonthlyReportPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-800">
             Reporte Mensual de Curaciones
           </h2>
@@ -403,7 +403,7 @@ export default function MonthlyReportPage() {
           </div>
         )}
 
-        <div className="flex gap-4 items-end mb-6">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Año
@@ -467,7 +467,7 @@ export default function MonthlyReportPage() {
               Período del reporte: <strong>{formatDate(report.startDate)}</strong> al <strong>{formatDate(report.endDate)}</strong>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="bg-teal-50 rounded-xl p-4 text-center">
                 <div className="text-3xl font-bold text-teal-700">
                   {report.avanzada}

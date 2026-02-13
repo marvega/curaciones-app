@@ -177,12 +177,12 @@ export default function PatientPage() {
     <>
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Datos del paciente */}
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
             {patient.firstName} {patient.lastName}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowEditForm(!showEditForm)}
               className="p-2 text-gray-400 hover:text-teal-600 transition-colors"
@@ -209,7 +209,7 @@ export default function PatientPage() {
         </div>
 
         {showEditForm ? (
-          <form onSubmit={handleUpdatePatient} className="grid grid-cols-2 gap-4 mt-4">
+          <form onSubmit={handleUpdatePatient} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div className="col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
               <input
@@ -271,7 +271,7 @@ export default function PatientPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
               />
             </div>
-            <div className="col-span-2 flex justify-end gap-2 mt-2">
+            <div className="col-span-1 sm:col-span-2 flex flex-col-reverse sm:flex-row justify-end gap-2 mt-2">
               <button
                 type="button"
                 onClick={() => setShowEditForm(false)}
@@ -328,12 +328,12 @@ export default function PatientPage() {
 
       {/* Formulario nueva curación */}
       {showForm && (
-        <div className="bg-white rounded-2xl shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
             Registrar Curación
           </h3>
           <form onSubmit={handleSaveCuracion} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Curación *
@@ -394,7 +394,7 @@ export default function PatientPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Próxima Cita (Fecha)
@@ -471,7 +471,7 @@ export default function PatientPage() {
       )}
 
       {/* Historial de curaciones */}
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           Historial de Curaciones
           <span className="ml-2 text-sm font-normal text-gray-500">

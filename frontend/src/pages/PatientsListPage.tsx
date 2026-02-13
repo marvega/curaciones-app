@@ -57,10 +57,10 @@ export default function PatientsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Pacientes</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Pacientes</h2>
             {result && (
               <p className="text-sm text-gray-500 mt-1">
                 {result.total} pacientes registrados
@@ -156,11 +156,11 @@ export default function PatientsListPage() {
 
             {/* Paginación */}
             {result.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                <p className="text-sm text-gray-500">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 pt-4 border-t">
+                <p className="text-sm text-gray-500 order-2 sm:order-1">
                   Página {result.page} de {result.totalPages}
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 order-1 sm:order-2">
                   <button
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage <= 1}

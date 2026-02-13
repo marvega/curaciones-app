@@ -156,12 +156,12 @@ export default function DetailedReportPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">
           Reporte Trimestral Detallado
         </h2>
 
-        <div className="flex gap-4 items-end mb-6 flex-wrap">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Año
@@ -246,7 +246,7 @@ export default function DetailedReportPage() {
         {report && (
           <div className="space-y-8">
             {/* Summary cards */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-teal-50 rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-teal-800 mb-2">
                   Curación Avanzada
@@ -304,7 +304,7 @@ export default function DetailedReportPage() {
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {report.summary.avanzada.total > 0 && (
                 <div>
                   <h4 className="text-center text-sm font-medium text-gray-600 mb-2">
