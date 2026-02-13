@@ -12,7 +12,6 @@ services:
   - type: web
     runtime: node
     name: curaciones-api
-    plan: free
     region: oregon
     rootDir: backend
     buildCommand: npm install && npm run build
@@ -34,7 +33,6 @@ services:
   - type: web
     runtime: static
     name: curaciones-app
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
