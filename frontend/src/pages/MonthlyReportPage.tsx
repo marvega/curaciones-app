@@ -414,7 +414,7 @@ export default function MonthlyReportPage() {
               onChange={(e) => setYear(parseInt(e.target.value))}
               min={2020}
               max={2030}
-              className="px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none w-28"
+              className="form-control w-28"
             />
           </div>
           <div>
@@ -424,7 +424,7 @@ export default function MonthlyReportPage() {
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="w-28 px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+              className="form-control w-28"
             >
               {MONTHS.map((m, i) => (
                 <option key={i} value={i + 1}>
