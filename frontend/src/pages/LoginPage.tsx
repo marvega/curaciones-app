@@ -32,8 +32,14 @@ export default function LoginPage() {
     try {
       await login(username, password);
       navigate(from, { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : err instanceof Error
+            ? err.message
+            : 'Error al iniciar sesión';
+      setError(msg || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
