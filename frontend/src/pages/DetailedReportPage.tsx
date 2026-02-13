@@ -172,7 +172,7 @@ export default function DetailedReportPage() {
               onChange={(e) => setYear(parseInt(e.target.value))}
               min={2020}
               max={2030}
-              className="px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none w-28"
+              className="form-control w-28"
             />
           </div>
           <div>
@@ -182,7 +182,7 @@ export default function DetailedReportPage() {
             <select
               value={quarter}
               onChange={(e) => setQuarter(parseInt(e.target.value))}
-              className="min-w-[180px] px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+              className="form-control min-w-[180px]"
             >
               {QUARTERS.map((q) => (
                 <option key={q.value} value={q.value}>
@@ -198,7 +198,7 @@ export default function DetailedReportPage() {
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}
-              className="min-w-[120px] px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+              className="form-control min-w-[120px]"
             >
               <option value="">Todos</option>
               <option value="Femenino">Femenino</option>
@@ -213,7 +213,7 @@ export default function DetailedReportPage() {
             <select
               value={ageGroup}
               onChange={(e) => setAgeGroup(e.target.value)}
-              className="min-w-[140px] px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+              className="form-control min-w-[140px]"
             >
               <option value="">Todos</option>
               {AGE_GROUPS.map((g, i) => (
