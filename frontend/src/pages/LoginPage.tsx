@@ -46,9 +46,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white rounded-2xl shadow-lg border p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-6">
+      <div className="bg-white rounded-2xl shadow-lg border p-6 sm:p-8 w-full max-w-md">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 text-center">
           Enfermería - Gestión de Curaciones
         </h1>
         <p className="text-gray-500 text-sm text-center mb-6">

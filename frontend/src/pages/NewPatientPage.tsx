@@ -80,7 +80,7 @@ export default function NewPatientPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-sm border p-8">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">
           Nuevo Paciente
         </h2>
@@ -92,7 +92,7 @@ export default function NewPatientPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 RUT *
@@ -126,7 +126,7 @@ export default function NewPatientPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nombre *
@@ -169,7 +169,7 @@ export default function NewPatientPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Teléfono

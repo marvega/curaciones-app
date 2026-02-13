@@ -3,3 +3,10 @@
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
+
+/* Evitar zoom en inputs en iOS */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px;
+  }
+}

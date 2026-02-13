@@ -42,7 +42,7 @@ export default function HomePage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-sm border p-8">
+      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">
           Buscar Paciente
         </h2>
@@ -50,7 +50,7 @@ export default function HomePage() {
           Ingrese el RUT del paciente para ver su ficha
         </p>
 
-        <form onSubmit={handleSearch} className="flex gap-3">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={rut}
@@ -80,7 +80,7 @@ export default function HomePage() {
                   Registrado
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">RUT:</span>
                   <span className="ml-2 font-medium">{patient.rut}</span>
