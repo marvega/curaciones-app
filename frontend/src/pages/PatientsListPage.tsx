@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getPatientsPaginated, seedPatients } from '../services/api';
+import { getPatientsPaginated } from '../services/api';
 import type { Patient, PaginatedResponse } from '../types';
 
 export default function PatientsListPage() {
@@ -10,21 +10,6 @@ export default function PatientsListPage() {
 
   const [result, setResult] = useState<PaginatedResponse<Patient> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
-
-  const handleSeed = async () => {
-    setSeeding(true);
-    try {
-      const { created } = await seedPatients();
-      await loadPatients(1);
-      setSearchParams({ page: '1' });
-      alert(created > 0 ? `Se agregaron ${created} pacientes de prueba.` : 'No se agregaron pacientes nuevos (ya existían).');
-    } catch {
-      alert('Error al cargar pacientes de prueba');
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const loadPatients = async (page: number) => {
     setLoading(true);
@@ -68,13 +53,6 @@ export default function PatientsListPage() {
             )}
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleSeed}
-              disabled={seeding}
-              className="px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              {seeding ? 'Cargando...' : 'Cargar pacientes de prueba'}
-            </button>
             <button
               onClick={() => navigate('/paciente/nuevo')}
               className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"

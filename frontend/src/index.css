@@ -4,6 +4,12 @@ body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
 
+/* Selects con mismo estilo que inputs - fondo blanco, sin gradiente del navegador */
+select {
+  @apply bg-white;
+  background-image: none;
+}
+
 /* Evitar zoom en inputs en iOS */
 @supports (-webkit-touch-callout: none) {
   input, select, textarea {
