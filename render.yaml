@@ -14,7 +14,7 @@ services:
     name: curaciones-api
     region: oregon
     rootDir: backend
-    buildCommand: npm install && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
