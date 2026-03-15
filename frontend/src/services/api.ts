@@ -2,6 +2,7 @@ import axios from 'axios';
 import type {
   Patient,
   Curacion,
+  CuracionEdit,
   MonthlyReport,
   DetailedReport,
   PaginatedResponse,
@@ -133,6 +134,19 @@ export const getAvailability = async (date: string): Promise<any[]> => {
   const { data } = await api.get('/curaciones/availability', {
     params: { date },
   });
+  return data;
+};
+
+export const updateCuracion = async (
+  id: number,
+  data: { type?: string; quantity?: number; appointmentDate?: string | null; appointmentTime?: string | null; reason: string },
+): Promise<Curacion> => {
+  const { data: result } = await api.put(`/curaciones/${id}`, data);
+  return result;
+};
+
+export const getCuracionEdits = async (id: number): Promise<CuracionEdit[]> => {
+  const { data } = await api.get(`/curaciones/${id}/edits`);
   return data;
 };
 
