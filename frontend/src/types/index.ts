@@ -7,9 +7,18 @@ export interface Patient {
   gender: string;
   phone?: string;
   address?: string;
+  status?: string;
   createdAt: string;
   updatedAt: string;
   curaciones?: Curacion[];
+}
+
+export interface PatientStatusChange {
+  id: number;
+  patientId: number;
+  type: 'discharge' | 'readmission';
+  performedBy: { id: number; username: string };
+  createdAt: string;
 }
 
 export type CuracionType = 'avanzada' | 'pie_diabetico' | 'ulcera_venosa';

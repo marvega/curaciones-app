@@ -109,6 +109,9 @@ export default function PatientsListPage() {
                       </td>
                       <td className="py-3 px-3">
                         {patient.firstName} {patient.lastName}
+                        {patient.status === 'discharged' && (
+                          <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs">Alta</span>
+                        )}
                       </td>
                       <td className="py-3 px-3">
                         {calculateAge(patient.birthDate)} años
