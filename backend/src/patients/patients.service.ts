@@ -1,15 +1,21 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Patient } from './patient.entity';
+import { PatientStatusChange, PatientStatus, PatientStatusChangeType } from './patient-status-change.entity';
 import { CreatePatientDto } from './create-patient.dto';
 import { UpdatePatientDto } from './update-patient.dto';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class PatientsService {
   constructor(
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
+    @InjectRepository(PatientStatusChange)
+    private readonly statusChangeRepo: Repository<PatientStatusChange>,
+    private readonly appointmentsService: AppointmentsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findByRut(rut: string): Promise<Patient | null> {
@@ -95,5 +101,87 @@ export class PatientsService {
       page,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async discharge(
+    id: number,
+    performedById: number,
+    cancelAppointment: boolean,
+  ): Promise<Patient> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const patient = await queryRunner.manager.findOne(Patient, {
+        where: { id },
+      });
+      if (!patient) throw new NotFoundException(`Paciente con id ${id} no encontrado`);
+      if (patient.status !== PatientStatus.ACTIVE) {
+        throw new BadRequestException('El paciente ya está dado de alta');
+      }
+
+      patient.status = PatientStatus.DISCHARGED;
+      await queryRunner.manager.save(patient);
+
+      const statusChange = queryRunner.manager.create(PatientStatusChange, {
+        patientId: id,
+        type: PatientStatusChangeType.DISCHARGE,
+        performedById,
+      });
+      await queryRunner.manager.save(statusChange);
+
+      if (cancelAppointment) {
+        await this.appointmentsService.deleteFutureByPatient(id, queryRunner.manager);
+      }
+
+      await queryRunner.commitTransaction();
+      return this.findById(id);
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async readmit(id: number, performedById: number): Promise<Patient> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const patient = await queryRunner.manager.findOne(Patient, {
+        where: { id },
+      });
+      if (!patient) throw new NotFoundException(`Paciente con id ${id} no encontrado`);
+      if (patient.status !== PatientStatus.DISCHARGED) {
+        throw new BadRequestException('El paciente no está dado de alta');
+      }
+
+      patient.status = PatientStatus.ACTIVE;
+      await queryRunner.manager.save(patient);
+
+      const statusChange = queryRunner.manager.create(PatientStatusChange, {
+        patientId: id,
+        type: PatientStatusChangeType.READMISSION,
+        performedById,
+      });
+      await queryRunner.manager.save(statusChange);
+
+      await queryRunner.commitTransaction();
+      return this.findById(id);
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getStatusHistory(id: number): Promise<PatientStatusChange[]> {
+    return this.statusChangeRepo.find({
+      where: { patientId: id },
+      relations: ['performedBy'],
+      order: { createdAt: 'DESC' },
+    });
   }
 }
