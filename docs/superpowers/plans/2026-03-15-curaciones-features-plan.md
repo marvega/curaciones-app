@@ -785,17 +785,17 @@ describe('AppointmentsService', () => {
   });
 
   it('rejects a PM slot on a second Friday', async () => {
-    // 2099-03-14 is the second Friday of March 2099
+    // 2099-03-13 is the second Friday of March 2099
     await expect(
-      service.create({ patientId: 1, date: '2099-03-14', time: '13:00' }),
+      service.create({ patientId: 1, date: '2099-03-13', time: '13:00' }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('accepts an AM slot on a second Friday', async () => {
-    // 2099-03-14 is the second Friday of March 2099
+    // 2099-03-13 is the second Friday of March 2099
     const result = await service.create({
       patientId: 1,
-      date: '2099-03-14',
+      date: '2099-03-13',
       time: '09:00',
     });
     expect(result).toBeDefined();
