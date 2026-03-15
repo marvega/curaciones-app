@@ -26,8 +26,8 @@ export default function PatientPage() {
   const [curacionForm, setCuracionForm] = useState({
     type: 'avanzada' as CuracionType,
     date: new Date().toISOString().split('T')[0],
-    nextAppointmentDate: '',
-    nextAppointmentTime: '',
+    appointmentDate: '',
+    appointmentTime: '',
     quantity: 1,
     observations: '',
   });
@@ -112,10 +112,10 @@ export default function PatientPage() {
 
   useEffect(() => {
     const fetchAvailability = async () => {
-      if (curacionForm.nextAppointmentDate) {
+      if (curacionForm.appointmentDate) {
         setLoadingAvailability(true);
         try {
-          const data = await getAvailability(curacionForm.nextAppointmentDate);
+          const data = await getAvailability(curacionForm.appointmentDate);
           setAvailability(data);
         } catch {
           setAvailability([]);
@@ -127,7 +127,7 @@ export default function PatientPage() {
       }
     };
     fetchAvailability();
-  }, [curacionForm.nextAppointmentDate]);
+  }, [curacionForm.appointmentDate]);
 
   useEffect(() => {
     const fetchAvailability = async () => {
@@ -205,10 +205,10 @@ export default function PatientPage() {
     if (!patient) return;
 
     // Validar disponibilidad si hay hora seleccionada
-    if (curacionForm.nextAppointmentDate && curacionForm.nextAppointmentTime) {
-      const slot = availability.find(s => s.time === curacionForm.nextAppointmentTime);
+    if (curacionForm.appointmentDate && curacionForm.appointmentTime) {
+      const slot = availability.find(s => s.time === curacionForm.appointmentTime);
       if (slot && !slot.available) {
-        alert(`El horario ${curacionForm.nextAppointmentTime} ya está ocupado por ${slot.patient.firstName} ${slot.patient.lastName}.`);
+        alert(`El horario ${curacionForm.appointmentTime} ya está ocupado por ${slot.patient.firstName} ${slot.patient.lastName}.`);
         return;
       }
     }
@@ -223,8 +223,8 @@ export default function PatientPage() {
       setCuracionForm({
         type: 'avanzada',
         date: new Date().toISOString().split('T')[0],
-        nextAppointmentDate: '',
-        nextAppointmentTime: '',
+        appointmentDate: '',
+        appointmentTime: '',
         quantity: 1,
         observations: '',
       });
@@ -649,12 +649,12 @@ export default function PatientPage() {
                   </label>
                   <input
                     type="date"
-                    value={curacionForm.nextAppointmentDate}
+                    value={curacionForm.appointmentDate}
                     onChange={(e) =>
                       setCuracionForm((prev) => ({
                         ...prev,
-                        nextAppointmentDate: e.target.value,
-                        nextAppointmentTime: '', // Reset time when date changes
+                        appointmentDate: e.target.value,
+                        appointmentTime: '', // Reset time when date changes
                       }))
                     }
                     className="form-control w-full"
@@ -665,14 +665,14 @@ export default function PatientPage() {
                     Próxima Cita (Hora)
                   </label>
                   <select
-                    value={curacionForm.nextAppointmentTime}
+                    value={curacionForm.appointmentTime}
                     onChange={(e) =>
                       setCuracionForm((prev) => ({
                         ...prev,
-                        nextAppointmentTime: e.target.value,
+                        appointmentTime: e.target.value,
                       }))
                     }
-                    disabled={!curacionForm.nextAppointmentDate || loadingAvailability}
+                    disabled={!curacionForm.appointmentDate || loadingAvailability}
                     className="form-control w-full disabled:bg-gray-50"
                   >
                     <option value="">{loadingAvailability ? 'Cargando disponibilidad...' : 'Seleccionar hora'}</option>
@@ -833,11 +833,7 @@ export default function PatientPage() {
                       {c.quantity || 1}
                     </td>
                     <td className="py-3 px-2">
-                      {c.appointment
-                        ? `${c.appointment.date} ${c.appointment.time}`
-                        : (c.nextAppointmentDate
-                          ? `${c.nextAppointmentDate} ${c.nextAppointmentTime || ''}`
-                          : '-')}
+                      {c.appointment ? `${c.appointment.date} ${c.appointment.time}` : '-'}
                     </td>
                     <td className="py-3 px-2 text-gray-600">
                       {c.observations || '-'}

@@ -17,16 +17,7 @@ export class CreateCuracionDto {
   @IsDateString()
   date: string;
 
-  // Legacy fields — kept for Phase 1 dual-write
-  @IsDateString()
-  @IsOptional()
-  nextAppointmentDate?: string;
-
-  @IsString()
-  @IsOptional()
-  nextAppointmentTime?: string;
-
-  // New fields — used to create linked Appointment
+  // Fields used to create linked Appointment
   @IsDateString()
   @IsOptional()
   appointmentDate?: string;
