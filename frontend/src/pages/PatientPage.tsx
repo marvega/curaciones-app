@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments } from '../services/api';
-import type { Patient, CuracionType, Appointment } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory } from '../services/api';
+import type { Patient, CuracionType, Appointment, PatientStatusChange } from '../types';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -12,11 +13,15 @@ const CURACION_LABELS: Record<CuracionType, string> = {
 export default function PatientPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<PatientStatusChange[]>([]);
+  const [dischargeCheckbox, setDischargeCheckbox] = useState(false);
 
   const [curacionForm, setCuracionForm] = useState({
     type: 'avanzada' as CuracionType,
@@ -77,9 +82,20 @@ export default function PatientPage() {
     }
   };
 
+  const loadStatusHistory = async () => {
+    if (!id) return;
+    try {
+      const data = await getPatientStatusHistory(parseInt(id));
+      setStatusHistory(data);
+    } catch {
+      setStatusHistory([]);
+    }
+  };
+
   useEffect(() => {
     loadPatient();
     loadAppointments();
+    loadStatusHistory();
   }, [id]);
 
   useEffect(() => {
@@ -123,7 +139,7 @@ export default function PatientPage() {
   const handleSaveCuracion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patient) return;
-    
+
     // Validar disponibilidad si hay hora seleccionada
     if (curacionForm.nextAppointmentDate && curacionForm.nextAppointmentTime) {
       const slot = availability.find(s => s.time === curacionForm.nextAppointmentTime);
@@ -149,6 +165,13 @@ export default function PatientPage() {
         observations: '',
       });
       await loadPatient();
+      if (dischargeCheckbox) {
+        await dischargePatient(patient.id, true);
+        setDischargeCheckbox(false);
+        await loadPatient();
+        await loadAppointments();
+        await loadStatusHistory();
+      }
     } catch {
       alert('Error al registrar la curación');
     } finally {
@@ -211,6 +234,37 @@ export default function PatientPage() {
     }
   };
 
+  const handleDischarge = async (cancelAppointments: boolean) => {
+    if (!patient) return;
+    setSaving(true);
+    try {
+      await dischargePatient(patient.id, cancelAppointments);
+      setShowDischargeModal(false);
+      await loadPatient();
+      await loadAppointments();
+      await loadStatusHistory();
+    } catch {
+      alert('Error al dar de alta al paciente');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReadmit = async () => {
+    if (!patient) return;
+    if (!confirm(`¿Confirma reingresar a ${patient.firstName} ${patient.lastName}?`)) return;
+    setSaving(true);
+    try {
+      await readmitPatient(patient.id);
+      await loadPatient();
+      await loadStatusHistory();
+    } catch {
+      alert('Error al reingresar al paciente');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const calculateAge = (birthDate: string) => {
     const birth = new Date(birthDate);
     const today = new Date();
@@ -267,6 +321,13 @@ export default function PatientPage() {
             </button>
             <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
               {patient.rut}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              patient.status === 'discharged'
+                ? 'bg-gray-100 text-gray-600'
+                : 'bg-green-100 text-green-700'
+            }`}>
+              {patient.status === 'discharged' ? 'Alta médica' : 'Activo'}
             </span>
           </div>
         </div>
@@ -379,20 +440,38 @@ export default function PatientPage() {
         )}
       </div>
 
-      {/* Botones nueva curación / agendar cita */}
+      {/* Botones de acción */}
       <div className="flex justify-end gap-2">
-        <button
-          onClick={() => { setShowAppointmentForm(!showAppointmentForm); setShowForm(false); }}
-          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-        >
-          {showAppointmentForm ? 'Cancelar' : 'Agendar Cita'}
-        </button>
-        <button
-          onClick={() => { setShowForm(!showForm); setShowAppointmentForm(false); }}
-          className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
-        >
-          {showForm ? 'Cancelar' : '+ Nueva Curación'}
-        </button>
+        {patient.status !== 'discharged' ? (
+          <>
+            <button
+              onClick={() => { setShowAppointmentForm(!showAppointmentForm); setShowForm(false); }}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            >
+              {showAppointmentForm ? 'Cancelar' : 'Agendar Cita'}
+            </button>
+            <button
+              onClick={() => { setShowForm(!showForm); setShowAppointmentForm(false); }}
+              className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+            >
+              {showForm ? 'Cancelar' : '+ Nueva Curación'}
+            </button>
+            <button
+              onClick={() => setShowDischargeModal(true)}
+              className="px-5 py-2.5 bg-gray-600 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
+            >
+              Dar de Alta
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={handleReadmit}
+            disabled={saving}
+            className="px-5 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Reingresando...' : 'Reingresar Paciente'}
+          </button>
+        )}
       </div>
 
       {/* Formulario nueva cita */}
@@ -498,53 +577,55 @@ export default function PatientPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Próxima Cita (Fecha)
-                </label>
-                <input
-                  type="date"
-                  value={curacionForm.nextAppointmentDate}
-                  onChange={(e) =>
-                    setCuracionForm((prev) => ({
-                      ...prev,
-                      nextAppointmentDate: e.target.value,
-                      nextAppointmentTime: '', // Reset time when date changes
-                    }))
-                  }
-                  className="form-control w-full"
-                />
+            {!dischargeCheckbox && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Próxima Cita (Fecha)
+                  </label>
+                  <input
+                    type="date"
+                    value={curacionForm.nextAppointmentDate}
+                    onChange={(e) =>
+                      setCuracionForm((prev) => ({
+                        ...prev,
+                        nextAppointmentDate: e.target.value,
+                        nextAppointmentTime: '', // Reset time when date changes
+                      }))
+                    }
+                    className="form-control w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Próxima Cita (Hora)
+                  </label>
+                  <select
+                    value={curacionForm.nextAppointmentTime}
+                    onChange={(e) =>
+                      setCuracionForm((prev) => ({
+                        ...prev,
+                        nextAppointmentTime: e.target.value,
+                      }))
+                    }
+                    disabled={!curacionForm.nextAppointmentDate || loadingAvailability}
+                    className="form-control w-full disabled:bg-gray-50"
+                  >
+                    <option value="">{loadingAvailability ? 'Cargando disponibilidad...' : 'Seleccionar hora'}</option>
+                    {availability.map((slot) => (
+                      <option
+                        key={slot.time}
+                        value={slot.time}
+                        disabled={!slot.available}
+                        className={!slot.available ? 'text-red-500' : ''}
+                      >
+                        {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient.firstName} ${slot.patient.lastName})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Próxima Cita (Hora)
-                </label>
-                <select
-                  value={curacionForm.nextAppointmentTime}
-                  onChange={(e) =>
-                    setCuracionForm((prev) => ({
-                      ...prev,
-                      nextAppointmentTime: e.target.value,
-                    }))
-                  }
-                  disabled={!curacionForm.nextAppointmentDate || loadingAvailability}
-                  className="form-control w-full disabled:bg-gray-50"
-                >
-                  <option value="">{loadingAvailability ? 'Cargando disponibilidad...' : 'Seleccionar hora'}</option>
-                  {availability.map((slot) => (
-                    <option 
-                      key={slot.time} 
-                      value={slot.time}
-                      disabled={!slot.available}
-                      className={!slot.available ? 'text-red-500' : ''}
-                    >
-                      {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient.firstName} ${slot.patient.lastName})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -562,6 +643,13 @@ export default function PatientPage() {
                 className="form-control w-full resize-none"
               />
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={dischargeCheckbox}
+                onChange={(e) => setDischargeCheckbox(e.target.checked)}
+                className="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+              Dar de alta al paciente
+            </label>
 
             <button
               type="submit"
@@ -684,6 +772,39 @@ export default function PatientPage() {
           </p>
         )}
       </div>
+
+      {/* Historial de altas y reingresos */}
+      {statusHistory.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Historial de Altas y Reingresos</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Fecha</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Tipo</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Usuario</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statusHistory.map((sc) => (
+                  <tr key={sc.id} className="border-b border-gray-100">
+                    <td className="py-3 px-2">{new Date(sc.createdAt).toLocaleDateString('es-CL')}</td>
+                    <td className="py-3 px-2">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                        sc.type === 'discharge' ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'
+                      }`}>
+                        {sc.type === 'discharge' ? 'Alta' : 'Reingreso'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-gray-600">{sc.performedBy.username}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
 
     {/* Modal de confirmación para eliminar */}
@@ -719,6 +840,40 @@ export default function PatientPage() {
               className="px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal de dar de alta */}
+    {showDischargeModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDischargeModal(false)}>
+        <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Dar de Alta</h3>
+          {appointments.length > 0 ? (
+            <p className="text-gray-600 mb-6">
+              Este paciente tiene <strong>{appointments.length}</strong> cita{appointments.length !== 1 ? 's' : ''} agendada{appointments.length !== 1 ? 's' : ''}. ¿Desea cancelarlas al dar de alta?
+            </p>
+          ) : (
+            <p className="text-gray-600 mb-6">
+              ¿Confirma dar de alta a <strong>{patient.firstName} {patient.lastName}</strong>?
+            </p>
+          )}
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={() => setShowDischargeModal(false)}
+              className="px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </button>
+            {appointments.length > 0 && (
+              <button type="button" onClick={() => handleDischarge(false)} disabled={saving}
+                className="px-4 py-2.5 bg-gray-600 text-white rounded-xl font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+                {saving ? 'Procesando...' : 'Alta sin cancelar citas'}
+              </button>
+            )}
+            <button type="button" onClick={() => handleDischarge(true)} disabled={saving}
+              className="px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+              {saving ? 'Procesando...' : (appointments.length > 0 ? 'Alta y cancelar citas' : 'Confirmar Alta')}
             </button>
           </div>
         </div>

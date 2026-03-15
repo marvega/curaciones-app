@@ -8,6 +8,7 @@ import type {
   MonthlyCycle,
   Appointment,
   AgendaItem,
+  PatientStatusChange,
 } from '../types';
 
 const api = axios.create({
@@ -188,5 +189,25 @@ export const getPatientAppointments = async (
   patientId: number,
 ): Promise<Appointment[]> => {
   const { data } = await api.get(`/appointments/patient/${patientId}`);
+  return data;
+};
+
+export const dischargePatient = async (
+  id: number,
+  cancelAppointment?: boolean,
+): Promise<Patient> => {
+  const { data } = await api.post(`/patients/${id}/discharge`, { cancelAppointment });
+  return data;
+};
+
+export const readmitPatient = async (id: number): Promise<Patient> => {
+  const { data } = await api.post(`/patients/${id}/readmit`);
+  return data;
+};
+
+export const getPatientStatusHistory = async (
+  id: number,
+): Promise<PatientStatusChange[]> => {
+  const { data } = await api.get(`/patients/${id}/status-history`);
   return data;
 };
