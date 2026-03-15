@@ -1,11 +1,9 @@
 import {
   IsEnum,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsDateString,
-  Matches,
 } from 'class-validator';
 import { CuracionType } from './curacion.entity';
 
@@ -19,17 +17,23 @@ export class CreateCuracionDto {
   @IsDateString()
   date: string;
 
+  // Legacy fields — kept for Phase 1 dual-write
   @IsDateString()
   @IsOptional()
   nextAppointmentDate?: string;
 
   @IsString()
   @IsOptional()
-  @Matches(/^(12:30|13:00|13:30|14:00|14:30|15:00|15:30|16:00)$/, {
-    message:
-      'La hora debe ser un bloque de 30 minutos entre 12:30 y 16:00',
-  })
   nextAppointmentTime?: string;
+
+  // New fields — used to create linked Appointment
+  @IsDateString()
+  @IsOptional()
+  appointmentDate?: string;
+
+  @IsString()
+  @IsOptional()
+  appointmentTime?: string;
 
   @IsNumber()
   @IsOptional()
