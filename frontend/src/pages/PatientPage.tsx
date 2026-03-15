@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory } from '../services/api';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion } from '../services/api';
 import type { Patient, CuracionType, Appointment, PatientStatusChange } from '../types';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
@@ -49,6 +49,18 @@ export default function PatientPage() {
     phone: '',
     address: '',
   });
+
+  const [editingCuracion, setEditingCuracion] = useState<any>(null);
+  const [curacionEditForm, setCuracionEditForm] = useState({
+    type: '' as CuracionType,
+    quantity: 1,
+    appointmentDate: '',
+    appointmentTime: '',
+    reason: '',
+  });
+  const [editAvailability, setEditAvailability] = useState<any[]>([]);
+  const [loadingEditAvailability, setLoadingEditAvailability] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadPatient = async () => {
     if (!id) return;
@@ -135,6 +147,58 @@ export default function PatientPage() {
     };
     fetchAvailability();
   }, [appointmentForm.date]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (curacionEditForm.appointmentDate) {
+        setLoadingEditAvailability(true);
+        try {
+          const data = await getAvailability(curacionEditForm.appointmentDate);
+          setEditAvailability(data);
+        } catch {
+          setEditAvailability([]);
+        } finally {
+          setLoadingEditAvailability(false);
+        }
+      } else {
+        setEditAvailability([]);
+      }
+    };
+    fetchAvailability();
+  }, [curacionEditForm.appointmentDate]);
+
+  const handleOpenEdit = (curacion: any) => {
+    setEditingCuracion(curacion);
+    setCuracionEditForm({
+      type: curacion.type,
+      quantity: curacion.quantity || 1,
+      appointmentDate: curacion.appointment?.date || '',
+      appointmentTime: curacion.appointment?.time || '',
+      reason: '',
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCuracion || !curacionEditForm.reason.trim()) return;
+    setSavingEdit(true);
+    try {
+      await updateCuracion(editingCuracion.id, {
+        type: curacionEditForm.type,
+        quantity: curacionEditForm.quantity,
+        appointmentDate: curacionEditForm.appointmentDate || null,
+        appointmentTime: curacionEditForm.appointmentTime || null,
+        reason: curacionEditForm.reason,
+      });
+      setEditingCuracion(null);
+      await loadPatient();
+      await loadAppointments();
+    } catch {
+      alert('Error al editar la curación');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handleSaveCuracion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -742,11 +806,28 @@ export default function PatientPage() {
                     key={c.id}
                     className="border-b border-gray-100 hover:bg-gray-50"
                   >
-                    <td className="py-3 px-2">{c.date}</td>
                     <td className="py-3 px-2">
-                      <span className="px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-xs font-medium">
-                        {CURACION_LABELS[c.type]}
-                      </span>
+                      {c.date}
+                      {c.edits && c.edits.length > 0 && (
+                        <span className="ml-1 text-gray-400" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
+                          ✏️
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      {isAdmin ? (
+                        <span
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(c); }}
+                          className="px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-xs font-medium cursor-pointer hover:bg-teal-100 transition-colors"
+                          title="Click para editar"
+                        >
+                          {CURACION_LABELS[c.type]}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-xs font-medium">
+                          {CURACION_LABELS[c.type]}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-2 text-center font-medium">
                       {c.quantity || 1}
@@ -842,6 +923,86 @@ export default function PatientPage() {
               {saving ? 'Eliminando...' : 'Eliminar'}
             </button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal de edición de curación */}
+    {editingCuracion && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditingCuracion(null)}>
+        <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Editar Curación — {editingCuracion.date}
+          </h3>
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Curación</label>
+                <select value={curacionEditForm.type}
+                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, type: e.target.value as CuracionType }))}
+                  className="form-control w-full">
+                  <option value="avanzada">Curación Avanzada</option>
+                  <option value="pie_diabetico">Curación Avanzada - Pie Diabético</option>
+                  <option value="ulcera_venosa">Curación Avanzada - Úlcera Venosa</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                <input type="number" min={1} value={curacionEditForm.quantity}
+                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  className="form-control w-full" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Próxima Cita (Fecha)</label>
+                <input type="date" value={curacionEditForm.appointmentDate}
+                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentDate: e.target.value, appointmentTime: '' }))}
+                  className="form-control w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Próxima Cita (Hora)</label>
+                <select value={curacionEditForm.appointmentTime}
+                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentTime: e.target.value }))}
+                  disabled={!curacionEditForm.appointmentDate || loadingEditAvailability}
+                  className="form-control w-full disabled:bg-gray-50">
+                  <option value="">{loadingEditAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
+                  {editAvailability.map((slot) => (
+                    <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                      {slot.time} {slot.available ? '(Disponible)' : `(Ocupado)`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-50">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Curación</label>
+                <input type="date" value={editingCuracion.date} disabled className="form-control w-full bg-gray-50" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                <input type="text" value={editingCuracion.observations || '-'} disabled className="form-control w-full bg-gray-50" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Motivo de la edición *</label>
+              <textarea value={curacionEditForm.reason}
+                onChange={(e) => setCuracionEditForm(prev => ({ ...prev, reason: e.target.value }))}
+                rows={2} required placeholder="Ingrese el motivo de la corrección..."
+                className="form-control w-full resize-none" />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setEditingCuracion(null)}
+                className="px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" disabled={savingEdit || !curacionEditForm.reason.trim()}
+                className="px-4 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors">
+                {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     )}

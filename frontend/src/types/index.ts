@@ -23,6 +23,14 @@ export interface PatientStatusChange {
 
 export type CuracionType = 'avanzada' | 'pie_diabetico' | 'ulcera_venosa';
 
+export interface CuracionEdit {
+  id: number;
+  curacionId: number;
+  editedBy: { id: number; username: string };
+  reason: string;
+  createdAt: string;
+}
+
 export interface Curacion {
   id: number;
   patientId: number;
@@ -35,6 +43,7 @@ export interface Curacion {
   createdAt: string;
   patient?: Patient;
   appointment?: Appointment;
+  edits?: CuracionEdit[];
 }
 
 export interface Appointment {
