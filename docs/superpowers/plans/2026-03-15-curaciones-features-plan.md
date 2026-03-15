@@ -179,7 +179,7 @@ export class Appointment {
   patient: Patient;
 
   @OneToOne(() => Curacion, (curacion) => curacion.appointment, {
-    onDelete: 'SET NULL',
+    onDelete: 'CASCADE',
     nullable: true,
   })
   @JoinColumn({ name: 'curacionId' })
@@ -268,7 +268,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, EntityManager } from 'typeorm';
 import { Appointment } from './appointment.entity';
 import { CreateAppointmentDto } from './create-appointment.dto';
 import { getSlotsForDate } from '../common/schedule.util';
@@ -311,7 +311,12 @@ export class AppointmentsService {
     curacionId: number,
     date: string,
     time: string,
+    manager?: EntityManager,
   ): Promise<Appointment> {
+    const repo = manager
+      ? manager.getRepository(Appointment)
+      : this.appointmentRepo;
+
     const validSlots = getSlotsForDate(date);
     if (!validSlots.includes(time)) {
       throw new BadRequestException(
@@ -319,22 +324,15 @@ export class AppointmentsService {
       );
     }
 
-    const existing = await this.appointmentRepo.findOne({
-      where: { date, time },
-    });
+    const existing = await repo.findOne({ where: { date, time } });
     if (existing) {
       throw new BadRequestException(
         `El horario ${time} del ${date} ya está ocupado`,
       );
     }
 
-    const appointment = this.appointmentRepo.create({
-      patientId,
-      curacionId,
-      date,
-      time,
-    });
-    return this.appointmentRepo.save(appointment);
+    const appointment = repo.create({ patientId, curacionId, date, time });
+    return repo.save(appointment);
   }
 
   async remove(id: number): Promise<void> {
@@ -361,9 +359,15 @@ export class AppointmentsService {
     });
   }
 
-  async deleteFutureByPatient(patientId: number): Promise<number> {
+  async deleteFutureByPatient(
+    patientId: number,
+    manager?: EntityManager,
+  ): Promise<number> {
     const today = new Date().toISOString().split('T')[0];
-    const result = await this.appointmentRepo
+    const repo = manager
+      ? manager.getRepository(Appointment)
+      : this.appointmentRepo;
+    const result = await repo
       .createQueryBuilder()
       .delete()
       .where('"patientId" = :patientId AND date > :today', {
@@ -433,11 +437,13 @@ export class AppointmentsService {
     appointmentId: number,
     date: string,
     time: string,
-    skipSlotCheck?: number,
+    manager?: EntityManager,
   ): Promise<Appointment> {
-    const appointment = await this.appointmentRepo.findOne({
-      where: { id: appointmentId },
-    });
+    const repo = manager
+      ? manager.getRepository(Appointment)
+      : this.appointmentRepo;
+
+    const appointment = await repo.findOne({ where: { id: appointmentId } });
     if (!appointment) {
       throw new NotFoundException(`Cita con id ${appointmentId} no encontrada`);
     }
@@ -449,10 +455,8 @@ export class AppointmentsService {
       );
     }
 
-    const existing = await this.appointmentRepo.findOne({
-      where: { date, time },
-    });
-    if (existing && existing.id !== skipSlotCheck && existing.id !== appointmentId) {
+    const existing = await repo.findOne({ where: { date, time } });
+    if (existing && existing.id !== appointmentId) {
       throw new BadRequestException(
         `El horario ${time} del ${date} ya está ocupado`,
       );
@@ -460,7 +464,16 @@ export class AppointmentsService {
 
     appointment.date = date;
     appointment.time = time;
-    return this.appointmentRepo.save(appointment);
+    return repo.save(appointment);
+  }
+
+  async removeWithManager(id: number, manager: EntityManager): Promise<void> {
+    const repo = manager.getRepository(Appointment);
+    const appointment = await repo.findOne({ where: { id } });
+    if (!appointment) {
+      throw new NotFoundException(`Cita con id ${id} no encontrada`);
+    }
+    await repo.remove(appointment);
   }
 }
 ```
@@ -691,7 +704,7 @@ export class CuracionesService {
   async findByPatient(patientId: number): Promise<Curacion[]> {
     return this.curacionRepo.find({
       where: { patientId },
-      relations: ['appointment'],
+      relations: ['appointment', 'edits', 'edits.editedBy'],
       order: { date: 'DESC' },
     });
   }
@@ -772,17 +785,17 @@ describe('AppointmentsService', () => {
   });
 
   it('rejects a PM slot on a second Friday', async () => {
-    // 2099-12-12 is a Friday; need to find actual second Friday
-    // Use a known second Friday: 2026-04-10
+    // 2099-03-14 is the second Friday of March 2099
     await expect(
-      service.create({ patientId: 1, date: '2026-04-10', time: '13:00' }),
+      service.create({ patientId: 1, date: '2099-03-14', time: '13:00' }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('accepts an AM slot on a second Friday', async () => {
+    // 2099-03-14 is the second Friday of March 2099
     const result = await service.create({
       patientId: 1,
-      date: '2026-04-10',
+      date: '2099-03-14',
       time: '09:00',
     });
     expect(result).toBeDefined();
@@ -1412,7 +1425,7 @@ Add methods (at end of class):
       await queryRunner.manager.save(statusChange);
 
       if (cancelAppointment) {
-        await this.appointmentsService.deleteFutureByPatient(id);
+        await this.appointmentsService.deleteFutureByPatient(id, queryRunner.manager);
       }
 
       await queryRunner.commitTransaction();
@@ -1759,13 +1772,14 @@ async update(
     if (dto.quantity !== undefined) curacion.quantity = dto.quantity;
     await queryRunner.manager.save(curacion);
 
-    // Handle appointment changes
+    // Handle appointment changes (within transaction)
     if (dto.appointmentDate && dto.appointmentTime) {
       if (curacion.appointment) {
         await this.appointmentsService.updateLinked(
           curacion.appointment.id,
           dto.appointmentDate,
           dto.appointmentTime,
+          queryRunner.manager,
         );
       } else {
         await this.appointmentsService.createLinked(
@@ -1773,6 +1787,7 @@ async update(
           curacion.id,
           dto.appointmentDate,
           dto.appointmentTime,
+          queryRunner.manager,
         );
       }
     } else if (
@@ -1780,7 +1795,10 @@ async update(
       dto.appointmentTime === null &&
       curacion.appointment
     ) {
-      await this.appointmentsService.remove(curacion.appointment.id);
+      await this.appointmentsService.removeWithManager(
+        curacion.appointment.id,
+        queryRunner.manager,
+      );
     }
 
     const edit = queryRunner.manager.create(CuracionEdit, {
