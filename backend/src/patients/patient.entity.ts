@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Curacion } from '../curaciones/curacion.entity';
+import { Appointment } from '../appointments/appointment.entity';
 
 @Entity('patients')
 export class Patient {
@@ -42,4 +43,7 @@ export class Patient {
 
   @OneToMany(() => Curacion, (curacion) => curacion.patient)
   curaciones: Curacion[];
+
+  @OneToMany(() => Appointment, (appointment) => appointment.patient)
+  appointments: Appointment[];
 }

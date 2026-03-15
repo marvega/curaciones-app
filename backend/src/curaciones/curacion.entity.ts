@@ -4,9 +4,11 @@ import {
   Column,
   CreateDateColumn,
   ManyToOne,
+  OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Patient } from '../patients/patient.entity';
+import { Appointment } from '../appointments/appointment.entity';
 
 export enum CuracionType {
   AVANZADA = 'avanzada',
@@ -48,4 +50,7 @@ export class Curacion {
   })
   @JoinColumn({ name: 'patientId' })
   patient: Patient;
+
+  @OneToOne(() => Appointment, (appointment) => appointment.curacion)
+  appointment: Appointment;
 }
