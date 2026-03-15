@@ -6,6 +6,7 @@ import { Curacion } from './curaciones/curacion.entity';
 import { MonthlyCycle } from './cycles/cycle.entity';
 import { User } from './users/user.entity';
 import { Appointment } from './appointments/appointment.entity';
+import { PatientStatusChange } from './patients/patient-status-change.entity';
 import { PatientsModule } from './patients/patients.module';
 import { CuracionesModule } from './curaciones/curaciones.module';
 import { ReportsModule } from './reports/reports.module';
@@ -20,7 +21,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange],
       synchronize: true,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
