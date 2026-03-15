@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability } from '../services/api';
-import type { Patient, CuracionType } from '../types';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments } from '../services/api';
+import type { Patient, CuracionType, Appointment } from '../types';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -29,6 +29,12 @@ export default function PatientPage() {
   const [availability, setAvailability] = useState<any[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentForm, setAppointmentForm] = useState({ date: '', time: '' });
+  const [appointmentAvailability, setAppointmentAvailability] = useState<any[]>([]);
+  const [loadingAppointmentAvailability, setLoadingAppointmentAvailability] = useState(false);
+  const [savingAppointment, setSavingAppointment] = useState(false);
 
   const [editForm, setEditForm] = useState({
     firstName: '',
@@ -60,8 +66,20 @@ export default function PatientPage() {
     }
   };
 
+  const loadAppointments = async () => {
+    if (!id) return;
+    try {
+      const data = await getPatientAppointments(parseInt(id));
+      const today = new Date().toISOString().split('T')[0];
+      setAppointments(data.filter(a => a.date >= today));
+    } catch {
+      setAppointments([]);
+    }
+  };
+
   useEffect(() => {
     loadPatient();
+    loadAppointments();
   }, [id]);
 
   useEffect(() => {
@@ -82,6 +100,25 @@ export default function PatientPage() {
     };
     fetchAvailability();
   }, [curacionForm.nextAppointmentDate]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (appointmentForm.date) {
+        setLoadingAppointmentAvailability(true);
+        try {
+          const data = await getAvailability(appointmentForm.date);
+          setAppointmentAvailability(data);
+        } catch {
+          setAppointmentAvailability([]);
+        } finally {
+          setLoadingAppointmentAvailability(false);
+        }
+      } else {
+        setAppointmentAvailability([]);
+      }
+    };
+    fetchAvailability();
+  }, [appointmentForm.date]);
 
   const handleSaveCuracion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +182,32 @@ export default function PatientPage() {
       alert('Error al eliminar el paciente');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patient || !appointmentForm.date || !appointmentForm.time) return;
+    setSavingAppointment(true);
+    try {
+      await createAppointment(patient.id, appointmentForm.date, appointmentForm.time);
+      setShowAppointmentForm(false);
+      setAppointmentForm({ date: '', time: '' });
+      await loadAppointments();
+    } catch {
+      alert('Error al agendar la cita');
+    } finally {
+      setSavingAppointment(false);
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId: number) => {
+    if (!confirm('¿Desea cancelar esta cita?')) return;
+    try {
+      await deleteAppointment(appointmentId);
+      await loadAppointments();
+    } catch {
+      alert('Error al cancelar la cita');
     }
   };
 
@@ -316,15 +379,56 @@ export default function PatientPage() {
         )}
       </div>
 
-      {/* Botón nueva curación */}
-      <div className="flex justify-end">
+      {/* Botones nueva curación / agendar cita */}
+      <div className="flex justify-end gap-2">
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowAppointmentForm(!showAppointmentForm); setShowForm(false); }}
+          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+        >
+          {showAppointmentForm ? 'Cancelar' : 'Agendar Cita'}
+        </button>
+        <button
+          onClick={() => { setShowForm(!showForm); setShowAppointmentForm(false); }}
           className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
         >
           {showForm ? 'Cancelar' : '+ Nueva Curación'}
         </button>
       </div>
+
+      {/* Formulario nueva cita */}
+      {showAppointmentForm && (
+        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Agendar Cita</h3>
+          <form onSubmit={handleSaveAppointment} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+                <input type="date" value={appointmentForm.date}
+                  onChange={(e) => setAppointmentForm(prev => ({ ...prev, date: e.target.value, time: '' }))}
+                  required className="form-control w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hora *</label>
+                <select value={appointmentForm.time}
+                  onChange={(e) => setAppointmentForm(prev => ({ ...prev, time: e.target.value }))}
+                  disabled={!appointmentForm.date || loadingAppointmentAvailability}
+                  required className="form-control w-full disabled:bg-gray-50">
+                  <option value="">{loadingAppointmentAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
+                  {appointmentAvailability.map((slot) => (
+                    <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                      {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient.firstName} ${slot.patient.lastName})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button type="submit" disabled={savingAppointment}
+              className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              {savingAppointment ? 'Agendando...' : 'Agendar Cita'}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Formulario nueva curación */}
       {showForm && (
@@ -470,6 +574,49 @@ export default function PatientPage() {
         </div>
       )}
 
+      {/* Citas agendadas */}
+      {appointments.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Citas Agendadas
+            <span className="ml-2 text-sm font-normal text-gray-500">({appointments.length})</span>
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Fecha</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Hora</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Tipo</th>
+                  <th className="text-right py-3 px-2 font-medium text-gray-600">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointments.map((apt) => (
+                  <tr key={apt.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-2">{apt.date}</td>
+                    <td className="py-3 px-2 font-medium">{apt.time}</td>
+                    <td className="py-3 px-2">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                        apt.curacionId ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'
+                      }`}>
+                        {apt.curacionId ? 'Seguimiento' : 'Cita Agendada'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <button onClick={() => handleDeleteAppointment(apt.id)}
+                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors">
+                        Cancelar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Historial de curaciones */}
       <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
@@ -517,9 +664,11 @@ export default function PatientPage() {
                       {c.quantity || 1}
                     </td>
                     <td className="py-3 px-2">
-                      {c.nextAppointmentDate
-                        ? `${c.nextAppointmentDate} ${c.nextAppointmentTime || ''}`
-                        : '-'}
+                      {c.appointment
+                        ? `${c.appointment.date} ${c.appointment.time}`
+                        : (c.nextAppointmentDate
+                          ? `${c.nextAppointmentDate} ${c.nextAppointmentTime || ''}`
+                          : '-')}
                     </td>
                     <td className="py-3 px-2 text-gray-600">
                       {c.observations || '-'}
