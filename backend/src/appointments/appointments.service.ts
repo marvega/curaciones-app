@@ -1,0 +1,214 @@
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, MoreThan, EntityManager } from 'typeorm';
+import { Appointment } from './appointment.entity';
+import { CreateAppointmentDto } from './create-appointment.dto';
+import { getSlotsForDate } from '../common/schedule.util';
+
+@Injectable()
+export class AppointmentsService {
+  constructor(
+    @InjectRepository(Appointment)
+    private readonly appointmentRepo: Repository<Appointment>,
+  ) {}
+
+  async create(dto: CreateAppointmentDto): Promise<Appointment> {
+    const validSlots = getSlotsForDate(dto.date);
+    if (!validSlots.includes(dto.time)) {
+      throw new BadRequestException(
+        `Horario ${dto.time} no es válido para la fecha ${dto.date}. Horarios disponibles: ${validSlots.join(', ')}`,
+      );
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (dto.date < today) {
+      throw new BadRequestException('La fecha debe ser futura');
+    }
+
+    const existing = await this.appointmentRepo.findOne({
+      where: { date: dto.date, time: dto.time },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        `El horario ${dto.time} del ${dto.date} ya está ocupado`,
+      );
+    }
+
+    const appointment = this.appointmentRepo.create(dto);
+    return this.appointmentRepo.save(appointment);
+  }
+
+  async createLinked(
+    patientId: number,
+    curacionId: number,
+    date: string,
+    time: string,
+    manager?: EntityManager,
+  ): Promise<Appointment> {
+    const repo = manager
+      ? manager.getRepository(Appointment)
+      : this.appointmentRepo;
+
+    const validSlots = getSlotsForDate(date);
+    if (!validSlots.includes(time)) {
+      throw new BadRequestException(
+        `Horario ${time} no es válido para la fecha ${date}`,
+      );
+    }
+
+    const existing = await repo.findOne({ where: { date, time } });
+    if (existing) {
+      throw new BadRequestException(
+        `El horario ${time} del ${date} ya está ocupado`,
+      );
+    }
+
+    const appointment = repo.create({ patientId, curacionId, date, time });
+    return repo.save(appointment);
+  }
+
+  async remove(id: number): Promise<void> {
+    const appointment = await this.appointmentRepo.findOne({ where: { id } });
+    if (!appointment) {
+      throw new NotFoundException(`Cita con id ${id} no encontrada`);
+    }
+    await this.appointmentRepo.remove(appointment);
+  }
+
+  async removeWithManager(id: number, manager: EntityManager): Promise<void> {
+    const repo = manager.getRepository(Appointment);
+    const appointment = await repo.findOne({ where: { id } });
+    if (!appointment) {
+      throw new NotFoundException(`Cita con id ${id} no encontrada`);
+    }
+    await repo.remove(appointment);
+  }
+
+  async findByPatient(patientId: number): Promise<Appointment[]> {
+    return this.appointmentRepo.find({
+      where: { patientId },
+      relations: ['curacion'],
+      order: { date: 'ASC', time: 'ASC' },
+    });
+  }
+
+  async findFutureByPatient(patientId: number): Promise<Appointment[]> {
+    const today = new Date().toISOString().split('T')[0];
+    return this.appointmentRepo.find({
+      where: { patientId, date: MoreThan(today) },
+      order: { date: 'ASC', time: 'ASC' },
+    });
+  }
+
+  async deleteFutureByPatient(
+    patientId: number,
+    manager?: EntityManager,
+  ): Promise<number> {
+    const today = new Date().toISOString().split('T')[0];
+    const repo = manager
+      ? manager.getRepository(Appointment)
+      : this.appointmentRepo;
+    const result = await repo
+      .createQueryBuilder()
+      .delete()
+      .where('"patientId" = :patientId AND date > :today', {
+        patientId,
+        today,
+      })
+      .execute();
+    return result.affected || 0;
+  }
+
+  async getAvailability(date: string): Promise<any[]> {
+    const slots = getSlotsForDate(date);
+    const appointments = await this.appointmentRepo.find({
+      where: { date },
+      relations: ['patient'],
+    });
+
+    return slots.map((time) => {
+      const apt = appointments.find((a) => a.time === time);
+      return {
+        time,
+        available: !apt,
+        patient: apt
+          ? {
+              id: apt.patient.id,
+              firstName: apt.patient.firstName,
+              lastName: apt.patient.lastName,
+              rut: apt.patient.rut,
+            }
+          : null,
+      };
+    });
+  }
+
+  async getAgenda(from: string, to: string): Promise<any[]> {
+    const appointments = await this.appointmentRepo
+      .createQueryBuilder('apt')
+      .leftJoinAndSelect('apt.patient', 'patient')
+      .leftJoinAndSelect('apt.curacion', 'curacion')
+      .where('apt.date >= :from AND apt.date <= :to', { from, to })
+      .orderBy('apt.date', 'ASC')
+      .addOrderBy('apt.time', 'ASC')
+      .getMany();
+
+    return appointments.map((apt) => ({
+      id: apt.id,
+      date: apt.date,
+      time: apt.time,
+      source: apt.curacionId ? 'curacion' : 'standalone',
+      patient: {
+        id: apt.patient.id,
+        firstName: apt.patient.firstName,
+        lastName: apt.patient.lastName,
+        rut: apt.patient.rut,
+      },
+      curacion: apt.curacion
+        ? { id: apt.curacion.id, type: apt.curacion.type }
+        : undefined,
+    }));
+  }
+
+  async findByCuracionId(curacionId: number): Promise<Appointment | null> {
+    return this.appointmentRepo.findOne({ where: { curacionId } });
+  }
+
+  async updateLinked(
+    appointmentId: number,
+    date: string,
+    time: string,
+    manager?: EntityManager,
+  ): Promise<Appointment> {
+    const repo = manager
+      ? manager.getRepository(Appointment)
+      : this.appointmentRepo;
+
+    const appointment = await repo.findOne({ where: { id: appointmentId } });
+    if (!appointment) {
+      throw new NotFoundException(`Cita con id ${appointmentId} no encontrada`);
+    }
+
+    const validSlots = getSlotsForDate(date);
+    if (!validSlots.includes(time)) {
+      throw new BadRequestException(
+        `Horario ${time} no es válido para la fecha ${date}`,
+      );
+    }
+
+    const existing = await repo.findOne({ where: { date, time } });
+    if (existing && existing.id !== appointmentId) {
+      throw new BadRequestException(
+        `El horario ${time} del ${date} ya está ocupado`,
+      );
+    }
+
+    appointment.date = date;
+    appointment.time = time;
+    return repo.save(appointment);
+  }
+}
