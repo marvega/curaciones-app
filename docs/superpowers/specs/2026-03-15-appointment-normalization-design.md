@@ -87,20 +87,15 @@ When these are present, `CuracionesService.create()` creates a linked `Appointme
 ```sql
 BEGIN;
 
--- Pre-check: verify no duplicate slots (informational)
--- SELECT date, time, COUNT(*) FROM appointments GROUP BY date, time HAVING COUNT(*) > 1;
+-- IMPORTANT: Run pre-migration check FIRST (see below). Resolve duplicates before proceeding.
 
--- Migrate existing data (skip rows that would violate UNIQUE(date, time))
+-- Migrate existing data
 INSERT INTO appointments ("patientId", "curacionId", date, time, "createdAt")
 SELECT c."patientId", c.id, c."nextAppointmentDate", c."nextAppointmentTime", c."createdAt"
 FROM curaciones c
 WHERE c."nextAppointmentDate" IS NOT NULL
   AND c."nextAppointmentTime" IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM appointments a
-    WHERE a.date = c."nextAppointmentDate" AND a.time = c."nextAppointmentTime"
-  )
-ON CONFLICT ("curacionId") DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 COMMIT;
 ```
@@ -163,7 +158,7 @@ interface AgendaItem {
   time: string;
   source: 'curacion' | 'standalone';
   patient: { id: number; firstName: string; lastName: string; rut: string };
-  curpiacion?: { id: number; type: CuracionType };  // present only if source === 'curacion'
+  curacion?: { id: number; type: CuracionType };  // present only if source === 'curacion'
 }
 ```
 
