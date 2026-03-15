@@ -5,10 +5,12 @@ import {
   CreateDateColumn,
   ManyToOne,
   OneToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Patient } from '../patients/patient.entity';
 import { Appointment } from '../appointments/appointment.entity';
+import { CuracionEdit } from './curacion-edit.entity';
 
 export enum CuracionType {
   AVANZADA = 'avanzada',
@@ -53,4 +55,7 @@ export class Curacion {
 
   @OneToOne(() => Appointment, (appointment) => appointment.curacion)
   appointment: Appointment;
+
+  @OneToMany(() => CuracionEdit, (edit) => edit.curacion)
+  edits: CuracionEdit[];
 }
