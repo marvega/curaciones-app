@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, DeepPartial, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Curacion } from './curacion.entity';
 import { CuracionEdit } from './curacion-edit.entity';
 import { CreateCuracionDto } from './create-curacion.dto';
@@ -19,33 +19,25 @@ export class CuracionesService {
   ) {}
 
   async create(dto: CreateCuracionDto): Promise<Curacion> {
-    const appointmentDate = dto.appointmentDate || dto.nextAppointmentDate;
-    const appointmentTime = dto.appointmentTime || dto.nextAppointmentTime;
-
-    // Dual-write: keep old fields populated for Phase 1
-    const entityData: DeepPartial<Curacion> = {
+    const curacion = this.curacionRepo.create({
       patientId: dto.patientId,
       type: dto.type,
       date: dto.date,
       quantity: dto.quantity,
       observations: dto.observations,
-      nextAppointmentDate: appointmentDate ?? undefined,
-      nextAppointmentTime: appointmentTime ?? undefined,
-    };
-    const curacion = this.curacionRepo.create(entityData);
+    });
     const saved = await this.curacionRepo.save(curacion);
 
-    // Also create linked Appointment if date+time provided
-    if (appointmentDate && appointmentTime) {
+    if (dto.appointmentDate && dto.appointmentTime) {
       await this.appointmentsService.createLinked(
-        (saved as Curacion).patientId,
-        (saved as Curacion).id,
-        appointmentDate,
-        appointmentTime,
+        saved.patientId,
+        saved.id,
+        dto.appointmentDate,
+        dto.appointmentTime,
       );
     }
 
-    return this.findOneWithAppointment((saved as Curacion).id);
+    return this.findOneWithAppointment(saved.id);
   }
 
   async findOneWithAppointment(id: number): Promise<Curacion> {

@@ -32,12 +32,6 @@ export class Curacion {
   @Column({ type: 'date' })
   date: string;
 
-  @Column({ type: 'date', nullable: true })
-  nextAppointmentDate: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  nextAppointmentTime: string;
-
   @Column({ type: 'int', default: 1 })
   quantity: number;
 

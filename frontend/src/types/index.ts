@@ -36,8 +36,6 @@ export interface Curacion {
   patientId: number;
   type: CuracionType;
   date: string;
-  nextAppointmentDate?: string;
-  nextAppointmentTime?: string;
   quantity?: number;
   observations?: string;
   createdAt: string;
