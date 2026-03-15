@@ -1,7 +1,11 @@
-import { Controller, Get, Post, Body, Query, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Query, Param, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { CuracionesService } from './curaciones.service';
 import { CreateCuracionDto } from './create-curacion.dto';
+import { UpdateCuracionDto } from './update-curacion.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('api/curaciones')
 @UseGuards(JwtAuthGuard)
@@ -26,5 +30,22 @@ export class CuracionesController {
   @Get('availability')
   async getAvailability(@Query('date') date: string) {
     return this.curacionesService.getAvailability(date);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCuracionDto,
+    @Req() req: Request,
+  ) {
+    const user = req.user as { id: number };
+    return this.curacionesService.update(id, dto, user.id);
+  }
+
+  @Get(':id/edits')
+  async getEdits(@Param('id', ParseIntPipe) id: number) {
+    return this.curacionesService.getEdits(id);
   }
 }
