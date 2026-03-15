@@ -5,12 +5,14 @@ import { Patient } from './patients/patient.entity';
 import { Curacion } from './curaciones/curacion.entity';
 import { MonthlyCycle } from './cycles/cycle.entity';
 import { User } from './users/user.entity';
+import { Appointment } from './appointments/appointment.entity';
 import { PatientsModule } from './patients/patients.module';
 import { CuracionesModule } from './curaciones/curaciones.module';
 import { ReportsModule } from './reports/reports.module';
 import { CyclesModule } from './cycles/cycles.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -18,7 +20,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment],
       synchronize: true,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
@@ -28,6 +30,7 @@ import { BootstrapService } from './bootstrap.service';
     CuracionesModule,
     ReportsModule,
     CyclesModule,
+    AppointmentsModule,
   ],
   controllers: [HealthController],
   providers: [BootstrapService],
