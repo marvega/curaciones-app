@@ -1,5 +1,7 @@
 # Patient Discharge & Readmission
 
+> **Depends on:** Appointment Normalization spec (must be implemented first).
+
 ## Problem
 
 Currently the system has no concept of patient discharge. Every curacion implicitly requires scheduling a follow-up appointment. There is no way to mark a patient as having completed their treatment cycle, nor to readmit them if they return later.
@@ -69,7 +71,7 @@ All steps execute within a single TypeORM `QueryRunner` transaction:
 1. Validate patient exists and `status === 'active'`.
 2. Set `patient.status = 'discharged'`.
 3. Insert `PatientStatusChange` with `type: 'discharge'` and `performedById` from JWT.
-4. If `cancelAppointment === true`: find ALL of the patient's curaciones that have a `nextAppointmentDate` in the future and set `nextAppointmentDate = null`, `nextAppointmentTime = null`.
+4. If `cancelAppointment === true`: delete ALL of the patient's `Appointment` records with a `date` in the future (both standalone and curacion-linked).
 
 The frontend already has the patient data loaded, so it determines whether a pending appointment exists before calling this endpoint, showing a confirmation modal if needed.
 
@@ -109,8 +111,8 @@ Add to `api.ts`:
 
 - **Status badge** next to the RUT pill: green "Activo" / gray "Alta médica".
 - **"Dar de Alta" button** next to "+ Nueva Curacion" — visible only when `status === 'active'`.
-  - If patient has a future appointment → modal: "Este paciente tiene una cita agendada para [date] [time]. Desea cancelarla?" with Cancel/Confirm.
-  - If no future appointment → simple confirmation: "Confirma dar de alta a [name]?"
+  - If patient has future appointments (query `Appointment` records) → modal: "Este paciente tiene [N] cita(s) agendada(s). Desea cancelarlas?" with Cancel/Confirm.
+  - If no future appointments → simple confirmation: "Confirma dar de alta a [name]?"
 - **"Reingresar Paciente" button** — visible only when `status === 'discharged'`. Replaces both "Dar de Alta" and "+ Nueva Curacion".
 - **Curacion form**: checkbox "Dar de alta al paciente" above the submit button. Visible only when `status === 'active'`. When checked, next appointment fields are hidden/disabled. On submit: create curacion, then call discharge endpoint sequentially.
 - **Block**: "+ Nueva Curacion" button hidden when `status === 'discharged'`.
@@ -128,7 +130,7 @@ Ordered by date descending (most recent first).
 
 ### Agenda
 
-No query changes. Appointments cancelled during discharge are simply cleared from the curacion record, so they no longer appear.
+No query changes. Appointments deleted during discharge are removed from the `appointments` table, so they no longer appear in the agenda.
 
 ## Out of scope
 
