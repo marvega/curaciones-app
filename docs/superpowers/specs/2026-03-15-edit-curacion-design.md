@@ -43,7 +43,7 @@ Relation: `User` 1:N `CuracionEdit`.
 |--------|-------|------|-------------|
 | `PUT` | `/api/curaciones/:id` | `{ type?, quantity?, appointmentDate?, appointmentTime?, reason }` | Edit curacion |
 
-Protected by `JwtAuthGuard` + `RolesGuard('admin')`.
+Protected by `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')` decorator (matching existing `roles.guard.ts` + `roles.decorator.ts` pattern).
 
 ### Edit logic
 
