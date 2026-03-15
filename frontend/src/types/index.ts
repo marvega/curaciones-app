@@ -25,6 +25,26 @@ export interface Curacion {
   observations?: string;
   createdAt: string;
   patient?: Patient;
+  appointment?: Appointment;
+}
+
+export interface Appointment {
+  id: number;
+  patientId: number;
+  curacionId?: number;
+  date: string;
+  time: string;
+  createdAt: string;
+  curacion?: Curacion;
+}
+
+export interface AgendaItem {
+  id: number;
+  date: string;
+  time: string;
+  source: 'curacion' | 'standalone';
+  patient: { id: number; firstName: string; lastName: string; rut: string };
+  curacion?: { id: number; type: CuracionType };
 }
 
 export interface PaginatedResponse<T> {

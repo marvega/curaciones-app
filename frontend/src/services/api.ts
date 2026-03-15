@@ -6,6 +6,8 @@ import type {
   DetailedReport,
   PaginatedResponse,
   MonthlyCycle,
+  Appointment,
+  AgendaItem,
 } from '../types';
 
 const api = axios.create({
@@ -119,7 +121,7 @@ export const getCuracionesByPatient = async (
 export const getAgenda = async (
   from: string,
   to: string,
-): Promise<Curacion[]> => {
+): Promise<AgendaItem[]> => {
   const { data } = await api.get('/curaciones/agenda', {
     params: { from, to },
   });
@@ -165,5 +167,26 @@ export const getDetailedReport = async (filters: {
   ageMax?: number;
 }): Promise<DetailedReport> => {
   const { data } = await api.get('/reports/detailed', { params: filters });
+  return data;
+};
+
+// Appointments
+export const createAppointment = async (
+  patientId: number,
+  date: string,
+  time: string,
+): Promise<Appointment> => {
+  const { data } = await api.post('/appointments', { patientId, date, time });
+  return data;
+};
+
+export const deleteAppointment = async (id: number): Promise<void> => {
+  await api.delete(`/appointments/${id}`);
+};
+
+export const getPatientAppointments = async (
+  patientId: number,
+): Promise<Appointment[]> => {
+  const { data } = await api.get(`/appointments/patient/${patientId}`);
   return data;
 };
