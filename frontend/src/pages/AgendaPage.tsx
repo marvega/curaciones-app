@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAgenda } from '../services/api';
-import type { Curacion, CuracionType } from '../types';
+import type { AgendaItem, CuracionType } from '../types';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Avanzada',
@@ -14,7 +14,7 @@ type ViewMode = 'day' | 'week' | 'month';
 export default function AgendaPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewMode, setViewMode] = useState<ViewMode>('day');
-  const [appointments, setAppointments] = useState<Curacion[]>([]);
+  const [appointments, setAppointments] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -88,9 +88,9 @@ export default function AgendaPage() {
   };
 
   const groupByDate = () => {
-    const groups: Record<string, Curacion[]> = {};
+    const groups: Record<string, AgendaItem[]> = {};
     for (const apt of appointments) {
-      const key = apt.nextAppointmentDate || '';
+      const key = apt.date;
       if (!groups[key]) groups[key] = [];
       groups[key].push(apt);
     }
@@ -206,27 +206,28 @@ export default function AgendaPage() {
                     {apts.map((apt) => (
                       <div
                         key={apt.id}
-                        onClick={() =>
-                          apt.patient &&
-                          navigate(`/paciente/${apt.patient.id}`)
-                        }
+                        onClick={() => navigate(`/paciente/${apt.patient.id}`)}
                         className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-gray-50 rounded-xl hover:bg-teal-50 cursor-pointer transition-colors border border-transparent hover:border-teal-200"
                       >
                         <div className="text-lg font-bold text-teal-700 sm:w-16 text-center">
-                          {apt.nextAppointmentTime || '--:--'}
+                          {apt.time}
                         </div>
                         <div className="flex-1">
                           <div className="font-medium text-gray-800">
-                            {apt.patient
-                              ? `${apt.patient.firstName} ${apt.patient.lastName}`
-                              : 'Paciente'}
+                            {apt.patient.firstName} {apt.patient.lastName}
                           </div>
                           <div className="text-sm text-gray-500">
-                            RUT: {apt.patient?.rut || '-'}
+                            RUT: {apt.patient.rut}
                           </div>
                         </div>
-                        <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-medium">
-                          {CURACION_LABELS[apt.type]}
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          apt.source === 'curacion'
+                            ? 'bg-teal-100 text-teal-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {apt.source === 'curacion' && apt.curacion
+                            ? CURACION_LABELS[apt.curacion.type]
+                            : 'Cita Agendada'}
                         </span>
                       </div>
                     ))}
