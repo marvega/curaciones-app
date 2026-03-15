@@ -9,7 +9,9 @@ import {
   Body,
   ParseIntPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './create-patient.dto';
 import { UpdatePatientDto } from './update-patient.dto';
@@ -65,5 +67,29 @@ export class PatientsController {
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.patientsService.remove(id);
+  }
+
+  @Post(':id/discharge')
+  async discharge(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { cancelAppointment?: boolean },
+    @Req() req: Request,
+  ) {
+    const user = req.user as { id: number };
+    return this.patientsService.discharge(id, user.id, body.cancelAppointment || false);
+  }
+
+  @Post(':id/readmit')
+  async readmit(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request,
+  ) {
+    const user = req.user as { id: number };
+    return this.patientsService.readmit(id, user.id);
+  }
+
+  @Get(':id/status-history')
+  async getStatusHistory(@Param('id', ParseIntPipe) id: number) {
+    return this.patientsService.getStatusHistory(id);
   }
 }
