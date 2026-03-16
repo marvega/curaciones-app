@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAgenda } from '../services/api';
 import type { AgendaItem, CuracionType } from '../types';
+import { CalendarOff, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Avanzada',
@@ -117,20 +118,20 @@ export default function AgendaPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+      <div className="card p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
+          <h2 className="text-2xl font-bold text-slate-800">
             Agenda de Citas
           </h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex bg-slate-100 rounded-lg p-0.5">
             {viewButtons.map((btn) => (
               <button
                 key={btn.mode}
                 onClick={() => setViewMode(btn.mode)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
                   viewMode === btn.mode
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {btn.label}
@@ -139,16 +140,16 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex items-center justify-between gap-4 mb-6">
           <button
             onClick={() => navigateDate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 cursor-pointer"
           >
-            &larr; Anterior
+            <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap justify-center">
             {viewMode === 'month' ? (
-              <span className="px-4 py-2 text-lg font-semibold text-gray-700 capitalize">
+              <span className="px-4 py-2 text-lg font-semibold text-slate-700 capitalize">
                 {getPeriodLabel()}
               </span>
             ) : (
@@ -161,32 +162,43 @@ export default function AgendaPage() {
             )}
             <button
               onClick={() => setDate(new Date().toISOString().split('T')[0])}
-              className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer font-medium"
             >
               Hoy
             </button>
           </div>
           <button
             onClick={() => navigateDate(1)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 cursor-pointer"
           >
-            Siguiente &rarr;
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Resumen de citas */}
-        <div className="mb-4 px-1 text-sm text-gray-500">
+        {/* Summary */}
+        <div className="mb-4 px-1 text-sm text-slate-500">
           {appointments.length} cita{appointments.length !== 1 ? 's' : ''} programada{appointments.length !== 1 ? 's' : ''}
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-gray-500">
-            Cargando agenda...
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex gap-4 p-4">
+                <div className="skeleton h-6 w-14" />
+                <div className="flex-1 space-y-2">
+                  <div className="skeleton h-4 w-48" />
+                  <div className="skeleton h-3 w-32" />
+                </div>
+                <div className="skeleton h-6 w-20 rounded-full" />
+              </div>
+            ))}
           </div>
         ) : appointments.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-4xl mb-3">📅</div>
-            <p className="text-gray-500">
+          <div className="text-center py-16">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+              <CalendarOff className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-slate-500">
               No hay citas programadas para este período
             </p>
           </div>
@@ -196,9 +208,9 @@ export default function AgendaPage() {
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([dateKey, apts]) => (
                 <div key={dateKey}>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                     {formatDateLabel(dateKey)}
-                    <span className="ml-2 text-xs font-normal normal-case">
+                    <span className="ml-2 font-normal normal-case text-slate-400">
                       ({apts.length} cita{apts.length !== 1 ? 's' : ''})
                     </span>
                   </h3>
@@ -207,23 +219,24 @@ export default function AgendaPage() {
                       <div
                         key={apt.id}
                         onClick={() => navigate(`/paciente/${apt.patient.id}`)}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-gray-50 rounded-xl hover:bg-teal-50 cursor-pointer transition-colors border border-transparent hover:border-teal-200"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 cursor-pointer transition-all border border-transparent hover:border-blue-200"
                       >
-                        <div className="text-lg font-bold text-teal-700 sm:w-16 text-center">
-                          {apt.time}
+                        <div className="flex items-center gap-2 text-blue-700 sm:w-20">
+                          <Clock className="w-4 h-4 text-blue-500" />
+                          <span className="text-base font-bold">{apt.time}</span>
                         </div>
                         <div className="flex-1">
-                          <div className="font-medium text-gray-800">
+                          <div className="font-medium text-slate-800">
                             {apt.patient.firstName} {apt.patient.lastName}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-slate-500">
                             RUT: {apt.patient.rut}
                           </div>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
                           apt.source === 'curacion'
-                            ? 'bg-teal-100 text-teal-700'
-                            : 'bg-blue-100 text-blue-700'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
                         }`}>
                           {apt.source === 'curacion' && apt.curacion
                             ? CURACION_LABELS[apt.curacion.type]

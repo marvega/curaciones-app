@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion } from '../services/api';
 import type { Patient, CuracionType, Appointment, PatientStatusChange } from '../types';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText } from 'lucide-react';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -204,7 +205,6 @@ export default function PatientPage() {
     e.preventDefault();
     if (!patient) return;
 
-    // Validar disponibilidad si hay hora seleccionada
     if (curacionForm.appointmentDate && curacionForm.appointmentTime) {
       const slot = availability.find(s => s.time === curacionForm.appointmentTime);
       if (slot && !slot.available) {
@@ -340,56 +340,71 @@ export default function PatientPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="text-gray-500">Cargando ficha del paciente...</div>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="skeleton h-7 w-48" />
+            <div className="flex gap-2">
+              <div className="skeleton h-8 w-20 rounded-lg" />
+              <div className="skeleton h-8 w-20 rounded-lg" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i}>
+                <div className="skeleton h-3 w-20 mb-2" />
+                <div className="skeleton h-4 w-28" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!patient) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        Paciente no encontrado
+      <div className="text-center py-16">
+        <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+          <FileText className="w-6 h-6 text-slate-400" />
+        </div>
+        <p className="text-slate-500">Paciente no encontrado</p>
       </div>
     );
   }
 
   return (
     <>
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Datos del paciente */}
-      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
+    <div className="max-w-4xl mx-auto space-y-5">
+      {/* Patient info */}
+      <div className="card p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
             {patient.firstName} {patient.lastName}
           </h2>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowEditForm(!showEditForm)}
-              className="p-2 text-gray-400 hover:text-teal-600 transition-colors"
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
               title="Editar paciente"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
+              <Pencil className="w-4.5 h-4.5" />
             </button>
             <button
               onClick={() => setShowDeleteModal(true)}
               type="button"
-              className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
               title="Eliminar paciente"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Trash2 className="w-4.5 h-4.5" />
             </button>
-            <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
               {patient.rut}
             </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
               patient.status === 'discharged'
-                ? 'bg-gray-100 text-gray-600'
-                : 'bg-green-100 text-green-700'
+                ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
             }`}>
               {patient.status === 'discharged' ? 'Alta médica' : 'Activo'}
             </span>
@@ -399,7 +414,7 @@ export default function PatientPage() {
         {showEditForm ? (
           <form onSubmit={handleUpdatePatient} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Nombre</label>
               <input
                 type="text"
                 value={editForm.firstName}
@@ -409,7 +424,7 @@ export default function PatientPage() {
               />
             </div>
             <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Apellido</label>
               <input
                 type="text"
                 value={editForm.lastName}
@@ -419,7 +434,7 @@ export default function PatientPage() {
               />
             </div>
             <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Nacimiento</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha Nacimiento</label>
               <input
                 type="date"
                 value={editForm.birthDate}
@@ -429,7 +444,7 @@ export default function PatientPage() {
               />
             </div>
             <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Género</label>
               <select
                 value={editForm.gender}
                 onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
@@ -442,7 +457,7 @@ export default function PatientPage() {
               </select>
             </div>
             <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Teléfono</label>
               <input
                 type="text"
                 value={editForm.phone}
@@ -451,7 +466,7 @@ export default function PatientPage() {
               />
             </div>
             <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Dirección</label>
               <input
                 type="text"
                 value={editForm.address}
@@ -463,15 +478,16 @@ export default function PatientPage() {
               <button
                 type="button"
                 onClick={() => setShowEditForm(false)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
+                className="btn-secondary cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                className="btn-primary cursor-pointer flex items-center justify-center gap-2"
               >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {saving ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </div>
@@ -479,51 +495,54 @@ export default function PatientPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-gray-500 block">Fecha Nacimiento</span>
-              <span className="font-medium">{patient.birthDate}</span>
+              <span className="text-slate-400 block text-xs uppercase tracking-wider mb-0.5">Fecha Nacimiento</span>
+              <span className="font-medium text-slate-800">{patient.birthDate}</span>
             </div>
             <div>
-              <span className="text-gray-500 block">Edad</span>
-              <span className="font-medium">
+              <span className="text-slate-400 block text-xs uppercase tracking-wider mb-0.5">Edad</span>
+              <span className="font-medium text-slate-800">
                 {calculateAge(patient.birthDate)} años
               </span>
             </div>
             <div>
-              <span className="text-gray-500 block">Género</span>
-              <span className="font-medium">{patient.gender}</span>
+              <span className="text-slate-400 block text-xs uppercase tracking-wider mb-0.5">Género</span>
+              <span className="font-medium text-slate-800">{patient.gender}</span>
             </div>
             <div>
-              <span className="text-gray-500 block">Teléfono</span>
-              <span className="font-medium">{patient.phone || '-'}</span>
+              <span className="text-slate-400 block text-xs uppercase tracking-wider mb-0.5">Teléfono</span>
+              <span className="font-medium text-slate-800">{patient.phone || '-'}</span>
             </div>
             <div className="col-span-2">
-              <span className="text-gray-500 block">Dirección</span>
-              <span className="font-medium">{patient.address || '-'}</span>
+              <span className="text-slate-400 block text-xs uppercase tracking-wider mb-0.5">Dirección</span>
+              <span className="font-medium text-slate-800">{patient.address || '-'}</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Botones de acción */}
+      {/* Action buttons */}
       <div className="flex justify-end gap-2">
         {patient.status !== 'discharged' ? (
           <>
             <button
               onClick={() => { setShowAppointmentForm(!showAppointmentForm); setShowForm(false); }}
-              className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
             >
+              <CalendarPlus className="w-4 h-4" />
               {showAppointmentForm ? 'Cancelar' : 'Agendar Cita'}
             </button>
             <button
               onClick={() => { setShowForm(!showForm); setShowAppointmentForm(false); }}
-              className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+              className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
             >
-              {showForm ? 'Cancelar' : '+ Nueva Curación'}
+              <Plus className="w-4 h-4" />
+              {showForm ? 'Cancelar' : 'Nueva Curación'}
             </button>
             <button
               onClick={() => setShowDischargeModal(true)}
-              className="px-5 py-2.5 bg-gray-600 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
+              className="btn-secondary cursor-pointer inline-flex items-center gap-2 text-sm"
             >
+              <UserCheck className="w-4 h-4" />
               Dar de Alta
             </button>
           </>
@@ -531,31 +550,32 @@ export default function PatientPage() {
           <button
             onClick={handleReadmit}
             disabled={saving}
-            className="px-5 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="btn-success cursor-pointer inline-flex items-center gap-2 text-sm"
           >
+            <RotateCcw className="w-4 h-4" />
             {saving ? 'Reingresando...' : 'Reingresar Paciente'}
           </button>
         )}
       </div>
 
-      {/* Formulario nueva cita */}
+      {/* Appointment form */}
       {showAppointmentForm && (
-        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Agendar Cita</h3>
+        <div className="card p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-slate-800 mb-4">Agendar Cita</h3>
           <form onSubmit={handleSaveAppointment} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha *</label>
                 <input type="date" value={appointmentForm.date}
                   onChange={(e) => setAppointmentForm(prev => ({ ...prev, date: e.target.value, time: '' }))}
                   required className="form-control w-full" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hora *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Hora *</label>
                 <select value={appointmentForm.time}
                   onChange={(e) => setAppointmentForm(prev => ({ ...prev, time: e.target.value }))}
                   disabled={!appointmentForm.date || loadingAppointmentAvailability}
-                  required className="form-control w-full disabled:bg-gray-50">
+                  required className="form-control w-full disabled:bg-slate-50">
                   <option value="">{loadingAppointmentAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
                   {appointmentAvailability.map((slot) => (
                     <option key={slot.time} value={slot.time} disabled={!slot.available}>
@@ -566,23 +586,24 @@ export default function PatientPage() {
               </div>
             </div>
             <button type="submit" disabled={savingAppointment}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2">
+              {savingAppointment ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {savingAppointment ? 'Agendando...' : 'Agendar Cita'}
             </button>
           </form>
         </div>
       )}
 
-      {/* Formulario nueva curación */}
+      {/* New curacion form */}
       {showForm && (
-        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
+        <div className="card p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-slate-800 mb-4">
             Registrar Curación
           </h3>
           <form onSubmit={handleSaveCuracion} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   Tipo de Curación *
                 </label>
                 <select
@@ -605,7 +626,7 @@ export default function PatientPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   Fecha de Curación *
                 </label>
                 <input
@@ -622,7 +643,7 @@ export default function PatientPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   Cantidad de Curaciones *
                 </label>
                 <input
@@ -644,7 +665,7 @@ export default function PatientPage() {
             {!dischargeCheckbox && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     Próxima Cita (Fecha)
                   </label>
                   <input
@@ -654,14 +675,14 @@ export default function PatientPage() {
                       setCuracionForm((prev) => ({
                         ...prev,
                         appointmentDate: e.target.value,
-                        appointmentTime: '', // Reset time when date changes
+                        appointmentTime: '',
                       }))
                     }
                     className="form-control w-full"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     Próxima Cita (Hora)
                   </label>
                   <select
@@ -673,7 +694,7 @@ export default function PatientPage() {
                       }))
                     }
                     disabled={!curacionForm.appointmentDate || loadingAvailability}
-                    className="form-control w-full disabled:bg-gray-50"
+                    className="form-control w-full disabled:bg-slate-50"
                   >
                     <option value="">{loadingAvailability ? 'Cargando disponibilidad...' : 'Seleccionar hora'}</option>
                     {availability.map((slot) => (
@@ -681,7 +702,7 @@ export default function PatientPage() {
                         key={slot.time}
                         value={slot.time}
                         disabled={!slot.available}
-                        className={!slot.available ? 'text-red-500' : ''}
+                        className={!slot.available ? 'text-rose-500' : ''}
                       >
                         {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient.firstName} ${slot.patient.lastName})`}
                       </option>
@@ -692,7 +713,7 @@ export default function PatientPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Observaciones
               </label>
               <textarea
@@ -708,56 +729,57 @@ export default function PatientPage() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
               <input type="checkbox" checked={dischargeCheckbox}
                 onChange={(e) => setDischargeCheckbox(e.target.checked)}
-                className="rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
               Dar de alta al paciente
             </label>
 
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors"
+              className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2"
             >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Guardando...' : 'Registrar Curación'}
             </button>
           </form>
         </div>
       )}
 
-      {/* Citas agendadas */}
+      {/* Scheduled appointments */}
       {appointments.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        <div className="card p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-slate-800 mb-4">
             Citas Agendadas
-            <span className="ml-2 text-sm font-normal text-gray-500">({appointments.length})</span>
+            <span className="ml-2 text-sm font-normal text-slate-400">({appointments.length})</span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">Fecha</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">Hora</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">Tipo</th>
-                  <th className="text-right py-3 px-2 font-medium text-gray-600">Acciones</th>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Hora</th>
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
+                  <th className="text-right py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {appointments.map((apt) => (
-                  <tr key={apt.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-2">{apt.date}</td>
-                    <td className="py-3 px-2 font-medium">{apt.time}</td>
+                  <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-2 text-slate-800">{apt.date}</td>
+                    <td className="py-3 px-2 font-medium text-slate-800">{apt.time}</td>
                     <td className="py-3 px-2">
                       <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        apt.curacionId ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'
+                        apt.curacionId ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
                       }`}>
                         {apt.curacionId ? 'Seguimiento' : 'Cita Agendada'}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-right">
                       <button onClick={() => handleDeleteAppointment(apt.id)}
-                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors">
+                        className="px-3 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-medium transition-all cursor-pointer">
                         Cancelar
                       </button>
                     </td>
@@ -769,11 +791,11 @@ export default function PatientPage() {
         </div>
       )}
 
-      {/* Historial de curaciones */}
-      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+      {/* Curaciones history */}
+      <div className="card p-5 sm:p-6">
+        <h3 className="text-base font-semibold text-slate-800 mb-4">
           Historial de Curaciones
-          <span className="ml-2 text-sm font-normal text-gray-500">
+          <span className="ml-2 text-sm font-normal text-slate-400">
             ({patient.curaciones?.length || 0} registros)
           </span>
         </h3>
@@ -782,20 +804,20 @@ export default function PatientPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="text-center py-3 px-2 font-medium text-gray-600">
+                  <th className="text-center py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Cant.
                   </th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Próxima Cita
                   </th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Observaciones
                   </th>
                 </tr>
@@ -804,13 +826,13 @@ export default function PatientPage() {
                 {patient.curaciones.map((c) => (
                   <tr
                     key={c.id}
-                    className="border-b border-gray-100 hover:bg-gray-50"
+                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                   >
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-2 text-slate-800">
                       {c.date}
                       {c.edits && c.edits.length > 0 && (
-                        <span className="ml-1 text-gray-400" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
-                          ✏️
+                        <span className="ml-1.5 inline-flex" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
+                          <Pencil className="w-3 h-3 text-slate-400" />
                         </span>
                       )}
                     </td>
@@ -818,24 +840,24 @@ export default function PatientPage() {
                       {isAdmin ? (
                         <span
                           onClick={(e) => { e.stopPropagation(); handleOpenEdit(c); }}
-                          className="px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-xs font-medium cursor-pointer hover:bg-teal-100 transition-colors"
+                          className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-100 transition-all"
                           title="Click para editar"
                         >
                           {CURACION_LABELS[c.type]}
                         </span>
                       ) : (
-                        <span className="px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-xs font-medium">
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
                           {CURACION_LABELS[c.type]}
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-2 text-center font-medium">
+                    <td className="py-3 px-2 text-center font-medium text-slate-800">
                       {c.quantity || 1}
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-2 text-slate-600">
                       {c.appointment ? `${c.appointment.date} ${c.appointment.time}` : '-'}
                     </td>
-                    <td className="py-3 px-2 text-gray-600">
+                    <td className="py-3 px-2 text-slate-500">
                       {c.observations || '-'}
                     </td>
                   </tr>
@@ -844,37 +866,37 @@ export default function PatientPage() {
             </table>
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-6">
+          <p className="text-slate-500 text-center py-8 text-sm">
             No hay curaciones registradas
           </p>
         )}
       </div>
 
-      {/* Historial de altas y reingresos */}
+      {/* Status history */}
       {statusHistory.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Historial de Altas y Reingresos</h3>
+        <div className="card p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-slate-800 mb-4">Historial de Altas y Reingresos</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">Fecha</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">Tipo</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-600">Usuario</th>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
+                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Usuario</th>
                 </tr>
               </thead>
               <tbody>
                 {statusHistory.map((sc) => (
-                  <tr key={sc.id} className="border-b border-gray-100">
-                    <td className="py-3 px-2">{new Date(sc.createdAt).toLocaleDateString('es-CL')}</td>
+                  <tr key={sc.id} className="border-b border-slate-100">
+                    <td className="py-3 px-2 text-slate-800">{new Date(sc.createdAt).toLocaleDateString('es-CL')}</td>
                     <td className="py-3 px-2">
                       <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        sc.type === 'discharge' ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'
+                        sc.type === 'discharge' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       }`}>
                         {sc.type === 'discharge' ? 'Alta' : 'Reingreso'}
                       </span>
                     </td>
-                    <td className="py-3 px-2 text-gray-600">{sc.performedBy.username}</td>
+                    <td className="py-3 px-2 text-slate-500">{sc.performedBy.username}</td>
                   </tr>
                 ))}
               </tbody>
@@ -884,20 +906,25 @@ export default function PatientPage() {
       )}
     </div>
 
-    {/* Modal de confirmación para eliminar */}
+    {/* Delete confirmation modal */}
     {showDeleteModal && (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
         onClick={() => setShowDeleteModal(false)}
       >
         <div
           className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full"
           onClick={(e) => e.stopPropagation()}
         >
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">
-            Confirmar eliminación
-          </h3>
-          <p className="text-gray-600 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-800">
+              Confirmar eliminación
+            </h3>
+            <button onClick={() => setShowDeleteModal(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+          <p className="text-slate-600 text-sm mb-6">
             ¿Está seguro de que desea eliminar al paciente{' '}
             <strong>{patient.firstName} {patient.lastName}</strong>? Esta acción no
             se puede deshacer y se eliminará también su historial de curaciones.
@@ -906,7 +933,7 @@ export default function PatientPage() {
             <button
               type="button"
               onClick={() => setShowDeleteModal(false)}
-              className="px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="btn-secondary cursor-pointer"
             >
               Cancelar
             </button>
@@ -914,7 +941,7 @@ export default function PatientPage() {
               type="button"
               onClick={handleConfirmDelete}
               disabled={saving}
-              className="px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="btn-danger cursor-pointer"
             >
               {saving ? 'Eliminando...' : 'Eliminar'}
             </button>
@@ -923,17 +950,22 @@ export default function PatientPage() {
       </div>
     )}
 
-    {/* Modal de edición de curación */}
+    {/* Edit curacion modal */}
     {editingCuracion && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditingCuracion(null)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setEditingCuracion(null)}>
         <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Editar Curación — {editingCuracion.date}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-800">
+              Editar Curación — {editingCuracion.date}
+            </h3>
+            <button onClick={() => setEditingCuracion(null)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
           <form onSubmit={handleSaveEdit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Curación</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Tipo de Curación</label>
                 <select value={curacionEditForm.type}
                   onChange={(e) => setCuracionEditForm(prev => ({ ...prev, type: e.target.value as CuracionType }))}
                   className="form-control w-full">
@@ -943,7 +975,7 @@ export default function PatientPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Cantidad</label>
                 <input type="number" min={1} value={curacionEditForm.quantity}
                   onChange={(e) => setCuracionEditForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
                   className="form-control w-full" />
@@ -951,17 +983,17 @@ export default function PatientPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Próxima Cita (Fecha)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Próxima Cita (Fecha)</label>
                 <input type="date" value={curacionEditForm.appointmentDate}
                   onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentDate: e.target.value, appointmentTime: '' }))}
                   className="form-control w-full" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Próxima Cita (Hora)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Próxima Cita (Hora)</label>
                 <select value={curacionEditForm.appointmentTime}
                   onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentTime: e.target.value }))}
                   disabled={!curacionEditForm.appointmentDate || loadingEditAvailability}
-                  className="form-control w-full disabled:bg-gray-50">
+                  className="form-control w-full disabled:bg-slate-50">
                   <option value="">{loadingEditAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
                   {editAvailability.map((slot) => (
                     <option key={slot.time} value={slot.time} disabled={!slot.available}>
@@ -973,16 +1005,16 @@ export default function PatientPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-50">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Curación</label>
-                <input type="date" value={editingCuracion.date} disabled className="form-control w-full bg-gray-50" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha de Curación</label>
+                <input type="date" value={editingCuracion.date} disabled className="form-control w-full bg-slate-50" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
-                <input type="text" value={editingCuracion.observations || '-'} disabled className="form-control w-full bg-gray-50" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Observaciones</label>
+                <input type="text" value={editingCuracion.observations || '-'} disabled className="form-control w-full bg-slate-50" />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Motivo de la edición *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Motivo de la edición *</label>
               <textarea value={curacionEditForm.reason}
                 onChange={(e) => setCuracionEditForm(prev => ({ ...prev, reason: e.target.value }))}
                 rows={2} required placeholder="Ingrese el motivo de la corrección..."
@@ -990,11 +1022,12 @@ export default function PatientPage() {
             </div>
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setEditingCuracion(null)}
-                className="px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                className="btn-secondary cursor-pointer">
                 Cancelar
               </button>
               <button type="submit" disabled={savingEdit || !curacionEditForm.reason.trim()}
-                className="px-4 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors">
+                className="btn-primary cursor-pointer flex items-center gap-2">
+                {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </div>
@@ -1003,33 +1036,38 @@ export default function PatientPage() {
       </div>
     )}
 
-    {/* Modal de dar de alta */}
+    {/* Discharge modal */}
     {showDischargeModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDischargeModal(false)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowDischargeModal(false)}>
         <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Dar de Alta</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-800">Dar de Alta</h3>
+            <button onClick={() => setShowDischargeModal(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
           {appointments.length > 0 ? (
-            <p className="text-gray-600 mb-6">
+            <p className="text-slate-600 text-sm mb-6">
               Este paciente tiene <strong>{appointments.length}</strong> cita{appointments.length !== 1 ? 's' : ''} agendada{appointments.length !== 1 ? 's' : ''}. ¿Desea cancelarlas al dar de alta?
             </p>
           ) : (
-            <p className="text-gray-600 mb-6">
+            <p className="text-slate-600 text-sm mb-6">
               ¿Confirma dar de alta a <strong>{patient.firstName} {patient.lastName}</strong>?
             </p>
           )}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setShowDischargeModal(false)}
-              className="px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+              className="btn-secondary cursor-pointer">
               Cancelar
             </button>
             {appointments.length > 0 && (
               <button type="button" onClick={() => handleDischarge(false)} disabled={saving}
-                className="px-4 py-2.5 bg-gray-600 text-white rounded-xl font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+                className="btn-secondary cursor-pointer">
                 {saving ? 'Procesando...' : 'Alta sin cancelar citas'}
               </button>
             )}
             <button type="button" onClick={() => handleDischarge(true)} disabled={saving}
-              className="px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+              className="btn-danger cursor-pointer">
               {saving ? 'Procesando...' : (appointments.length > 0 ? 'Alta y cancelar citas' : 'Confirmar Alta')}
             </button>
           </div>

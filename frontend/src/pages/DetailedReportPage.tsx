@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { Download, Loader2 } from 'lucide-react';
 
 const COLORS = ['#0d9488', '#f59e0b', '#6366f1', '#ec4899'];
 
@@ -50,17 +51,17 @@ export default function DetailedReportPage() {
   const handleGenerate = async () => {
     setLoading(true);
     try {
-      const filters: { 
-        year: number; 
-        quarter: number; 
-        gender?: string; 
-        ageMin?: number; 
-        ageMax?: number 
+      const filters: {
+        year: number;
+        quarter: number;
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number
       } = {
         year,
         quarter,
       };
-      
+
       if (gender) filters.gender = gender;
       if (ageGroup) {
         const group = AGE_GROUPS[parseInt(ageGroup)];
@@ -88,7 +89,6 @@ export default function DetailedReportPage() {
         : 'Todas las edades',
     ].join(', ');
 
-    // Hoja 1: Resumen
     const summaryData: (string | number)[][] = [
       ['Reporte Trimestral Detallado de Curaciones'],
       [`Filtros: ${filterLabel}`],
@@ -101,7 +101,6 @@ export default function DetailedReportPage() {
     const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
     wsSummary['!cols'] = [{ wch: 30 }, { wch: 15 }];
 
-    // Hoja 2: Curación Avanzada por Género
     const avanzadaData: (string | number)[][] = [
       ['Curación Avanzada - Detalle por Género'],
       [`Filtros: ${filterLabel}`],
@@ -117,7 +116,6 @@ export default function DetailedReportPage() {
     const wsAvanzada = XLSX.utils.aoa_to_sheet(avanzadaData);
     wsAvanzada['!cols'] = [{ wch: 25 }, { wch: 15 }];
 
-    // Hoja 3: Úlcera Venosa por Género
     const ulceraData: (string | number)[][] = [
       ['Curación Úlcera Venosa - Detalle por Género'],
       [`Filtros: ${filterLabel}`],
@@ -156,14 +154,14 @@ export default function DetailedReportPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">
+      <div className="card p-5 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6">
           Reporte Trimestral Detallado
         </h2>
 
         <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Año
             </label>
             <input
@@ -176,7 +174,7 @@ export default function DetailedReportPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Trimestre
             </label>
             <select
@@ -192,7 +190,7 @@ export default function DetailedReportPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Género
             </label>
             <select
@@ -207,7 +205,7 @@ export default function DetailedReportPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Grupo Etáreo
             </label>
             <select
@@ -226,18 +224,23 @@ export default function DetailedReportPage() {
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="px-6 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors"
+            className="btn-primary flex items-center gap-2"
           >
-            {loading ? 'Generando...' : 'Generar Reporte'}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generando...
+              </>
+            ) : (
+              'Generar Reporte'
+            )}
           </button>
           {report && (
             <button
               onClick={handleDownloadExcel}
-              className="px-5 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+              className="btn-success inline-flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <Download className="w-4 h-4" />
               Descargar Excel
             </button>
           )}
@@ -247,26 +250,26 @@ export default function DetailedReportPage() {
           <div className="space-y-8">
             {/* Summary cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="bg-teal-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-teal-800 mb-2">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                <h3 className="text-base font-semibold text-blue-800 mb-2">
                   Curación Avanzada
                 </h3>
-                <div className="text-4xl font-bold text-teal-700 mb-4">
+                <div className="text-4xl font-bold text-blue-700 mb-4">
                   {report.summary.avanzada.total}
                 </div>
                 {Object.keys(report.summary.avanzada.byGender).length > 0 && (
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-teal-600 mb-2">
-                      Por género:
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-medium text-blue-600 uppercase tracking-wider mb-2">
+                      Por género
                     </div>
                     {Object.entries(report.summary.avanzada.byGender).map(
                       ([g, count]) => (
                         <div
                           key={g}
-                          className="flex justify-between text-sm text-teal-700"
+                          className="flex justify-between text-sm text-blue-700"
                         >
                           <span>{g}</span>
-                          <span className="font-medium">{count}</span>
+                          <span className="font-semibold">{count}</span>
                         </div>
                       ),
                     )}
@@ -274,18 +277,17 @@ export default function DetailedReportPage() {
                 )}
               </div>
 
-              <div className="bg-indigo-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-indigo-800 mb-2">
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
+                <h3 className="text-base font-semibold text-indigo-800 mb-2">
                   Curación Úlcera Venosa
                 </h3>
                 <div className="text-4xl font-bold text-indigo-700 mb-4">
                   {report.summary.ulcera_venosa.total}
                 </div>
-                {Object.keys(report.summary.ulcera_venosa.byGender).length >
-                  0 && (
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-indigo-600 mb-2">
-                      Por género:
+                {Object.keys(report.summary.ulcera_venosa.byGender).length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-medium text-indigo-600 uppercase tracking-wider mb-2">
+                      Por género
                     </div>
                     {Object.entries(report.summary.ulcera_venosa.byGender).map(
                       ([g, count]) => (
@@ -294,7 +296,7 @@ export default function DetailedReportPage() {
                           className="flex justify-between text-sm text-indigo-700"
                         >
                           <span>{g}</span>
-                          <span className="font-medium">{count}</span>
+                          <span className="font-semibold">{count}</span>
                         </div>
                       ),
                     )}
@@ -307,7 +309,7 @@ export default function DetailedReportPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {report.summary.avanzada.total > 0 && (
                 <div>
-                  <h4 className="text-center text-sm font-medium text-gray-600 mb-2">
+                  <h4 className="text-center text-sm font-medium text-slate-600 mb-3">
                     Curación Avanzada por Género
                   </h4>
                   <div className="h-56">
@@ -330,7 +332,13 @@ export default function DetailedReportPage() {
                             />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: '12px',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          }}
+                        />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -340,7 +348,7 @@ export default function DetailedReportPage() {
 
               {report.summary.ulcera_venosa.total > 0 && (
                 <div>
-                  <h4 className="text-center text-sm font-medium text-gray-600 mb-2">
+                  <h4 className="text-center text-sm font-medium text-slate-600 mb-3">
                     Úlcera Venosa por Género
                   </h4>
                   <div className="h-56">
@@ -365,7 +373,13 @@ export default function DetailedReportPage() {
                             />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: '12px',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          }}
+                        />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -375,9 +389,8 @@ export default function DetailedReportPage() {
             </div>
 
             {/* Filters applied */}
-            <div className="text-center text-sm text-gray-500">
-              Filtros aplicados:{' '}
-              Año {report.filters.year}, Trimestre {report.filters.quarter},{' '}
+            <div className="text-center text-sm text-slate-500 bg-slate-50 rounded-xl py-2.5 px-4">
+              Filtros: Año {report.filters.year}, Trimestre {report.filters.quarter},{' '}
               {report.filters.gender || 'Todos los géneros'},{' '}
               {report.filters.ageMin !== undefined
                 ? `${report.filters.ageMin} - ${report.filters.ageMax} años`
