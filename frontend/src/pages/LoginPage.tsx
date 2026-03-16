@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -15,8 +16,8 @@ export default function LoginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-gray-500">Cargando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
       </div>
     );
   }
@@ -46,59 +47,80 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-6">
-      <div className="bg-white rounded-2xl shadow-lg border p-6 sm:p-8 w-full max-w-md">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 text-center">
-          Enfermería - Gestión de Curaciones
-        </h1>
-        <p className="text-gray-500 text-sm text-center mb-6">
-          Inicie sesión para continuar
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Usuario
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="form-control w-full"
-              placeholder="Usuario"
-              required
-              autoComplete="username"
-            />
+    <div className="min-h-screen flex bg-slate-900">
+      {/* Left side - branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 items-center justify-center p-12">
+        <div className="text-center">
+          <div className="w-24 h-24 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-6 p-3">
+            <img src="/logo.png" alt="Curaciones" className="w-full h-full object-contain brightness-0 invert" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="form-control w-full"
-              placeholder="Contraseña"
-              required
-              autoComplete="current-password"
-            />
-          </div>
+          <h2 className="text-3xl font-bold text-white mb-3">Gestión de Curaciones</h2>
+          <p className="text-blue-200 text-lg max-w-sm">
+            Sistema profesional de gestión de curaciones avanzadas para enfermería
+          </p>
+        </div>
+      </div>
 
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg">
-              {error}
+      {/* Right side - form */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-white">
+        <div className="w-full max-w-sm">
+          <div className="lg:hidden flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mb-4 p-2">
+              <img src="/logo.png" alt="Curaciones" className="w-full h-full object-contain brightness-0 invert" />
             </div>
-          )}
+            <h1 className="text-xl font-bold text-slate-800">Gestión de Curaciones</h1>
+          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-          </button>
-        </form>
+          <div className="hidden lg:block mb-8">
+            <h1 className="text-2xl font-bold text-slate-800">Bienvenido</h1>
+            <p className="text-slate-500 mt-1">Inicie sesión para continuar</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Usuario
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="form-control"
+                placeholder="Usuario"
+                required
+                autoComplete="username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Contraseña
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="form-control"
+                placeholder="Contraseña"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
+            {error && (
+              <div className="text-rose-600 text-sm bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Iniciando sesión...</>
+              ) : (
+                'Iniciar sesión'
+              )}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

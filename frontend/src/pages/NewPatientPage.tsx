@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createPatient } from '../services/api';
+import { Loader2 } from 'lucide-react';
 
 export default function NewPatientPage() {
   const navigate = useNavigate();
@@ -80,13 +81,13 @@ export default function NewPatientPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-sm border p-4 sm:p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+      <div className="card p-5 sm:p-8">
+        <h2 className="text-2xl font-bold text-slate-800 mb-6">
           Nuevo Paciente
         </h2>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+          <div className="mb-4 p-3 bg-rose-50 border border-rose-100 text-rose-700 rounded-xl text-sm">
             {error}
           </div>
         )}
@@ -94,7 +95,7 @@ export default function NewPatientPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 RUT *
               </label>
               <input
@@ -108,7 +109,7 @@ export default function NewPatientPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Género *
               </label>
               <select
@@ -128,7 +129,7 @@ export default function NewPatientPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Nombre *
               </label>
               <input
@@ -141,7 +142,7 @@ export default function NewPatientPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Apellido *
               </label>
               <input
@@ -156,7 +157,7 @@ export default function NewPatientPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Fecha de Nacimiento *
             </label>
             <input
@@ -171,7 +172,7 @@ export default function NewPatientPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Teléfono
               </label>
               <input
@@ -183,7 +184,7 @@ export default function NewPatientPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Dirección
               </label>
               <input
@@ -200,16 +201,23 @@ export default function NewPatientPage() {
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              className="btn-secondary flex-1"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors"
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-              {loading ? 'Guardando...' : 'Guardar Paciente'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar Paciente'
+              )}
             </button>
           </div>
         </form>

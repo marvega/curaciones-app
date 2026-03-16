@@ -1,19 +1,32 @@
 @import "tailwindcss";
 
 body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  font-family: 'Noto Sans', system-ui, -apple-system, sans-serif;
+  @apply bg-slate-100 text-slate-900 antialiased;
 }
 
-/* Form controls unificados - estilo coherente con botón teal */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Figtree', system-ui, -apple-system, sans-serif;
+}
+
+/* Form controls */
 .form-control {
-  @apply px-4 py-2.5 bg-white border-2 border-teal-200 rounded-xl
-    focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none
-    transition-colors;
+  @apply w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg
+    text-slate-900 placeholder:text-slate-400
+    outline-none transition-all duration-200;
+}
+
+.form-control:focus {
+  @apply border-blue-500 ring-2 ring-blue-500/20;
+}
+
+.form-control:hover:not(:focus):not(:disabled) {
+  @apply border-slate-300;
 }
 
 select.form-control {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%230d9488' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 0.5rem center;
   background-repeat: no-repeat;
   background-size: 1.5em 1.5em;
@@ -30,7 +43,50 @@ select {
   background-image: none;
 }
 
-/* Evitar zoom en inputs en iOS */
+/* Skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  @apply rounded-lg;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Card */
+.card {
+  @apply bg-white rounded-xl border border-slate-200/60 shadow-sm;
+}
+
+/* Buttons */
+.btn-primary {
+  @apply px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium
+    hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50
+    transition-all cursor-pointer inline-flex items-center justify-center gap-2;
+}
+
+.btn-secondary {
+  @apply px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-medium
+    hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50
+    transition-all cursor-pointer inline-flex items-center justify-center gap-2;
+}
+
+.btn-danger {
+  @apply px-4 py-2.5 bg-rose-600 text-white rounded-lg font-medium
+    hover:bg-rose-700 active:bg-rose-800 disabled:opacity-50
+    transition-all cursor-pointer inline-flex items-center justify-center gap-2;
+}
+
+.btn-success {
+  @apply px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium
+    hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50
+    transition-all cursor-pointer inline-flex items-center justify-center gap-2;
+}
+
+/* iOS zoom prevention */
 @supports (-webkit-touch-callout: none) {
   input, select, textarea {
     font-size: 16px;
