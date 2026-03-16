@@ -10,7 +10,6 @@ import {
   Shield,
   LogOut,
   Menu,
-  X,
   ChevronLeft,
 } from 'lucide-react';
 
