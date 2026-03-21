@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AlertBanner from './AlertBanner';
 import {
   LayoutDashboard,
   Users,
@@ -208,6 +209,9 @@ export default function Layout() {
             </span>
           </div>
         </header>
+
+        {/* Alert banner */}
+        <AlertBanner />
 
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6">
