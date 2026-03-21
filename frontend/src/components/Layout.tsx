@@ -8,6 +8,7 @@ import {
   FileBarChart,
   PieChart,
   Shield,
+  ClipboardList,
   LogOut,
   Menu,
   ChevronLeft,
@@ -29,6 +30,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/reportes/mensual': 'Reporte Mensual',
   '/reportes/detallado': 'Reporte Detallado',
   '/usuarios': 'Usuarios',
+  '/audit-log': 'Auditoría',
 };
 
 export default function Layout() {
@@ -92,22 +94,40 @@ export default function Layout() {
           </NavLink>
         ))}
         {isAdmin && (
-          <NavLink
-            to="/usuarios"
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
-                collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
-              } ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`
-            }
-            title={collapsed && !mobile ? 'Usuarios' : undefined}
-          >
-            <Shield className="w-5 h-5 shrink-0" />
-            {(!collapsed || mobile) && 'Usuarios'}
-          </NavLink>
+          <>
+            <NavLink
+              to="/usuarios"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Usuarios' : undefined}
+            >
+              <Shield className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Usuarios'}
+            </NavLink>
+            <NavLink
+              to="/audit-log"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Auditoría' : undefined}
+            >
+              <ClipboardList className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Auditoría'}
+            </NavLink>
+          </>
         )}
       </nav>
 
