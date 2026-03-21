@@ -15,6 +15,8 @@ import type {
   PatientInactive,
   UserPreferences,
   WoundPhoto,
+  WoundNote,
+  WoundEvolutionPoint,
 } from '../types';
 
 const api = axios.create({
@@ -300,6 +302,35 @@ export const deleteWoundPhoto = async (id: number): Promise<void> => {
 export const getWoundPhotoUrl = (filename: string): string => {
   const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
   return `${baseURL}/wound-photos/file/${filename}`;
+};
+
+// Wound Notes
+export const createWoundNote = async (note: {
+  curacionId: number;
+  woundWidth?: number;
+  woundLength?: number;
+  woundColor?: string;
+  exudateLevel?: string;
+  healingStage?: string;
+  notes?: string;
+}): Promise<WoundNote> => {
+  const { data } = await api.post('/wound-notes', note);
+  return data;
+};
+
+export const getWoundNotesByCuracion = async (curacionId: number): Promise<WoundNote | null> => {
+  const { data } = await api.get(`/wound-notes/curacion/${curacionId}`);
+  return data;
+};
+
+export const getWoundNotesByPatient = async (patientId: number): Promise<WoundNote[]> => {
+  const { data } = await api.get(`/wound-notes/patient/${patientId}`);
+  return data;
+};
+
+export const getWoundEvolution = async (patientId: number): Promise<WoundEvolutionPoint[]> => {
+  const { data } = await api.get(`/wound-notes/evolution/${patientId}`);
+  return data;
 };
 
 // PDF Export
