@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Body, Query, Param, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CuracionesService } from './curaciones.service';
 import { CreateCuracionDto } from './create-curacion.dto';
@@ -7,6 +8,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
+@ApiTags('Curaciones')
+@ApiBearerAuth()
 @Controller('api/curaciones')
 @UseGuards(JwtAuthGuard)
 export class CuracionesController {
