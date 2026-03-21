@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
-import { User } from './user.entity';
+import { User, DEFAULT_PREFERENCES } from './user.entity';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(() => Promise.resolve('hashed-password')),
@@ -24,6 +24,7 @@ describe('UsersService', () => {
     username: 'admin',
     passwordHash: 'hashed-pw',
     role: 'admin',
+    preferences: null,
     createdAt: new Date('2026-01-01'),
   };
 
@@ -133,6 +134,42 @@ describe('UsersService', () => {
         order: { username: 'ASC' },
         select: ['id', 'username', 'role', 'createdAt'],
       });
+    });
+  });
+
+  describe('getPreferences', () => {
+    it('returns defaults when user has no preferences', async () => {
+      mockRepo.findOne.mockResolvedValue({ ...mockUser, preferences: null });
+
+      const result = await service.getPreferences(1);
+
+      expect(result).toEqual(DEFAULT_PREFERENCES);
+    });
+
+    it('returns merged preferences when user has some', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        preferences: { inactivityThresholdDays: 30 },
+      });
+
+      const result = await service.getPreferences(1);
+
+      expect(result).toEqual({ inactivityThresholdDays: 30 });
+    });
+  });
+
+  describe('updatePreferences', () => {
+    it('deep merges and saves', async () => {
+      mockRepo.findOne.mockResolvedValue({ ...mockUser, preferences: null });
+
+      const result = await service.updatePreferences(1, { inactivityThresholdDays: 7 });
+
+      expect(result).toEqual({ inactivityThresholdDays: 7 });
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preferences: { inactivityThresholdDays: 7 },
+        }),
+      );
     });
   });
 
