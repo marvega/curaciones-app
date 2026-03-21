@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient } from '../services/api';
 import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage } from '../types';
 import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList } from 'lucide-react';
+import WoundEvolutionChart from '../components/WoundEvolutionChart';
 
 const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
   red: 'Rojo (granulaci\u00f3n)',
@@ -946,6 +947,9 @@ export default function PatientPage() {
           </div>
         </div>
       )}
+
+      {/* Wound evolution chart */}
+      {patient && <WoundEvolutionChart patientId={patient.id} />}
 
       {/* Wound photos section */}
       <div className="card p-5 sm:p-6">
