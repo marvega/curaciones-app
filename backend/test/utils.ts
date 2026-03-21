@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { createUser, createAdmin } from './factories';
 
 export async function loginAsUser(app: INestApplication): Promise<string> {
