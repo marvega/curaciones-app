@@ -57,6 +57,46 @@ describe('UsersController (e2e)', () => {
     });
   });
 
+  describe('GET /api/users/me/preferences', () => {
+    it('should return default preferences for authenticated user', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/users/me/preferences')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body).toEqual({ inactivityThresholdDays: 14 });
+    });
+  });
+
+  describe('PUT /api/users/me/preferences', () => {
+    it('should save and return updated preferences', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/api/users/me/preferences')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ inactivityThresholdDays: 30 })
+        .expect(200);
+
+      expect(res.body).toEqual({ inactivityThresholdDays: 30 });
+    });
+
+    it('should persist saved preferences on subsequent GET', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/users/me/preferences')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body).toEqual({ inactivityThresholdDays: 30 });
+    });
+
+    it('should return 400 for invalid value (0)', async () => {
+      await request(app.getHttpServer())
+        .put('/api/users/me/preferences')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ inactivityThresholdDays: 0 })
+        .expect(400);
+    });
+  });
+
   describe('POST /api/users', () => {
     it('should allow admin to create a user', async () => {
       const res = await request(app.getHttpServer())
