@@ -35,11 +35,35 @@ export class PatientsController {
     @Query('rut') rut?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('gender') gender?: string,
+    @Query('curacionType') curacionType?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('ageMin') ageMin?: string,
+    @Query('ageMax') ageMax?: string,
   ) {
     if (rut) {
       const patient = await this.patientsService.findByRut(rut);
       return patient ? patient : { found: false };
     }
+
+    const hasAdvancedFilters = status || gender || curacionType || dateFrom || dateTo || ageMin || ageMax;
+
+    if (hasAdvancedFilters) {
+      return this.patientsService.findAdvanced({
+        page: parseInt(page || '1', 10) || 1,
+        limit: parseInt(limit || '20', 10) || 20,
+        status: status || undefined,
+        gender: gender || undefined,
+        curacionType: curacionType || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        ageMin: ageMin ? parseInt(ageMin, 10) : undefined,
+        ageMax: ageMax ? parseInt(ageMax, 10) : undefined,
+      });
+    }
+
     if (page) {
       return this.patientsService.findPaginated(
         parseInt(page, 10) || 1,

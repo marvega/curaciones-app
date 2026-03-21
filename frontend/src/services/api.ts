@@ -95,6 +95,21 @@ export const getPatientsPaginated = async (
   return data;
 };
 
+export const searchPatientsAdvanced = async (filters: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  gender?: string;
+  curacionType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  ageMin?: number;
+  ageMax?: number;
+}): Promise<PaginatedResponse<Patient>> => {
+  const { data } = await api.get('/patients', { params: filters });
+  return data;
+};
+
 export const updatePatient = async (
   id: number,
   patient: Partial<Patient>,
