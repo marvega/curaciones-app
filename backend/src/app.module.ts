@@ -23,7 +23,7 @@ import { BootstrapService } from './bootstrap.service';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit],
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
     AuthModule,
