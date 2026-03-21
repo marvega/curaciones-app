@@ -25,6 +25,8 @@ import { WoundPhoto } from './wound-photos/wound-photo.entity';
 import { WoundPhotosModule } from './wound-photos/wound-photos.module';
 import { WoundNote } from './wound-notes/wound-note.entity';
 import { WoundNotesModule } from './wound-notes/wound-notes.module';
+import { ConsentSignature } from './consent/consent-signature.entity';
+import { ConsentModule } from './consent/consent.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -37,7 +39,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
@@ -52,6 +54,7 @@ import { BootstrapService } from './bootstrap.service';
     AuditLogModule,
     WoundPhotosModule,
     WoundNotesModule,
+    ConsentModule,
   ],
   controllers: [HealthController],
   providers: [
