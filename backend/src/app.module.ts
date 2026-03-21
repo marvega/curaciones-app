@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { HealthController } from './health.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Patient } from './patients/patient.entity';
@@ -19,6 +21,11 @@ import { BootstrapService } from './bootstrap.service';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: process.env.NODE_ENV === 'test'
+        ? [{ name: 'default', ttl: 60000, limit: 10000 }, { name: 'login', ttl: 60000, limit: 10000 }]
+        : [{ name: 'default', ttl: 60000, limit: 100 }, { name: 'login', ttl: 60000, limit: 5 }],
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
@@ -35,6 +42,9 @@ import { BootstrapService } from './bootstrap.service';
     AppointmentsModule,
   ],
   controllers: [HealthController],
-  providers: [BootstrapService],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    BootstrapService,
+  ],
 })
 export class AppModule {}
