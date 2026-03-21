@@ -36,3 +36,6 @@ backend/.env.test
 
 # Backup credentials
 scripts/.env.backup
+
+# Uploaded files
+backend/uploads/

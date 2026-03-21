@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf } from '../services/api';
-import type { Patient, CuracionType, Appointment, PatientStatusChange } from '../types';
-import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown } from 'lucide-react';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl } from '../services/api';
+import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto } from '../types';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp } from 'lucide-react';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -52,6 +52,16 @@ export default function PatientPage() {
   });
 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Wound photos state
+  const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
+  const [showPhotoSection, setShowPhotoSection] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoDate, setPhotoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [photoDescription, setPhotoDescription] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<WoundPhoto | null>(null);
 
   const [editingCuracion, setEditingCuracion] = useState<any>(null);
   const [curacionEditForm, setCuracionEditForm] = useState({
@@ -107,10 +117,21 @@ export default function PatientPage() {
     }
   };
 
+  const loadWoundPhotos = async () => {
+    if (!id) return;
+    try {
+      const data = await getWoundPhotos(parseInt(id));
+      setWoundPhotos(data);
+    } catch {
+      setWoundPhotos([]);
+    }
+  };
+
   useEffect(() => {
     loadPatient();
     loadAppointments();
     loadStatusHistory();
+    loadWoundPhotos();
   }, [id]);
 
   useEffect(() => {
@@ -297,6 +318,34 @@ export default function PatientPage() {
       await loadAppointments();
     } catch {
       alert('Error al cancelar la cita');
+    }
+  };
+
+  const handleUploadPhoto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patient || !photoFile) return;
+    setUploadingPhoto(true);
+    try {
+      await uploadWoundPhoto(patient.id, photoFile, photoDate, photoDescription || undefined);
+      setPhotoFile(null);
+      setPhotoDate(new Date().toISOString().split('T')[0]);
+      setPhotoDescription('');
+      setShowPhotoUpload(false);
+      await loadWoundPhotos();
+    } catch {
+      alert('Error al subir la foto');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!confirm('¿Desea eliminar esta foto?')) return;
+    try {
+      await deleteWoundPhoto(photoId);
+      await loadWoundPhotos();
+    } catch {
+      alert('Error al eliminar la foto');
     }
   };
 
@@ -811,6 +860,143 @@ export default function PatientPage() {
         </div>
       )}
 
+      {/* Wound photos section */}
+      <div className="card p-5 sm:p-6">
+        <button
+          onClick={() => setShowPhotoSection(!showPhotoSection)}
+          className="w-full flex items-center justify-between cursor-pointer"
+          type="button"
+        >
+          <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Camera className="w-4.5 h-4.5 text-slate-400" />
+            Registro Fotográfico
+            <span className="text-sm font-normal text-slate-400">({woundPhotos.length})</span>
+          </h3>
+          {showPhotoSection ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+
+        {showPhotoSection && (
+          <div className="mt-4">
+            {/* Upload button */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setShowPhotoUpload(!showPhotoUpload)}
+                className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+                {showPhotoUpload ? 'Cancelar' : 'Subir Foto'}
+              </button>
+            </div>
+
+            {/* Upload form */}
+            {showPhotoUpload && (
+              <form onSubmit={handleUploadPhoto} className="space-y-4 mb-6 p-4 bg-slate-50 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Foto *</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                      required
+                      className="form-control w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha *</label>
+                    <input
+                      type="date"
+                      value={photoDate}
+                      onChange={(e) => setPhotoDate(e.target.value)}
+                      required
+                      className="form-control w-full"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Descripción</label>
+                  <textarea
+                    value={photoDescription}
+                    onChange={(e) => setPhotoDescription(e.target.value)}
+                    rows={2}
+                    placeholder="Ej: Herida pierna derecha, segunda semana de tratamiento..."
+                    className="form-control w-full resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={uploadingPhoto || !photoFile}
+                  className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                  {uploadingPhoto ? 'Subiendo...' : 'Subir Foto'}
+                </button>
+              </form>
+            )}
+
+            {/* Photo timeline */}
+            {woundPhotos.length > 0 ? (
+              <div className="space-y-6">
+                {Object.entries(
+                  woundPhotos.reduce<Record<string, WoundPhoto[]>>((groups, photo) => {
+                    const date = photo.photoDate;
+                    if (!groups[date]) groups[date] = [];
+                    groups[date].push(photo);
+                    return groups;
+                  }, {}),
+                ).map(([date, photos]) => (
+                  <div key={date}>
+                    <h4 className="text-sm font-medium text-slate-500 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-400 rounded-full" />
+                      {date}
+                      <span className="text-xs text-slate-400">({photos.length} foto{photos.length !== 1 ? 's' : ''})</span>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {photos.map((photo) => (
+                        <div key={photo.id} className="group relative">
+                          <div
+                            className="aspect-square rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200 hover:border-blue-300 transition-all"
+                            onClick={() => setViewingPhoto(photo)}
+                          >
+                            <img
+                              src={getWoundPhotoUrl(photo.filename)}
+                              alt={photo.description || 'Foto de herida'}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-sm"
+                            type="button"
+                            title="Eliminar foto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          {photo.description && (
+                            <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">{photo.description}</p>
+                          )}
+                          <p className="text-xs text-slate-400 mt-0.5">por {photo.uploadedBy?.username}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-center py-8 text-sm">
+                Sin registro fotográfico
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Curaciones history */}
       <div className="card p-5 sm:p-6">
         <h3 className="text-base font-semibold text-slate-800 mb-4">
@@ -1052,6 +1238,36 @@ export default function PatientPage() {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    )}
+
+    {/* Photo viewer modal */}
+    {viewingPhoto && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={() => setViewingPhoto(null)}
+      >
+        <div
+          className="relative max-w-4xl max-h-[90vh] w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setViewingPhoto(null)}
+            className="absolute -top-10 right-0 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={getWoundPhotoUrl(viewingPhoto.filename)}
+            alt={viewingPhoto.description || 'Foto de herida'}
+            className="w-full h-auto max-h-[80vh] object-contain rounded-xl"
+          />
+          <div className="mt-3 text-white text-sm">
+            <p className="font-medium">{viewingPhoto.photoDate}</p>
+            {viewingPhoto.description && <p className="text-white/80 mt-1">{viewingPhoto.description}</p>}
+            <p className="text-white/60 text-xs mt-1">Subida por {viewingPhoto.uploadedBy?.username}</p>
+          </div>
         </div>
       </div>
     )}
