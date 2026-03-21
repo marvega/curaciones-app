@@ -101,6 +101,20 @@ select {
     transition-all cursor-pointer inline-flex items-center justify-center gap-2;
 }
 
+/* Print: show only QR modal content */
+@media print {
+  body > *:not(.print-qr-container) {
+    visibility: hidden;
+  }
+  .fixed {
+    position: static !important;
+    background: white !important;
+  }
+  .fixed > div {
+    box-shadow: none !important;
+  }
+}
+
 /* iOS zoom prevention */
 @supports (-webkit-touch-callout: none) {
   input, select, textarea {
