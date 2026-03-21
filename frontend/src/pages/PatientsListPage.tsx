@@ -118,9 +118,9 @@ export default function PatientsListPage() {
   return (
     <div className="space-y-6">
       <div className="card">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Todos los Pacientes</h2>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Todos los Pacientes</h2>
             {result && (
               <p className="text-sm text-slate-500 mt-0.5">{result.total} registrados</p>
             )}
@@ -146,14 +146,14 @@ export default function PatientsListPage() {
         </div>
 
         {filtersOpen && (
-          <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Estado</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Estado</label>
                 <select
                   value={filters.status}
                   onChange={(e) => updateFilter('status', e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Todos</option>
                   <option value="active">Activo</option>
@@ -162,11 +162,11 @@ export default function PatientsListPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Genero</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Genero</label>
                 <select
                   value={filters.gender}
                   onChange={(e) => updateFilter('gender', e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Todos</option>
                   <option value="Femenino">Femenino</option>
@@ -175,11 +175,11 @@ export default function PatientsListPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Tipo de curacion</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Tipo de curacion</label>
                 <select
                   value={filters.curacionType}
                   onChange={(e) => updateFilter('curacionType', e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Todos</option>
                   <option value="avanzada">Avanzada</option>
@@ -190,7 +190,7 @@ export default function PatientsListPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Edad min</label>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Edad min</label>
                   <input
                     type="number"
                     min="0"
@@ -198,11 +198,11 @@ export default function PatientsListPage() {
                     value={filters.ageMin}
                     onChange={(e) => updateFilter('ageMin', e.target.value)}
                     placeholder="0"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Edad max</label>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Edad max</label>
                   <input
                     type="number"
                     min="0"
@@ -210,28 +210,28 @@ export default function PatientsListPage() {
                     value={filters.ageMax}
                     onChange={(e) => updateFilter('ageMax', e.target.value)}
                     placeholder="120"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Fecha desde</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Fecha desde</label>
                 <input
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => updateFilter('dateFrom', e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Fecha hasta</label>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Fecha hasta</label>
                 <input
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => updateFilter('dateTo', e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
@@ -271,7 +271,7 @@ export default function PatientsListPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100">
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
                       <th className="text-left py-2.5 px-3 font-medium text-slate-400 text-xs uppercase tracking-wider">RUT</th>
                       <th className="text-left py-2.5 px-3 font-medium text-slate-400 text-xs uppercase tracking-wider">Nombre</th>
                       <th className="text-left py-2.5 px-3 font-medium text-slate-400 text-xs uppercase tracking-wider">Edad</th>
@@ -284,19 +284,19 @@ export default function PatientsListPage() {
                     {result.data.map((patient) => (
                       <tr
                         key={patient.id}
-                        className="border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition-colors"
+                        className="border-b border-slate-50 dark:border-slate-800 hover:bg-blue-50/50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
                         onClick={() => navigate(`/paciente/${patient.id}`)}
                       >
                         <td className="py-3 px-3 font-medium text-blue-600">{patient.rut}</td>
-                        <td className="py-3 px-3 text-slate-800">
+                        <td className="py-3 px-3 text-slate-800 dark:text-slate-200">
                           {patient.firstName} {patient.lastName}
                           {patient.status === 'discharged' && (
                             <span className="ml-2 px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[11px]">Alta</span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-slate-600">{calculateAge(patient.birthDate)}</td>
-                        <td className="py-3 px-3 text-slate-600">{patient.gender}</td>
-                        <td className="py-3 px-3 text-slate-600">{patient.phone || '-'}</td>
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{calculateAge(patient.birthDate)}</td>
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{patient.gender}</td>
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{patient.phone || '-'}</td>
                         <td className="py-3 px-3 text-right">
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/paciente/${patient.id}`); }}
@@ -312,7 +312,7 @@ export default function PatientsListPage() {
               </div>
 
               {result.totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 pt-4 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
                   <p className="text-sm text-slate-500 order-2 sm:order-1">Pag. {result.page} de {result.totalPages}</p>
                   <div className="flex flex-wrap gap-1.5 order-1 sm:order-2">
                     <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}
@@ -330,7 +330,7 @@ export default function PatientsListPage() {
                         ) : (
                           <button key={item} onClick={() => goToPage(item)}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                              item === currentPage ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                              item === currentPage ? 'bg-blue-600 text-white' : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                             }`}>{item}</button>
                         )
                       )}

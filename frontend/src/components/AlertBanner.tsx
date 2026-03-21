@@ -38,10 +38,10 @@ export default function AlertBanner() {
   if (inactiveCount > 0) messages.push(`${inactiveCount} sin atención reciente`);
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between">
+    <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
         <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-        <p className="text-sm text-amber-800">
+        <p className="text-sm text-amber-800 dark:text-amber-200">
           <span className="font-medium">Pacientes pendientes:</span>{' '}
           {messages.join(' · ')}
         </p>
