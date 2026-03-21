@@ -902,6 +902,7 @@ export default function PatientPage() {
                     <input
                       type="file"
                       accept="image/*"
+                      capture="environment"
                       onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
                       required
                       className="form-control w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer"
