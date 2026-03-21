@@ -1,8 +1,11 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CyclesService } from './cycles.service';
 import { UpsertCycleDto } from './cycle.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@ApiTags('Cycles')
+@ApiBearerAuth()
 @Controller('api/cycles')
 @UseGuards(JwtAuthGuard)
 export class CyclesController {
