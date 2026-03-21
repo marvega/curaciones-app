@@ -102,3 +102,35 @@ export interface DetailedReport {
     ulcera_venosa: { total: number; byGender: Record<string, number> };
   };
 }
+
+export interface DashboardTodayItem {
+  id: number;
+  date: string;
+  time: string;
+  patient: { id: number; firstName: string; lastName: string; rut: string };
+  curacion?: { id: number; type: CuracionType };
+  source: 'curacion' | 'standalone';
+}
+
+export interface PatientNoAppointment {
+  id: number;
+  firstName: string;
+  lastName: string;
+  rut: string;
+  lastCuracion: { date: string; type: string } | null;
+  daysSinceLastCuracion: number | null;
+}
+
+export interface PatientInactive {
+  id: number;
+  firstName: string;
+  lastName: string;
+  rut: string;
+  lastCuracionDate: string | null;
+  lastCuracionType: string | null;
+  daysSinceLastCuracion: number | null;
+}
+
+export interface UserPreferences {
+  inactivityThresholdDays: number;
+}

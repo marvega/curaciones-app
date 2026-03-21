@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchPatientByRut, getPatientsPaginated, getAgenda } from '../services/api';
-import type { Patient, AgendaItem } from '../types';
-import { Search, UserPlus, ChevronRight, UserX, Loader2, Users, CalendarCheck, Activity, Clock } from 'lucide-react';
+import { searchPatientByRut, getPatientsPaginated, getAgenda, getDashboardToday, getDashboardNoAppointment, getDashboardInactive, getUserPreferences, updateUserPreferences } from '../services/api';
+import type { Patient, AgendaItem, DashboardTodayItem, PatientNoAppointment, PatientInactive } from '../types';
+import { Search, UserPlus, ChevronRight, UserX, Loader2, Users, CalendarCheck, Activity, Clock, AlertTriangle, CalendarOff, Clock3 } from 'lucide-react';
 
 export default function HomePage() {
   const [rut, setRut] = useState('');
@@ -15,6 +15,15 @@ export default function HomePage() {
   const [totalPatients, setTotalPatients] = useState<number | null>(null);
   const [todayAppointments, setTodayAppointments] = useState<AgendaItem[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // Dashboard sections
+  const [dashToday, setDashToday] = useState<DashboardTodayItem[]>([]);
+  const [dashTodayLoading, setDashTodayLoading] = useState(true);
+  const [noAppt, setNoAppt] = useState<PatientNoAppointment[]>([]);
+  const [noApptLoading, setNoApptLoading] = useState(true);
+  const [inactive, setInactive] = useState<PatientInactive[]>([]);
+  const [inactiveLoading, setInactiveLoading] = useState(true);
+  const [thresholdDays, setThresholdDays] = useState(14);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -38,6 +47,33 @@ export default function HomePage() {
     };
     loadStats();
   }, []);
+
+  useEffect(() => {
+    getDashboardToday().then(setDashToday).catch(() => {}).finally(() => setDashTodayLoading(false));
+    getDashboardNoAppointment().then(setNoAppt).catch(() => {}).finally(() => setNoApptLoading(false));
+    getUserPreferences().then(prefs => {
+      setThresholdDays(prefs.inactivityThresholdDays);
+      return getDashboardInactive(prefs.inactivityThresholdDays);
+    }).then(setInactive).catch(() => {}).finally(() => setInactiveLoading(false));
+  }, []);
+
+  const handleThresholdChange = async (days: number) => {
+    setThresholdDays(days);
+    setInactiveLoading(true);
+    try {
+      await updateUserPreferences({ inactivityThresholdDays: days });
+      const data = await getDashboardInactive(days);
+      setInactive(data);
+    } catch { /* silently fail */ }
+    finally { setInactiveLoading(false); }
+  };
+
+  const urgencyBadge = (days: number | null) => {
+    if (days === null) return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-700">Sin atenciones</span>;
+    if (days > 30) return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-700">{days} días</span>;
+    if (days > 14) return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">{days} días</span>;
+    return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">{days} días</span>;
+  };
 
   const formatRut = (value: string) => {
     const clean = value.replace(/[^0-9kK]/g, '');
@@ -256,6 +292,172 @@ export default function HomePage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Dashboard cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Card 1: Citas de hoy */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Clock3 className="w-4 h-4 text-blue-600" />
+            </div>
+            <h2 className="text-base font-semibold text-slate-800">Citas de hoy</h2>
+          </div>
+
+          {dashTodayLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2">
+                  <div className="skeleton h-4 w-12" />
+                  <div className="skeleton h-4 flex-1" />
+                  <div className="skeleton h-5 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : dashToday.length === 0 ? (
+            <div className="text-center py-10">
+              <Clock3 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">No hay citas para hoy</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {dashToday.map((item) => (
+                <div
+                  key={`${item.source}-${item.id}`}
+                  onClick={() => navigate(`/paciente/${item.patient.id}`)}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <span className="text-sm font-bold text-blue-600 w-12 shrink-0">{item.time}</span>
+                  <span className="text-sm text-slate-800 truncate flex-1">
+                    {item.patient.firstName} {item.patient.lastName}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
+                    item.source === 'curacion'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'bg-emerald-50 text-emerald-700'
+                  }`}>
+                    {item.source === 'curacion' && item.curacion
+                      ? item.curacion.type.replace('_', ' ')
+                      : 'Cita'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Card 2: Pacientes sin cita agendada */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+              <CalendarOff className="w-4 h-4 text-amber-600" />
+            </div>
+            <h2 className="text-base font-semibold text-slate-800">Pacientes sin cita agendada</h2>
+          </div>
+
+          {noApptLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2">
+                  <div className="skeleton h-4 flex-1" />
+                  <div className="skeleton h-4 w-20" />
+                  <div className="skeleton h-5 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : noAppt.length === 0 ? (
+            <div className="text-center py-10">
+              <CalendarOff className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Todos los pacientes tienen cita</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {noAppt.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => navigate(`/paciente/${p.id}`)}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{p.firstName} {p.lastName}</p>
+                    <p className="text-[11px] text-slate-400">{p.rut}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {p.lastCuracion ? (
+                      <p className="text-[11px] text-slate-400">{p.lastCuracion.type.replace('_', ' ')}</p>
+                    ) : (
+                      <p className="text-[11px] text-slate-400">Sin curaciones</p>
+                    )}
+                  </div>
+                  {urgencyBadge(p.daysSinceLastCuracion)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Card 3: Pacientes sin atención reciente */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-800">Sin atención reciente</h2>
+            </div>
+            <select
+              value={thresholdDays}
+              onChange={(e) => handleThresholdChange(Number(e.target.value))}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-600 bg-white"
+            >
+              <option value={7}>7 días</option>
+              <option value={14}>14 días</option>
+              <option value={21}>21 días</option>
+              <option value={30}>30 días</option>
+            </select>
+          </div>
+
+          {inactiveLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2">
+                  <div className="skeleton h-4 flex-1" />
+                  <div className="skeleton h-4 w-20" />
+                  <div className="skeleton h-5 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : inactive.length === 0 ? (
+            <div className="text-center py-10">
+              <AlertTriangle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Todos los pacientes están al día</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {inactive.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => navigate(`/paciente/${p.id}`)}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{p.firstName} {p.lastName}</p>
+                    <p className="text-[11px] text-slate-400">{p.rut}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {p.lastCuracionDate ? (
+                      <p className="text-[11px] text-slate-400">{p.lastCuracionType?.replace('_', ' ')}</p>
+                    ) : (
+                      <p className="text-[11px] text-slate-400">Nunca</p>
+                    )}
+                  </div>
+                  {urgencyBadge(p.daysSinceLastCuracion)}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

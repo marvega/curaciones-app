@@ -10,6 +10,10 @@ import type {
   Appointment,
   AgendaItem,
   PatientStatusChange,
+  DashboardTodayItem,
+  PatientNoAppointment,
+  PatientInactive,
+  UserPreferences,
 } from '../types';
 
 const api = axios.create({
@@ -235,5 +239,32 @@ export const getAuditLogs = async (params: {
   to?: string;
 }) => {
   const { data } = await api.get('/audit-logs', { params });
+  return data;
+};
+
+// Dashboard
+export const getDashboardToday = async (): Promise<DashboardTodayItem[]> => {
+  const { data } = await api.get('/dashboard/today');
+  return data;
+};
+
+export const getDashboardNoAppointment = async (): Promise<PatientNoAppointment[]> => {
+  const { data } = await api.get('/dashboard/no-appointment');
+  return data;
+};
+
+export const getDashboardInactive = async (days: number): Promise<PatientInactive[]> => {
+  const { data } = await api.get('/dashboard/inactive', { params: { days } });
+  return data;
+};
+
+// User Preferences
+export const getUserPreferences = async (): Promise<UserPreferences> => {
+  const { data } = await api.get('/users/me/preferences');
+  return data;
+};
+
+export const updateUserPreferences = async (prefs: Partial<UserPreferences>): Promise<UserPreferences> => {
+  const { data } = await api.put('/users/me/preferences', prefs);
   return data;
 };
