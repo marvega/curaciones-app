@@ -268,3 +268,16 @@ export const updateUserPreferences = async (prefs: Partial<UserPreferences>): Pr
   const { data } = await api.put('/users/me/preferences', prefs);
   return data;
 };
+
+// PDF Export
+export const downloadPatientPdf = async (patientId: number): Promise<void> => {
+  const response = await api.get(`/patients/${patientId}/pdf`, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `ficha-paciente-${patientId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};

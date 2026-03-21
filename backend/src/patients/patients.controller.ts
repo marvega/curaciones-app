@@ -10,10 +10,12 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import type { Request } from 'express';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { PatientsService } from './patients.service';
+import { PatientPdfService } from './patient-pdf.service';
 import { CreatePatientDto } from './create-patient.dto';
 import { UpdatePatientDto } from './update-patient.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,7 +25,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @Controller('api/patients')
 @UseGuards(JwtAuthGuard)
 export class PatientsController {
-  constructor(private readonly patientsService: PatientsService) {}
+  constructor(
+    private readonly patientsService: PatientsService,
+    private readonly patientPdfService: PatientPdfService,
+  ) {}
 
   @Get()
   async find(
@@ -42,6 +47,21 @@ export class PatientsController {
       );
     }
     return this.patientsService.findAll();
+  }
+
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Download patient clinical record as PDF' })
+  async downloadPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.patientPdfService.generatePdf(id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="ficha-paciente-${id}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 
   @Get(':id')

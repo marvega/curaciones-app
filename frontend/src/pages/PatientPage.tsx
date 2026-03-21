@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion } from '../services/api';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf } from '../services/api';
 import type { Patient, CuracionType, Appointment, PatientStatusChange } from '../types';
-import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText } from 'lucide-react';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown } from 'lucide-react';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -50,6 +50,8 @@ export default function PatientPage() {
     phone: '',
     address: '',
   });
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const [editingCuracion, setEditingCuracion] = useState<any>(null);
   const [curacionEditForm, setCuracionEditForm] = useState({
@@ -389,6 +391,24 @@ export default function PatientPage() {
               title="Editar paciente"
             >
               <Pencil className="w-4.5 h-4.5" />
+            </button>
+            <button
+              onClick={async () => {
+                if (!patient) return;
+                setDownloadingPdf(true);
+                try {
+                  await downloadPatientPdf(patient.id);
+                } catch {
+                  alert('Error al descargar PDF');
+                } finally {
+                  setDownloadingPdf(false);
+                }
+              }}
+              disabled={downloadingPdf}
+              className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+              title="Descargar ficha clínica PDF"
+            >
+              {downloadingPdf ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <FileDown className="w-4.5 h-4.5" />}
             </button>
             <button
               onClick={() => setShowDeleteModal(true)}
