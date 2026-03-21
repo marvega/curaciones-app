@@ -1,9 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl } from '../services/api';
-import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto } from '../types';
-import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp } from 'lucide-react';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient } from '../services/api';
+import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage } from '../types';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList } from 'lucide-react';
+
+const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
+  red: 'Rojo (granulaci\u00f3n)',
+  yellow: 'Amarillo (esfacelo)',
+  black: 'Negro (necr\u00f3tico)',
+  pink: 'Rosado (epitelizando)',
+  mixed: 'Mixto',
+};
+
+const EXUDATE_LABELS: Record<ExudateLevel, string> = {
+  none: 'Sin exudado',
+  low: 'Bajo',
+  moderate: 'Moderado',
+  high: 'Alto',
+};
+
+const HEALING_STAGE_LABELS: Record<HealingStage, string> = {
+  inflammatory: 'Inflamatoria',
+  proliferative: 'Proliferativa',
+  maturation: 'Maduraci\u00f3n',
+  chronic: 'Cr\u00f3nica',
+};
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -62,6 +84,19 @@ export default function PatientPage() {
   const [photoDescription, setPhotoDescription] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<WoundPhoto | null>(null);
+
+  // Wound notes state
+  const [woundNotes, setWoundNotes] = useState<Record<number, WoundNote>>({});
+  const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteForm, setNoteForm] = useState({
+    woundWidth: '',
+    woundLength: '',
+    woundColor: '' as string,
+    exudateLevel: '' as string,
+    healingStage: '' as string,
+    notes: '',
+  });
 
   const [editingCuracion, setEditingCuracion] = useState<any>(null);
   const [curacionEditForm, setCuracionEditForm] = useState({
@@ -127,11 +162,26 @@ export default function PatientPage() {
     }
   };
 
+  const loadWoundNotes = async () => {
+    if (!id) return;
+    try {
+      const data = await getWoundNotesByPatient(parseInt(id));
+      const map: Record<number, WoundNote> = {};
+      for (const note of data) {
+        map[note.curacionId] = note;
+      }
+      setWoundNotes(map);
+    } catch {
+      setWoundNotes({});
+    }
+  };
+
   useEffect(() => {
     loadPatient();
     loadAppointments();
     loadStatusHistory();
     loadWoundPhotos();
+    loadWoundNotes();
   }, [id]);
 
   useEffect(() => {
@@ -190,6 +240,43 @@ export default function PatientPage() {
     };
     fetchAvailability();
   }, [curacionEditForm.appointmentDate]);
+
+  const handleToggleNoteForm = (curacionId: number) => {
+    if (expandedNoteId === curacionId) {
+      setExpandedNoteId(null);
+    } else {
+      setExpandedNoteId(curacionId);
+      setNoteForm({
+        woundWidth: '',
+        woundLength: '',
+        woundColor: '',
+        exudateLevel: '',
+        healingStage: '',
+        notes: '',
+      });
+    }
+  };
+
+  const handleSaveWoundNote = async (e: React.FormEvent, curacionId: number) => {
+    e.preventDefault();
+    setSavingNote(true);
+    try {
+      const payload: any = { curacionId };
+      if (noteForm.woundWidth) payload.woundWidth = parseFloat(noteForm.woundWidth);
+      if (noteForm.woundLength) payload.woundLength = parseFloat(noteForm.woundLength);
+      if (noteForm.woundColor) payload.woundColor = noteForm.woundColor;
+      if (noteForm.exudateLevel) payload.exudateLevel = noteForm.exudateLevel;
+      if (noteForm.healingStage) payload.healingStage = noteForm.healingStage;
+      if (noteForm.notes.trim()) payload.notes = noteForm.notes.trim();
+      await createWoundNote(payload);
+      setExpandedNoteId(null);
+      await loadWoundNotes();
+    } catch {
+      alert('Error al guardar la nota de evoluci\u00f3n');
+    } finally {
+      setSavingNote(false);
+    }
+  };
 
   const handleOpenEdit = (curacion: any) => {
     setEditingCuracion(curacion);
@@ -1022,53 +1109,238 @@ export default function PatientPage() {
                     Cant.
                   </th>
                   <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
-                    Próxima Cita
+                    Pr&oacute;xima Cita
                   </th>
                   <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Observaciones
                   </th>
+                  <th className="text-center py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
+                    Nota
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {patient.curaciones.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="py-3 px-2 text-slate-800">
-                      {c.date}
-                      {c.edits && c.edits.length > 0 && (
-                        <span className="ml-1.5 inline-flex" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
-                          <Pencil className="w-3 h-3 text-slate-400" />
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {isAdmin ? (
-                        <span
-                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(c); }}
-                          className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-100 transition-all"
-                          title="Click para editar"
-                        >
-                          {CURACION_LABELS[c.type]}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
-                          {CURACION_LABELS[c.type]}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-2 text-center font-medium text-slate-800">
-                      {c.quantity || 1}
-                    </td>
-                    <td className="py-3 px-2 text-slate-600">
-                      {c.appointment ? `${c.appointment.date} ${c.appointment.time}` : '-'}
-                    </td>
-                    <td className="py-3 px-2 text-slate-500">
-                      {c.observations || '-'}
-                    </td>
-                  </tr>
-                ))}
+                {patient.curaciones.map((c) => {
+                  const existingNote = woundNotes[c.id];
+                  const isExpanded = expandedNoteId === c.id;
+                  return (
+                    <tr key={c.id} className="border-b border-slate-100">
+                      <td colSpan={6} className="p-0">
+                        <div className="flex items-center hover:bg-slate-50 transition-colors">
+                          <div className="py-3 px-2 text-slate-800 flex-shrink-0" style={{ width: '16%' }}>
+                            {c.date}
+                            {c.edits && c.edits.length > 0 && (
+                              <span className="ml-1.5 inline-flex" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
+                                <Pencil className="w-3 h-3 text-slate-400" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="py-3 px-2 flex-shrink-0" style={{ width: '24%' }}>
+                            {isAdmin ? (
+                              <span
+                                onClick={(e) => { e.stopPropagation(); handleOpenEdit(c); }}
+                                className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-100 transition-all"
+                                title="Click para editar"
+                              >
+                                {CURACION_LABELS[c.type]}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
+                                {CURACION_LABELS[c.type]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="py-3 px-2 text-center font-medium text-slate-800 flex-shrink-0" style={{ width: '8%' }}>
+                            {c.quantity || 1}
+                          </div>
+                          <div className="py-3 px-2 text-slate-600 flex-shrink-0" style={{ width: '20%' }}>
+                            {c.appointment ? `${c.appointment.date} ${c.appointment.time}` : '-'}
+                          </div>
+                          <div className="py-3 px-2 text-slate-500 flex-1 min-w-0 truncate">
+                            {c.observations || '-'}
+                          </div>
+                          <div className="py-3 px-2 text-center flex-shrink-0" style={{ width: '8%' }}>
+                            {existingNote ? (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedNoteId(isExpanded ? null : c.id)}
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                                title="Ver nota de evoluci&oacute;n"
+                              >
+                                <ClipboardList className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleNoteForm(c.id)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                                title="Agregar nota de evoluci&oacute;n"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Expanded wound note display or form */}
+                        {isExpanded && existingNote && (
+                          <div className="px-4 pb-4">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm">
+                              <div className="flex items-center gap-2 mb-3">
+                                <ClipboardList className="w-4 h-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-800">Nota de Evoluci&oacute;n</span>
+                                <span className="text-xs text-emerald-600 ml-auto">por {existingNote.recordedBy?.username}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {(existingNote.woundWidth != null || existingNote.woundLength != null) && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Dimensiones</span>
+                                    <span className="text-slate-800 font-medium">
+                                      {existingNote.woundWidth ?? '-'} x {existingNote.woundLength ?? '-'} cm
+                                    </span>
+                                  </div>
+                                )}
+                                {existingNote.woundArea != null && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">&Aacute;rea</span>
+                                    <span className="text-slate-800 font-medium">{existingNote.woundArea} cm&sup2;</span>
+                                  </div>
+                                )}
+                                {existingNote.woundColor && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Color</span>
+                                    <span className="text-slate-800 font-medium">{WOUND_COLOR_LABELS[existingNote.woundColor]}</span>
+                                  </div>
+                                )}
+                                {existingNote.exudateLevel && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Exudado</span>
+                                    <span className="text-slate-800 font-medium">{EXUDATE_LABELS[existingNote.exudateLevel]}</span>
+                                  </div>
+                                )}
+                                {existingNote.healingStage && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Etapa</span>
+                                    <span className="text-slate-800 font-medium">{HEALING_STAGE_LABELS[existingNote.healingStage]}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {existingNote.notes && (
+                                <div className="mt-3 pt-3 border-t border-emerald-200">
+                                  <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Notas</span>
+                                  <p className="text-slate-700">{existingNote.notes}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {isExpanded && !existingNote && (
+                          <div className="px-4 pb-4">
+                            <form onSubmit={(e) => handleSaveWoundNote(e, c.id)} className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <ClipboardList className="w-4 h-4 text-blue-600" />
+                                <span className="font-medium text-blue-800 text-sm">Nueva Nota de Evoluci&oacute;n</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Ancho (cm)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={noteForm.woundWidth}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundWidth: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Largo (cm)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={noteForm.woundLength}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundLength: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Color de herida</label>
+                                  <select
+                                    value={noteForm.woundColor}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundColor: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {Object.entries(WOUND_COLOR_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Nivel de exudado</label>
+                                  <select
+                                    value={noteForm.exudateLevel}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, exudateLevel: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {Object.entries(EXUDATE_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Etapa de cicatrizaci&oacute;n</label>
+                                  <select
+                                    value={noteForm.healingStage}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, healingStage: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {Object.entries(HEALING_STAGE_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">Notas libres</label>
+                                <textarea
+                                  value={noteForm.notes}
+                                  onChange={(e) => setNoteForm(prev => ({ ...prev, notes: e.target.value }))}
+                                  rows={2}
+                                  className="form-control w-full text-sm resize-none"
+                                  placeholder="Observaciones sobre el estado de la herida..."
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedNoteId(null)}
+                                  className="btn-secondary text-sm cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={savingNote}
+                                  className="btn-primary text-sm cursor-pointer flex items-center gap-2"
+                                >
+                                  {savingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                  {savingNote ? 'Guardando...' : 'Guardar nota'}
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

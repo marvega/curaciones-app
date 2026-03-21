@@ -144,3 +144,28 @@ export interface WoundPhoto {
   createdAt: string;
   uploadedBy: { id: number; username: string };
 }
+
+export type WoundColor = 'red' | 'yellow' | 'black' | 'pink' | 'mixed';
+export type ExudateLevel = 'none' | 'low' | 'moderate' | 'high';
+export type HealingStage = 'inflammatory' | 'proliferative' | 'maturation' | 'chronic';
+
+export interface WoundNote {
+  id: number;
+  curacionId: number;
+  woundWidth: number | null;
+  woundLength: number | null;
+  woundArea: number | null;
+  woundColor: WoundColor | null;
+  exudateLevel: ExudateLevel | null;
+  healingStage: HealingStage | null;
+  notes: string | null;
+  createdAt: string;
+  recordedBy: { id: number; username: string };
+}
+
+export interface WoundEvolutionPoint {
+  date: string;
+  woundArea: number | null;
+  woundColor: WoundColor | null;
+  healingStage: HealingStage | null;
+}
