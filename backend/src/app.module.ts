@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { HealthController } from './health.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -17,6 +17,9 @@ import { CyclesModule } from './cycles/cycles.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { AuditLog } from './audit-log/audit-log.entity';
+import { AuditLogModule } from './audit-log/audit-log.module';
+import { AuditLogInterceptor } from './audit-log/audit-log.interceptor';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -29,7 +32,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
@@ -40,10 +43,12 @@ import { BootstrapService } from './bootstrap.service';
     ReportsModule,
     CyclesModule,
     AppointmentsModule,
+    AuditLogModule,
   ],
   controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     BootstrapService,
   ],
 })
