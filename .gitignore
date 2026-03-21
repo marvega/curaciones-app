@@ -30,3 +30,9 @@ npm-debug.log*
 # SQLite (ya no usado, pero por si acaso)
 *.sqlite
 *.sqlite3
+
+# Test environment
+backend/.env.test
+
+# Backup credentials
+scripts/.env.backup
