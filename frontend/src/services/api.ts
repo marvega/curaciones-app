@@ -14,6 +14,7 @@ import type {
   PatientNoAppointment,
   PatientInactive,
   UserPreferences,
+  WoundPhoto,
 } from '../types';
 
 const api = axios.create({
@@ -267,6 +268,38 @@ export const getUserPreferences = async (): Promise<UserPreferences> => {
 export const updateUserPreferences = async (prefs: Partial<UserPreferences>): Promise<UserPreferences> => {
   const { data } = await api.put('/users/me/preferences', prefs);
   return data;
+};
+
+// Wound Photos
+export const getWoundPhotos = async (patientId: number): Promise<WoundPhoto[]> => {
+  const { data } = await api.get(`/wound-photos/patient/${patientId}`);
+  return data;
+};
+
+export const uploadWoundPhoto = async (
+  patientId: number,
+  photo: File,
+  photoDate: string,
+  description?: string,
+): Promise<WoundPhoto> => {
+  const formData = new FormData();
+  formData.append('photo', photo);
+  formData.append('patientId', String(patientId));
+  formData.append('photoDate', photoDate);
+  if (description) formData.append('description', description);
+  const { data } = await api.post('/wound-photos', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
+
+export const deleteWoundPhoto = async (id: number): Promise<void> => {
+  await api.delete(`/wound-photos/${id}`);
+};
+
+export const getWoundPhotoUrl = (filename: string): string => {
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  return `${baseURL}/wound-photos/file/${filename}`;
 };
 
 // PDF Export

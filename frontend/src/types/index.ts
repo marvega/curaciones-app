@@ -134,3 +134,13 @@ export interface PatientInactive {
 export interface UserPreferences {
   inactivityThresholdDays: number;
 }
+
+export interface WoundPhoto {
+  id: number;
+  patientId: number;
+  filename: string;
+  description: string | null;
+  photoDate: string;
+  createdAt: string;
+  uploadedBy: { id: number; username: string };
+}

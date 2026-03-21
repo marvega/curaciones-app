@@ -21,6 +21,8 @@ import { AuditLog } from './audit-log/audit-log.entity';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuditLogInterceptor } from './audit-log/audit-log.interceptor';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { WoundPhoto } from './wound-photos/wound-photo.entity';
+import { WoundPhotosModule } from './wound-photos/wound-photos.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -33,7 +35,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
@@ -46,6 +48,7 @@ import { BootstrapService } from './bootstrap.service';
     AppointmentsModule,
     DashboardModule,
     AuditLogModule,
+    WoundPhotosModule,
   ],
   controllers: [HealthController],
   providers: [
