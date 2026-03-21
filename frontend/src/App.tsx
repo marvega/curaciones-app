@@ -11,6 +11,7 @@ import MonthlyReportPage from './pages/MonthlyReportPage';
 import DetailedReportPage from './pages/DetailedReportPage';
 import PatientsListPage from './pages/PatientsListPage';
 import UsersPage from './pages/UsersPage';
+import AuditLogPage from './pages/AuditLogPage';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
               <Route path="reportes/mensual" element={<MonthlyReportPage />} />
               <Route path="reportes/detallado" element={<DetailedReportPage />} />
               <Route path="usuarios" element={<UsersPage />} />
+              <Route path="audit-log" element={<AuditLogPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -225,3 +225,15 @@ export const getPatientStatusHistory = async (
   const { data } = await api.get(`/patients/${id}/status-history`);
   return data;
 };
+
+// Audit Logs (admin only)
+export const getAuditLogs = async (params: {
+  page?: number;
+  limit?: number;
+  entity?: string;
+  from?: string;
+  to?: string;
+}) => {
+  const { data } = await api.get('/audit-logs', { params });
+  return data;
+};
