@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient, saveConsentSignature, getConsentSignatures, getConsentSignatureUrl } from '../services/api';
 import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage, ConsentSignature } from '../types';
-import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool } from 'lucide-react';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import WoundEvolutionChart from '../components/WoundEvolutionChart';
 
 const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
@@ -75,6 +76,7 @@ export default function PatientPage() {
   });
 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   // Wound photos state
   const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
@@ -644,6 +646,13 @@ export default function PatientPage() {
               title="Descargar ficha clínica PDF"
             >
               {downloadingPdf ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <FileDown className="w-4.5 h-4.5" />}
+            </button>
+            <button
+              onClick={() => setShowQR(true)}
+              className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all cursor-pointer"
+              title="Código QR del paciente"
+            >
+              <QrCode className="w-4.5 h-4.5" />
             </button>
             <button
               onClick={() => setShowDeleteModal(true)}
@@ -1849,6 +1858,36 @@ export default function PatientPage() {
             <button type="button" onClick={() => handleDischarge(true)} disabled={saving}
               className="btn-danger cursor-pointer">
               {saving ? 'Procesando...' : (appointments.length > 0 ? 'Alta y cancelar citas' : 'Confirmar Alta')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {/* QR code modal */}
+    {showQR && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 print:bg-white print:backdrop-blur-none"
+        onClick={() => setShowQR(false)}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center print:shadow-none print:rounded-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <QRCodeSVG value={patient.rut} size={200} level="M" className="mx-auto" />
+          <p className="mt-4 text-lg font-bold text-slate-800">{patient.firstName} {patient.lastName}</p>
+          <p className="text-sm text-slate-500">{patient.rut}</p>
+          <div className="flex gap-3 mt-6 print:hidden">
+            <button
+              onClick={() => window.print()}
+              className="btn-primary flex-1 cursor-pointer"
+            >
+              Imprimir
+            </button>
+            <button
+              onClick={() => setShowQR(false)}
+              className="btn-secondary flex-1 cursor-pointer"
+            >
+              Cerrar
             </button>
           </div>
         </div>
