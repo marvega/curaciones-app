@@ -20,6 +20,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { AuditLog } from './audit-log/audit-log.entity';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuditLogInterceptor } from './audit-log/audit-log.interceptor';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -43,6 +44,7 @@ import { BootstrapService } from './bootstrap.service';
     ReportsModule,
     CyclesModule,
     AppointmentsModule,
+    DashboardModule,
     AuditLogModule,
   ],
   controllers: [HealthController],
