@@ -169,3 +169,12 @@ export interface WoundEvolutionPoint {
   woundColor: WoundColor | null;
   healingStage: HealingStage | null;
 }
+
+export interface ConsentSignature {
+  id: number;
+  patientId: number;
+  filename: string;
+  consentText: string | null;
+  signedAt: string;
+  witnessedBy: { id: number; username: string };
+}

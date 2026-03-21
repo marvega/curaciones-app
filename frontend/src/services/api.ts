@@ -17,6 +17,7 @@ import type {
   WoundPhoto,
   WoundNote,
   WoundEvolutionPoint,
+  ConsentSignature,
 } from '../types';
 
 const api = axios.create({
@@ -346,6 +347,26 @@ export const getWoundNotesByPatient = async (patientId: number): Promise<WoundNo
 export const getWoundEvolution = async (patientId: number): Promise<WoundEvolutionPoint[]> => {
   const { data } = await api.get(`/wound-notes/evolution/${patientId}`);
   return data;
+};
+
+// Consent Signatures
+export const saveConsentSignature = async (
+  patientId: number,
+  signature: string,
+  consentText?: string,
+): Promise<ConsentSignature> => {
+  const { data } = await api.post('/consent', { patientId, signature, consentText });
+  return data;
+};
+
+export const getConsentSignatures = async (patientId: number): Promise<ConsentSignature[]> => {
+  const { data } = await api.get(`/consent/patient/${patientId}`);
+  return data;
+};
+
+export const getConsentSignatureUrl = (filename: string): string => {
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  return `${baseURL}/consent/file/${filename}`;
 };
 
 // PDF Export

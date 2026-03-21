@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient } from '../services/api';
-import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage } from '../types';
-import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList } from 'lucide-react';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient, saveConsentSignature, getConsentSignatures, getConsentSignatureUrl } from '../services/api';
+import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage, ConsentSignature } from '../types';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool } from 'lucide-react';
 import WoundEvolutionChart from '../components/WoundEvolutionChart';
 
 const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
@@ -99,6 +99,76 @@ export default function PatientPage() {
     notes: '',
   });
 
+  // Consent signatures state
+  const [consentSignatures, setConsentSignatures] = useState<ConsentSignature[]>([]);
+  const [showConsentSection, setShowConsentSection] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [consentText, setConsentText] = useState('Autorizo la realizaci\u00f3n de los procedimientos de curaci\u00f3n indicados por el profesional de enfermer\u00eda.');
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [viewingSignature, setViewingSignature] = useState<ConsentSignature | null>(null);
+  const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+
+  const getCanvasPos = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const canvas = signatureCanvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: ((e as React.MouseEvent).clientX - rect.left) * scaleX,
+      y: ((e as React.MouseEvent).clientY - rect.top) * scaleY,
+    };
+  }, []);
+
+  const handleCanvasStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getCanvasPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    setIsDrawing(true);
+    setHasSignature(true);
+  }, [getCanvasPos]);
+
+  const handleCanvasMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getCanvasPos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }, [isDrawing, getCanvasPos]);
+
+  const handleCanvasEnd = useCallback(() => {
+    setIsDrawing(false);
+  }, []);
+
+  const clearSignatureCanvas = useCallback(() => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+  }, []);
+
   const [editingCuracion, setEditingCuracion] = useState<any>(null);
   const [curacionEditForm, setCuracionEditForm] = useState({
     type: '' as CuracionType,
@@ -177,12 +247,23 @@ export default function PatientPage() {
     }
   };
 
+  const loadConsentSignatures = async () => {
+    if (!id) return;
+    try {
+      const data = await getConsentSignatures(parseInt(id));
+      setConsentSignatures(data);
+    } catch {
+      setConsentSignatures([]);
+    }
+  };
+
   useEffect(() => {
     loadPatient();
     loadAppointments();
     loadStatusHistory();
     loadWoundPhotos();
     loadWoundNotes();
+    loadConsentSignatures();
   }, [id]);
 
   useEffect(() => {
@@ -434,6 +515,23 @@ export default function PatientPage() {
       await loadWoundPhotos();
     } catch {
       alert('Error al eliminar la foto');
+    }
+  };
+
+  const handleSaveSignature = async () => {
+    if (!patient || !signatureCanvasRef.current || !hasSignature) return;
+    setSavingSignature(true);
+    try {
+      const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+      await saveConsentSignature(patient.id, dataUrl, consentText || undefined);
+      clearSignatureCanvas();
+      setShowSignaturePad(false);
+      setConsentText('Autorizo la realizaci\u00f3n de los procedimientos de curaci\u00f3n indicados por el profesional de enfermer\u00eda.');
+      await loadConsentSignatures();
+    } catch {
+      alert('Error al guardar la firma');
+    } finally {
+      setSavingSignature(false);
     }
   };
 
@@ -1089,6 +1187,138 @@ export default function PatientPage() {
         )}
       </div>
 
+      {/* Consent signatures section */}
+      <div className="card p-5 sm:p-6">
+        <button
+          onClick={() => setShowConsentSection(!showConsentSection)}
+          className="w-full flex items-center justify-between cursor-pointer"
+          type="button"
+        >
+          <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <PenTool className="w-4.5 h-4.5 text-slate-400" />
+            Consentimiento Informado
+            <span className="text-sm font-normal text-slate-400">({consentSignatures.length})</span>
+          </h3>
+          {showConsentSection ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+
+        {showConsentSection && (
+          <div className="mt-4">
+            {/* Signature pad toggle */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => { setShowSignaturePad(!showSignaturePad); if (!showSignaturePad) setHasSignature(false); }}
+                className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+                {showSignaturePad ? 'Cancelar' : 'Nueva Firma'}
+              </button>
+            </div>
+
+            {/* Signature pad */}
+            {showSignaturePad && (
+              <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Texto del consentimiento</label>
+                  <textarea
+                    value={consentText}
+                    onChange={(e) => setConsentText(e.target.value)}
+                    rows={3}
+                    className="form-control w-full resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Firma del paciente</label>
+                  <div className="bg-white border-2 border-dashed border-slate-300 rounded-xl overflow-hidden">
+                    <canvas
+                      ref={signatureCanvasRef}
+                      width={600}
+                      height={200}
+                      className="w-full touch-none cursor-crosshair"
+                      style={{ height: '200px' }}
+                      onMouseDown={handleCanvasStart}
+                      onMouseMove={handleCanvasMove}
+                      onMouseUp={handleCanvasEnd}
+                      onMouseLeave={handleCanvasEnd}
+                      onTouchStart={handleCanvasStart}
+                      onTouchMove={handleCanvasMove}
+                      onTouchEnd={handleCanvasEnd}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Dibuje la firma con el mouse o el dedo en pantalla t&aacute;ctil</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={clearSignatureCanvas}
+                    className="btn-secondary text-sm cursor-pointer"
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSignature}
+                    disabled={savingSignature || !hasSignature}
+                    className="btn-primary text-sm cursor-pointer flex items-center gap-2"
+                  >
+                    {savingSignature ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenTool className="w-3.5 h-3.5" />}
+                    {savingSignature ? 'Guardando...' : 'Guardar Firma'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Signatures list */}
+            {consentSignatures.length > 0 ? (
+              <div className="space-y-4">
+                {consentSignatures.map((sig) => (
+                  <div key={sig.id} className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-sm font-medium text-slate-800">
+                            {new Date(sig.signedAt).toLocaleDateString('es-CL')}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(sig.signedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            Testigo: {sig.witnessedBy?.username}
+                          </span>
+                        </div>
+                        {sig.consentText && (
+                          <p className="text-sm text-slate-600 mb-2">{sig.consentText}</p>
+                        )}
+                      </div>
+                      <div
+                        className="flex-shrink-0 w-32 h-16 border border-slate-200 rounded-lg overflow-hidden bg-white cursor-pointer hover:border-blue-300 transition-all"
+                        onClick={() => setViewingSignature(sig)}
+                      >
+                        <img
+                          src={getConsentSignatureUrl(sig.filename)}
+                          alt="Firma"
+                          className="w-full h-full object-contain"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-center py-8 text-sm">
+                Sin firmas de consentimiento registradas
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Curaciones history */}
       <div className="card p-5 sm:p-6">
         <h3 className="text-base font-semibold text-slate-800 mb-4">
@@ -1544,6 +1774,43 @@ export default function PatientPage() {
             <p className="font-medium">{viewingPhoto.photoDate}</p>
             {viewingPhoto.description && <p className="text-white/80 mt-1">{viewingPhoto.description}</p>}
             <p className="text-white/60 text-xs mt-1">Subida por {viewingPhoto.uploadedBy?.username}</p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Signature viewer modal */}
+    {viewingSignature && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={() => setViewingSignature(null)}
+      >
+        <div
+          className="relative max-w-2xl w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setViewingSignature(null)}
+            className="absolute -top-10 right-0 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="bg-white rounded-xl p-6">
+            <img
+              src={getConsentSignatureUrl(viewingSignature.filename)}
+              alt="Firma de consentimiento"
+              className="w-full h-auto object-contain"
+            />
+            <div className="mt-4 border-t border-slate-200 pt-4 text-sm">
+              <p className="text-slate-800 font-medium">
+                {new Date(viewingSignature.signedAt).toLocaleDateString('es-CL')} a las{' '}
+                {new Date(viewingSignature.signedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              {viewingSignature.consentText && (
+                <p className="text-slate-600 mt-2">{viewingSignature.consentText}</p>
+              )}
+              <p className="text-slate-400 text-xs mt-2">Testigo: {viewingSignature.witnessedBy?.username}</p>
+            </div>
           </div>
         </div>
       </div>
