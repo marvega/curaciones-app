@@ -6,6 +6,7 @@ import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhot
 import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import WoundEvolutionChart from '../components/WoundEvolutionChart';
+import Switch from '../components/Switch';
 
 const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
   red: 'Rojo (granulaci\u00f3n)',
@@ -993,12 +994,17 @@ export default function PatientPage() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-              <input type="checkbox" checked={dischargeCheckbox}
-                onChange={(e) => setDischargeCheckbox(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-              Dar de alta al paciente
-            </label>
+            <fieldset className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-1">
+              <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Estado del paciente
+              </legend>
+              <Switch
+                checked={dischargeCheckbox}
+                onChange={setDischargeCheckbox}
+                label="Dar de alta al paciente"
+                helpText="Cierra el caso al guardar"
+              />
+            </fieldset>
 
             <button
               type="submit"
