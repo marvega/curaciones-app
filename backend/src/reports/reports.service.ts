@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Patient } from '../patients/patient.entity';
 import { CyclesService } from '../cycles/cycles.service';
@@ -68,7 +68,35 @@ export class ReportsService {
       .addSelect('COUNT(DISTINCT c.patientId)', 'total')
       .where('c.type = :type', { type: 'pie_diabetico' });
 
-    // Manejo de trimestre basado en ciclos configurados
+    await this.applyDetailedFilters(qb, filters);
+
+    const results = await qb.groupBy('p.gender').getRawMany();
+
+    const byGender: Record<string, number> = {};
+    let total = 0;
+    for (const row of results) {
+      const count = parseInt(row.total, 10);
+      byGender[row.gender] = count;
+      total += count;
+    }
+
+    return {
+      filters,
+      total,
+      byGender,
+    };
+  }
+
+  private async applyDetailedFilters(
+    qb: SelectQueryBuilder<Curacion>,
+    filters: {
+      year?: number;
+      quarter?: number;
+      gender?: string;
+      ageMin?: number;
+      ageMax?: number;
+    },
+  ): Promise<void> {
     if (filters.year && filters.quarter) {
       const startMonth = (filters.quarter - 1) * 3 + 1;
       const endMonth = filters.quarter * 3;
@@ -113,21 +141,5 @@ export class ReportsService {
         });
       }
     }
-
-    const results = await qb.groupBy('p.gender').getRawMany();
-
-    const byGender: Record<string, number> = {};
-    let total = 0;
-    for (const row of results) {
-      const count = parseInt(row.total, 10);
-      byGender[row.gender] = count;
-      total += count;
-    }
-
-    return {
-      filters,
-      total,
-      byGender,
-    };
   }
 }
