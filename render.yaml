@@ -15,6 +15,7 @@ services:
     region: oregon
     rootDir: backend
     buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
+    preDeployCommand: npm run migration:run:prod
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
