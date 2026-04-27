@@ -27,16 +27,23 @@ This is intentionally minimal. It does not yet model boot inventory, sizes, or r
 |-------|------|---------|-------------|
 | `bootDelivered` | `boolean` | `false` | Whether a boot (ayuda técnica de descarga) was delivered at this visit. |
 
-Column name in DB: `boot_delivered`.
+Use the same column-decoration style as the surrounding entity (no explicit `name:` argument; rely on the project's existing TypeORM naming convention):
+
+```ts
+@Column({ type: 'boolean', default: false })
+bootDelivered: boolean;
+```
 
 The project uses TypeORM `synchronize: true` (no manual migrations folder per current conventions). The column is added automatically to existing rows with `false`, which is the correct default — no historical record contained boot tracking.
 
 ### DTOs
 
+DTOs live directly under `backend/src/curaciones/` (there is no `dto/` subfolder).
+
 | File | Change |
 |------|--------|
-| `backend/src/curaciones/dto/create-curacion.dto.ts` | Add `bootDelivered?: boolean` (`@IsOptional() @IsBoolean()`) |
-| `backend/src/curaciones/dto/update-curacion.dto.ts` | Add `bootDelivered?: boolean` (`@IsOptional() @IsBoolean()`) |
+| `backend/src/curaciones/create-curacion.dto.ts` | Add `bootDelivered?: boolean` (`@IsOptional() @IsBoolean()`) |
+| `backend/src/curaciones/update-curacion.dto.ts` | Add `bootDelivered?: boolean` (`@IsOptional() @IsBoolean()`) |
 
 ### Server-side validation
 
@@ -66,12 +73,12 @@ type SwitchProps = {
 **Accessibility:** `role="switch"`, `aria-checked={checked}`, focusable button, Space and Enter toggle. `htmlFor`/`id` wiring optional but supported.
 
 This replaces both:
-- The native checkbox at `frontend/src/pages/PatientPage.tsx` line ~732 ("Dar de alta al paciente").
+- The native checkbox at `frontend/src/pages/PatientPage.tsx` (~L997-1000, "Dar de alta al paciente").
 - The new boot toggle (described next).
 
 ### Curación form changes (`PatientPage.tsx`)
 
-State additions (next to existing `dischargeCheckbox` at line ~25):
+State additions (next to existing `dischargeCheckbox` at L49):
 
 ```ts
 const [bootDelivered, setBootDelivered] = useState(false);
@@ -80,7 +87,7 @@ useEffect(() => {
 }, [tipo]);
 ```
 
-Replace the existing inline checkbox block (`PatientPage.tsx` ~L732-737) with a grouped section just before the form's submit row:
+Replace the existing inline checkbox block (`PatientPage.tsx` ~L997-1000) with a grouped section just before the form's submit row. Note that the curación form already uses `dischargeCheckbox` for conditional rendering of the next-appointment fields (~L929) and to trigger the discharge call in `handleSaveCuracion` (~L426); both call sites continue to read the same state — only the rendering control changes from `<input>` to `<Switch>`.
 
 ```
 ┌─ Estado del paciente ──────────────────────────────┐
@@ -122,15 +129,24 @@ const bootsQb = this.curacionRepo.createQueryBuilder('c')
   .innerJoin('c.patient', 'p')
   .where('c.type = :type', { type: 'pie_diabetico' })
   .andWhere('c.bootDelivered = true');
-applyDetailedFilters(bootsQb, filters); // shared helper
+await this.applyDetailedFilters(bootsQb, filters); // shared helper, async
 const bootsDelivered = await bootsQb.getCount();
 
 return { filters, total, byGender, bootsDelivered };
 ```
 
-**Targeted refactor (in scope):** extract the application of period/gender/age filters into a private helper `applyDetailedFilters(qb, filters)` to avoid duplicating the four filter blocks across both queries. This is the kind of small, focused improvement appropriate when touching the same code twice.
+**Targeted refactor (in scope):** extract the application of period/gender/age filters into a private helper `applyDetailedFilters` to avoid duplicating the four filter blocks across both queries. This is the kind of small, focused improvement appropriate when touching the same code twice.
 
-The helper depends on `cyclesService` (used to translate `year + quarter` to the configured cycle's start/end dates), so it remains an instance method.
+The helper must be `async` because it uses `cyclesService.getEffectiveDates(...)` (async) to translate `year + quarter` into the configured cycle's start/end dates:
+
+```ts
+private async applyDetailedFilters(
+  qb: SelectQueryBuilder<Curacion>,
+  filters: { year?: number; quarter?: number; gender?: string; ageMin?: number; ageMax?: number },
+): Promise<void> { … }
+```
+
+Both call sites (existing patient query and new boots query) become `await this.applyDetailedFilters(qb, filters)`.
 
 ### Response shape
 
@@ -189,17 +205,22 @@ No new sheet. Same single "Pie Diabético" sheet.
 
 ### Backend (`reports.service.spec.ts`)
 
-Add cases inside the existing `describe('getDetailedReport')` block:
+The existing test file uses **jest mocks** of TypeORM's query-builder chain (no in-memory DB, no seeded records). New tests must follow the same pattern: extend the `mockDetailedGetRawMany` setup so a second query-builder mock is registered for the boots query, and assert on:
 
-| Case | Expectation |
-|------|-------------|
-| No boots delivered in period | `bootsDelivered === 0` |
-| 3 boots delivered in period | `bootsDelivered === 3` |
-| Boots respect gender filter | F-only filter excludes M-patient boots |
-| Boots respect age filter | Out-of-range patient boots excluded |
-| `type='avanzada'` with `bootDelivered=true` | NOT counted (defensive guard) |
+1. The constructed query — that the new builder calls `where('c.type = :type', { type: 'pie_diabetico' })` and `andWhere('c.bootDelivered = true')`.
+2. The result — that `getCount()` is invoked once and its return value flows into `bootsDelivered`.
+3. That the existing patient-by-gender query still produces the same shape (regression guard).
 
-These tests use the existing in-memory test setup with seeded `Curacion` and `Patient` records.
+Concrete cases:
+
+| Case | Mock setup → Expectation |
+|------|---------------------------|
+| No boots in period | `getCount` mock returns `0` → `bootsDelivered === 0` |
+| 3 boots in period | `getCount` mock returns `3` → `bootsDelivered === 3` |
+| Filters applied to boots query | After call, the boots `qb.andWhere` mock should have been invoked with the gender, ageMin, and ageMax fragments — confirming `applyDetailedFilters` ran on the boots builder |
+| Defensive type guard | The boots builder's `where` mock receives `c.type = 'pie_diabetico'` (so `avanzada` rows cannot leak in) |
+
+If during implementation the test setup proves too cumbersome to mock reliably (two parallel builders), it is acceptable to migrate `reports.service.spec.ts` to a shared helper that produces a fresh mock builder per call. That refactor is in scope only if needed; otherwise leave the existing pattern and extend it.
 
 ### Frontend
 
