@@ -108,12 +108,20 @@ export default function PatientsListPage() {
   }, [debouncedQuery, setSearchParams]);
 
   const goToPage = (page: number) => {
-    setSearchParams({ page: String(page) });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('page', String(page));
+      return next;
+    });
   };
 
   const applyFilters = () => {
     setAppliedFilters({ ...filters });
-    setSearchParams({ page: '1' });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('page', '1');
+      return next;
+    });
   };
 
   const clearFilters = () => {
@@ -175,6 +183,7 @@ export default function PatientsListPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Buscar pacientes"
               placeholder="Buscar por RUT, nombre o teléfono..."
               className="w-full rounded-lg border border-slate-200 dark:border-slate-700 pl-9 pr-9 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
