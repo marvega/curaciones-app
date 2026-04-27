@@ -24,7 +24,7 @@
 - `backend/src/reports/reports.service.ts` — extract filter helper + add boots aggregation
 - `backend/src/reports/reports.service.spec.ts` — update existing detailed tests + add boot cases
 - `frontend/src/types/index.ts` — `Curacion.bootDelivered`, `DetailedReport.bootsDelivered`
-- `frontend/src/pages/PatientPage.tsx` — replace checkbox with Switch group, add boot toggle, save logic
+- `frontend/src/pages/PatientPage.tsx` — replace checkbox with Switch group, add boot toggle in both the create form and the edit modal, save logic
 - `frontend/src/pages/DetailedReportPage.tsx` — 2-card grid, new boots card, Excel row
 
 ---
@@ -192,7 +192,7 @@ In `getDetailedReport`, replace **everything between** the line `.where('c.type 
     const results = await qb.groupBy('p.gender').getRawMany();
 ```
 
-The deleted block is the 4 if-blocks (year/quarter, gender, ageMin/ageMax) — about 45 lines.
+The deleted block is 3 top-level `if`-blocks (year/quarter, gender, ageMin/ageMax with two nested ifs) — about 45 lines.
 
 - [ ] **Step 4: Run tests to verify the refactor preserves behavior**
 
@@ -571,10 +571,12 @@ git commit -m "feat(curaciones): replace Dar de alta checkbox with Switch compon
 
 ---
 
-## Task 7: Frontend — Add Bota toggle with conditional visibility
+## Task 7: Frontend — Add Bota toggle in the create form
 
 **Files:**
 - Modify: `frontend/src/pages/PatientPage.tsx`
+
+The create form (`curacionForm`, `handleSaveCuracion`) and the edit modal (`curacionEditForm`, `handleSaveEdit`) are independent state machines. This task wires up the **create** flow only. Task 7b handles the edit modal.
 
 - [ ] **Step 1: Add `bootDelivered` state next to `dischargeCheckbox` (~L49)**
 
@@ -586,7 +588,7 @@ const [bootDelivered, setBootDelivered] = useState(false);
 
 - [ ] **Step 2: Add the reset `useEffect`**
 
-Locate a sensible place near other `useEffect`s in the component. Add:
+Place this `useEffect` immediately after the `useEffect` that watches `curacionForm.appointmentDate` (it ends around L288). The new effect lives in the same neighborhood of "form reactivity" effects:
 
 ```tsx
 useEffect(() => {
@@ -617,7 +619,7 @@ The thin top border separates the two switches inside the fieldset.
 
 - [ ] **Step 4: Send `bootDelivered` in `handleSaveCuracion`**
 
-Locate `handleSaveCuracion` (~L402-440 area). Find where the curación payload is built (the `...curacionForm` spread, ~L414). Add `bootDelivered` to the payload:
+Locate `handleSaveCuracion` (~L398-438). Find where the curación payload is built (the `...curacionForm` spread, ~L414). Add `bootDelivered` to the payload:
 
 ```tsx
 const payload = {
@@ -628,17 +630,114 @@ const payload = {
 
 If the existing code already spreads into the API call directly (e.g., `await createCuracion({ ...curacionForm, ... })`), insert `bootDelivered` into that object literal at the same level.
 
-After the call succeeds (and after any reset of `dischargeCheckbox` if it exists), reset `setBootDelivered(false)` so subsequent registrations start clean.
+After the call succeeds, reset `setBootDelivered(false)` alongside any other form-reset call so subsequent registrations start clean.
 
-- [ ] **Step 5: Pre-populate `bootDelivered` when entering edit mode**
+- [ ] **Step 5: Verify TypeScript compiles**
 
-Find the curación-edit entry point. Earlier exploration showed `type: curacion.type` being set at L368. In the same handler, add:
-
-```tsx
-setBootDelivered(curacion.bootDelivered ?? false);
+```bash
+cd frontend && npx tsc --noEmit
 ```
 
-This ensures editing an existing diabetic-foot curación shows the toggle in its saved state.
+Expected: no errors.
+
+- [ ] **Step 6: Manually verify the create flow in browser**
+
+Restart the frontend if needed. Open a patient and:
+
+1. Start "Registrar Curación", select type **Avanzada** → boot Switch is **not visible**
+2. Change type to **Pie Diabético** → boot Switch appears, OFF
+3. Toggle ON, then change type back to **Avanzada** → boot Switch disappears (state reset to OFF)
+4. Switch back to **Pie Diabético** → toggle is OFF (not stuck ON)
+5. Set Pie Diabético + boot ON, save → curación appears in the list
+6. Network tab: confirm the POST body contains `"bootDelivered": true`
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add frontend/src/pages/PatientPage.tsx
+git commit -m "feat(curaciones): add bota de descarga toggle in create form"
+```
+
+---
+
+## Task 7b: Frontend — Add Bota toggle in the edit modal
+
+**Files:**
+- Modify: `frontend/src/pages/PatientPage.tsx`
+
+The edit form (`curacionEditForm`, `handleOpenEdit`, `handleSaveEdit`) is an independent state. The edit modal is rendered around L1676-1759.
+
+- [ ] **Step 1: Add `bootDelivered` to the `curacionEditForm` initial state (~L175-181)**
+
+```tsx
+const [curacionEditForm, setCuracionEditForm] = useState({
+  type: '' as CuracionType,
+  quantity: 1,
+  appointmentDate: '',
+  appointmentTime: '',
+  reason: '',
+  bootDelivered: false,
+});
+```
+
+- [ ] **Step 2: Initialize `bootDelivered` in `handleOpenEdit` (~L365-374)**
+
+In `setCuracionEditForm({...})`, add:
+
+```tsx
+bootDelivered: curacion.bootDelivered ?? false,
+```
+
+- [ ] **Step 3: Add a reset `useEffect` for the edit form's type field**
+
+Place near the existing `useEffect` watching `curacionEditForm.appointmentDate` (~L311-326):
+
+```tsx
+useEffect(() => {
+  if (curacionEditForm.type !== 'pie_diabetico' && curacionEditForm.bootDelivered) {
+    setCuracionEditForm(prev => ({ ...prev, bootDelivered: false }));
+  }
+}, [curacionEditForm.type]);
+```
+
+(The extra `curacionEditForm.bootDelivered` guard avoids redundant state writes when nothing changes.)
+
+- [ ] **Step 4: Render the Switch in the edit modal**
+
+In the edit modal JSX (~L1737, just before the "Motivo de la edición *" textarea block), add a fieldset matching the create form's pattern. Use the existing `Switch` component imported in Task 6:
+
+```tsx
+{curacionEditForm.type === 'pie_diabetico' && (
+  <fieldset className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-1">
+    <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+      Inventario
+    </legend>
+    <Switch
+      checked={curacionEditForm.bootDelivered}
+      onChange={(v) => setCuracionEditForm(prev => ({ ...prev, bootDelivered: v }))}
+      label="Bota de descarga entregada"
+      helpText="Descuenta de inventario"
+    />
+  </fieldset>
+)}
+```
+
+(Note: this modal does not contain "Dar de alta" — that's only relevant during creation — so the fieldset only holds the boot switch.)
+
+- [ ] **Step 5: Send `bootDelivered` in `handleSaveEdit` (~L376-396)**
+
+In the `updateCuracion(...)` call payload (~L381-387), add the field:
+
+```tsx
+await updateCuracion(editingCuracion.id, {
+  type: curacionEditForm.type,
+  quantity: curacionEditForm.quantity,
+  appointmentDate: curacionEditForm.appointmentDate || null,
+  appointmentTime: curacionEditForm.appointmentTime || null,
+  reason: curacionEditForm.reason,
+  bootDelivered: curacionEditForm.bootDelivered,
+});
+```
 
 - [ ] **Step 6: Verify TypeScript compiles**
 
@@ -648,22 +747,19 @@ cd frontend && npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 7: Manually verify in browser**
+- [ ] **Step 7: Manually verify the edit flow in browser**
 
-Restart the frontend if needed. Open a patient and:
-
-1. Start "Registrar Curación", select type **Avanzada** → boot Switch is **not visible**
-2. Change type to **Pie Diabético** → boot Switch appears, OFF
-3. Toggle ON, then change type back to **Avanzada** → boot Switch disappears (state reset to OFF)
-4. Switch back to **Pie Diabético** → toggle is OFF (not stuck ON)
-5. Set Pie Diabético + boot ON, save → reload patient, edit that curación → boot Switch is ON
-6. Network tab: confirm the POST/PATCH body contains `"bootDelivered": true`
+1. From a patient with a saved Pie Diabético curación, click edit
+2. Boot Switch shows the saved value
+3. Toggle it, fill "motivo", save → reload patient, re-open edit → toggle reflects the change
+4. Edit a Pie Diabético curación, change type to Avanzada → boot Switch hides; save with "motivo" → re-open: `bootDelivered` is now `false` server-side (use Network tab or DB query to confirm)
+5. Network tab: confirm the PATCH body contains `"bootDelivered"` with the expected value
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add frontend/src/pages/PatientPage.tsx
-git commit -m "feat(curaciones): add bota de descarga toggle for pie diabetico"
+git commit -m "feat(curaciones): add bota de descarga toggle in edit modal"
 ```
 
 ---
@@ -673,28 +769,39 @@ git commit -m "feat(curaciones): add bota de descarga toggle for pie diabetico"
 **Files:**
 - Modify: `frontend/src/pages/DetailedReportPage.tsx`
 
-- [ ] **Step 1: Wrap the existing summary card in a 2-column grid**
+- [ ] **Step 1: Wrap the existing summary card in a 2-column grid and add a sibling boots card**
 
-Locate the existing `<div className="bg-blue-50 border border-blue-100 rounded-xl p-6">` (~L231). Wrap it with a grid container, and add a sibling card for boots:
+Locate the existing patient card: `<div className="bg-blue-50 border border-blue-100 rounded-xl p-6">` opens around L231 and closes around L268. **Do not edit anything inside that card** — only:
+
+1. Insert a new opening line `<div className="grid md:grid-cols-2 gap-4">` immediately before that `<div>`.
+2. Insert the new boots card (snippet below) immediately after that card's closing `</div>`.
+3. Insert a new closing `</div>` to close the grid wrapper.
+
+Boots card to insert:
+
+```tsx
+<div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+  <h3 className="text-base font-semibold text-blue-800 mb-1">
+    Botas entregadas
+  </h3>
+  <p className="text-xs text-blue-600 mb-3">
+    Total de ayudas técnicas en el período filtrado
+  </p>
+  <div className="text-4xl font-bold text-blue-700">
+    {report.bootsDelivered}
+  </div>
+</div>
+```
+
+Final structure (illustrative):
 
 ```tsx
 <div className="grid md:grid-cols-2 gap-4">
-  {/* existing patient card — unchanged */}
   <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-    {/* …existing content… */}
+    {/* existing card content — untouched */}
   </div>
-
-  {/* new boots card */}
   <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-    <h3 className="text-base font-semibold text-blue-800 mb-1">
-      Botas entregadas
-    </h3>
-    <p className="text-xs text-blue-600 mb-3">
-      Total de ayudas técnicas en el período filtrado
-    </p>
-    <div className="text-4xl font-bold text-blue-700">
-      {report.bootsDelivered}
-    </div>
+    {/* new boots card */}
   </div>
 </div>
 ```
@@ -766,9 +873,10 @@ Use a real patient from the restored production dataset.
 | # | Flow | Expected |
 |---|------|----------|
 | 1 | New curación, type=Pie Diabético, boot=ON, save | Curación saved, network shows `bootDelivered: true` |
-| 2 | Reload patient, open the curación in edit mode | Switch shows ON |
-| 3 | Edit: change type to Avanzada, save | `bootDelivered` becomes `false` server-side |
-| 4 | New curación, type=Avanzada | Boot Switch not rendered |
+| 2 | Reload patient, open the curación in edit modal | Switch shows ON in the modal |
+| 3 | Edit: change type to Avanzada, save with reason | Re-open: `bootDelivered` is `false` server-side |
+| 4 | New curación, type=Avanzada | Boot Switch not rendered in create form |
+| 4b | Edit a non-pie_diabetico curación | Boot Switch not rendered in edit modal |
 | 5 | Generate Q1 2026 report, no filters | Both cards visible, boot count > 0 if data exists |
 | 6 | Apply gender=Femenino | Both numbers respond consistently |
 | 7 | Apply age 60-64 | Both numbers respond consistently |
