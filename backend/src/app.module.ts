@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { PerUserThrottlerGuard } from './common/per-user-throttler.guard';
 import { HealthController } from './health.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Patient } from './patients/patient.entity';
@@ -31,10 +32,18 @@ import { BootstrapService } from './bootstrap.service';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot({
-      throttlers: process.env.NODE_ENV === 'production'
-        ? [{ name: 'default', ttl: 60000, limit: 100 }, { name: 'login', ttl: 60000, limit: 5 }]
-        : [{ name: 'default', ttl: 60000, limit: 10000 }, { name: 'login', ttl: 60000, limit: 10000 }],
+    ThrottlerModule.forRootAsync({
+      useFactory: () => {
+        const isProd = process.env.NODE_ENV === 'production';
+        const defaultLimit = parseInt(process.env.THROTTLE_DEFAULT_LIMIT ?? (isProd ? '200' : '10000'), 10);
+        const loginLimit = parseInt(process.env.THROTTLE_LOGIN_LIMIT ?? (isProd ? '5' : '10000'), 10);
+        return {
+          throttlers: [
+            { name: 'default', ttl: 60000, limit: defaultLimit },
+            { name: 'login', ttl: 60000, limit: loginLimit },
+          ],
+        };
+      },
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -58,7 +67,7 @@ import { BootstrapService } from './bootstrap.service';
   ],
   controllers: [HealthController],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: PerUserThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     BootstrapService,
   ],
