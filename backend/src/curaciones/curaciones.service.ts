@@ -25,6 +25,7 @@ export class CuracionesService {
       date: dto.date,
       quantity: dto.quantity,
       observations: dto.observations,
+      bootDelivered: dto.bootDelivered,
     });
     const saved = await this.curacionRepo.save(curacion);
 
@@ -80,6 +81,7 @@ export class CuracionesService {
 
       if (dto.type !== undefined) curacion.type = dto.type;
       if (dto.quantity !== undefined) curacion.quantity = dto.quantity;
+      if (dto.bootDelivered !== undefined) curacion.bootDelivered = dto.bootDelivered;
       await queryRunner.manager.save(curacion);
 
       // Handle appointment changes (within transaction)
