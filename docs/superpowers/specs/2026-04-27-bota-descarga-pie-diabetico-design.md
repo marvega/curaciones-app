@@ -83,8 +83,8 @@ State additions (next to existing `dischargeCheckbox` at L49):
 ```ts
 const [bootDelivered, setBootDelivered] = useState(false);
 useEffect(() => {
-  if (tipo !== 'pie_diabetico') setBootDelivered(false);
-}, [tipo]);
+  if (curacionForm.type !== 'pie_diabetico') setBootDelivered(false);
+}, [curacionForm.type]);
 ```
 
 Replace the existing inline checkbox block (`PatientPage.tsx` ~L997-1000) with a grouped section just before the form's submit row. Note that the curación form already uses `dischargeCheckbox` for conditional rendering of the next-appointment fields (~L929) and to trigger the discharge call in `handleSaveCuracion` (~L426); both call sites continue to read the same state — only the rendering control changes from `<input>` to `<Switch>`.
@@ -99,13 +99,13 @@ Replace the existing inline checkbox block (`PatientPage.tsx` ~L997-1000) with a
 └─────────────────────────────────────────────────────┘
 ```
 
-Implementation: a wrapper `<fieldset>` with a section heading `Estado del paciente` and two `<Switch>` instances. The boot Switch is rendered only when `tipo === 'pie_diabetico'`. The wrapper visually unifies the two via a thin top border between rows.
+Implementation: a wrapper `<fieldset>` with a section heading `Estado del paciente` and two `<Switch>` instances. The boot Switch is rendered only when `curacionForm.type === 'pie_diabetico'`. The wrapper visually unifies the two via a thin top border between rows.
 
 ### Save logic
 
 `handleSaveCuracion` (`PatientPage.tsx`) submits `bootDelivered` along with the rest of the curación payload to `POST /curaciones`. In edit mode, it submits to `PATCH /curaciones/:id` with the same field. The existing `dischargePatient(...)` side-effect (when "Dar de alta" is toggled on) is unchanged.
 
-If the user marks `bootDelivered: true` and then changes `tipo` to a non-`pie_diabetico` value, the `useEffect` resets the local state to `false` so the saved record is internally consistent.
+If the user marks `bootDelivered: true` and then changes `curacionForm.type` to a non-`pie_diabetico` value, the `useEffect` resets the local state to `false` so the saved record is internally consistent.
 
 ### Type updates
 
