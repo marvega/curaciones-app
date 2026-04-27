@@ -18,6 +18,18 @@ function callGetTracker(
   return (guard as any).getTracker(req);
 }
 
+function callShouldSkip(
+  guard: PerUserThrottlerGuard,
+  req: Record<string, any>,
+): Promise<boolean> {
+  const ctx = {
+    switchToHttp: () => ({ getRequest: () => req }),
+    getHandler: () => () => undefined,
+    getClass: () => class {},
+  } as any;
+  return (guard as any).shouldSkip(ctx);
+}
+
 describe('PerUserThrottlerGuard.getTracker', () => {
   const originalSecret = process.env.JWT_SECRET;
 
@@ -82,5 +94,27 @@ describe('PerUserThrottlerGuard.getTracker', () => {
     const tracker = await callGetTracker(createGuard(), req);
 
     expect(tracker).toBe('10.0.0.1');
+  });
+});
+
+describe('PerUserThrottlerGuard.shouldSkip', () => {
+  it('skips throttling for /api/health (Render health probe)', async () => {
+    const skipped = await callShouldSkip(createGuard(), { path: '/api/health' });
+    expect(skipped).toBe(true);
+  });
+
+  it('skips throttling for /api/health/memory diagnostic', async () => {
+    const skipped = await callShouldSkip(createGuard(), { path: '/api/health/memory' });
+    expect(skipped).toBe(true);
+  });
+
+  it('falls through to ThrottlerGuard.shouldSkip for non-health paths', async () => {
+    const skipped = await callShouldSkip(createGuard(), { path: '/api/patients' });
+    expect(skipped).toBe(false);
+  });
+
+  it('uses req.url when req.path is absent', async () => {
+    const skipped = await callShouldSkip(createGuard(), { url: '/api/health' });
+    expect(skipped).toBe(true);
   });
 });

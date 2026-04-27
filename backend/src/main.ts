@@ -6,6 +6,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Trust the platform's reverse proxy so req.ip is X-Forwarded-For
+  // (the real client IP) rather than the load-balancer IP. Required for
+  // per-IP throttling to behave per-user instead of per-edge-node.
+  app.getHttpAdapter().getInstance().set('trust proxy', true);
+
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   app.enableCors({
     origin: frontendUrl,
