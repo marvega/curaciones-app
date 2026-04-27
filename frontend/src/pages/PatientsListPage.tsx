@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getPatientsPaginated, searchPatientsAdvanced } from '../services/api';
 import type { Patient, PaginatedResponse } from '../types';
-import { UserPlus, Users, Eye, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
+import { UserPlus, Users, Eye, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, X, Search } from 'lucide-react';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 interface AdvancedFilters {
   status: string;
@@ -49,6 +50,8 @@ export default function PatientsListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
+  const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('q') ?? '');
+  const debouncedQuery = useDebouncedValue(searchQuery, 300);
 
   const [result, setResult] = useState<PaginatedResponse<Patient> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,10 +59,11 @@ export default function PatientsListPage() {
   const [filters, setFilters] = useState<AdvancedFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<AdvancedFilters>(emptyFilters);
 
-  const loadPatients = useCallback(async (page: number, f: AdvancedFilters) => {
+  const loadPatients = useCallback(async (page: number, f: AdvancedFilters, q: string) => {
     setLoading(true);
     try {
-      if (hasActiveFilters(f)) {
+      const trimmed = q.trim();
+      if (hasActiveFilters(f) || trimmed !== '') {
         const params: Record<string, string | number> = { page, limit: 20 };
         if (f.status) params.status = f.status;
         if (f.gender) params.gender = f.gender;
@@ -68,6 +72,7 @@ export default function PatientsListPage() {
         if (f.dateTo) params.dateTo = f.dateTo;
         if (f.ageMin) params.ageMin = parseInt(f.ageMin, 10);
         if (f.ageMax) params.ageMax = parseInt(f.ageMax, 10);
+        if (trimmed) params.q = trimmed;
         const data = await searchPatientsAdvanced(params);
         setResult(data);
       } else {
@@ -82,8 +87,25 @@ export default function PatientsListPage() {
   }, []);
 
   useEffect(() => {
-    loadPatients(currentPage, appliedFilters);
-  }, [currentPage, appliedFilters, loadPatients]);
+    loadPatients(currentPage, appliedFilters, debouncedQuery);
+  }, [currentPage, appliedFilters, debouncedQuery, loadPatients]);
+
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (trimmed) {
+        if (next.get('q') !== trimmed) {
+          next.set('q', trimmed);
+          next.set('page', '1');
+        }
+      } else if (next.has('q')) {
+        next.delete('q');
+        next.set('page', '1');
+      }
+      return next;
+    });
+  }, [debouncedQuery, setSearchParams]);
 
   const goToPage = (page: number) => {
     setSearchParams({ page: String(page) });
@@ -97,6 +119,7 @@ export default function PatientsListPage() {
   const clearFilters = () => {
     setFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
+    setSearchQuery('');
     setSearchParams({ page: '1' });
   };
 
@@ -142,6 +165,29 @@ export default function PatientsListPage() {
             <button onClick={() => navigate('/paciente/nuevo')} className="btn-primary">
               <UserPlus className="w-4 h-4" /> Nuevo Paciente
             </button>
+          </div>
+        </div>
+
+        <div className="px-5 pt-4 pb-1">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por RUT, nombre o teléfono..."
+              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 pl-9 pr-9 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -256,13 +302,13 @@ export default function PatientsListPage() {
             <div className="text-center py-16">
               <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-sm text-slate-400">
-                {hasActiveFilters(appliedFilters)
-                  ? 'No se encontraron pacientes con los filtros aplicados'
+                {hasActiveFilters(appliedFilters) || searchQuery
+                  ? 'No se encontraron pacientes'
                   : 'No hay pacientes registrados'}
               </p>
-              {hasActiveFilters(appliedFilters) && (
+              {(hasActiveFilters(appliedFilters) || searchQuery) && (
                 <button onClick={clearFilters} className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                  Limpiar filtros
+                  Limpiar búsqueda
                 </button>
               )}
             </div>
