@@ -33,6 +33,7 @@ export class PatientsController {
   @Get()
   async find(
     @Query('rut') rut?: string,
+    @Query('q') q?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
@@ -48,9 +49,11 @@ export class PatientsController {
       return patient ? patient : { found: false };
     }
 
+    const trimmedQ = q?.trim();
+    const hasQ = !!trimmedQ;
     const hasAdvancedFilters = status || gender || curacionType || dateFrom || dateTo || ageMin || ageMax;
 
-    if (hasAdvancedFilters) {
+    if (hasQ || hasAdvancedFilters) {
       return this.patientsService.findAdvanced({
         page: parseInt(page || '1', 10) || 1,
         limit: parseInt(limit || '20', 10) || 20,
@@ -61,6 +64,7 @@ export class PatientsController {
         dateTo: dateTo || undefined,
         ageMin: ageMin ? parseInt(ageMin, 10) : undefined,
         ageMax: ageMax ? parseInt(ageMax, 10) : undefined,
+        q: trimmedQ || undefined,
       });
     }
 

@@ -113,8 +113,26 @@ export class PatientsService {
     dateTo?: string;
     ageMin?: number;
     ageMax?: number;
+    q?: string;
   }) {
     const qb = this.patientRepo.createQueryBuilder('p');
+
+    if (filters.q && filters.q.trim() !== '') {
+      const trimmed = filters.q.trim().slice(0, 100);
+      const qNorm = trimmed.replace(/[.\-\s]/g, '');
+      const qLike = `%${trimmed}%`;
+      const qNormLike = `%${qNorm}%`;
+      qb.andWhere(
+        `(
+          REPLACE(REPLACE(p.rut, '.', ''), '-', '') ILIKE :qNormLike
+          OR p."firstName" ILIKE :qLike
+          OR p."lastName" ILIKE :qLike
+          OR (p."firstName" || ' ' || p."lastName") ILIKE :qLike
+          OR (p.phone IS NOT NULL AND p.phone ILIKE :qLike)
+        )`,
+        { qLike, qNormLike },
+      );
+    }
 
     if (filters.status) {
       qb.andWhere('p.status = :status', { status: filters.status });
@@ -153,7 +171,8 @@ export class PatientsService {
     }
 
     // Distinct because joins can duplicate rows
-    qb.select('DISTINCT p.id', 'id')
+    qb.distinct(true)
+      .select('p.id', 'id')
       .addSelect('p."firstName"', 'firstName')
       .addSelect('p."lastName"', 'lastName')
       .addSelect('p.rut', 'rut')

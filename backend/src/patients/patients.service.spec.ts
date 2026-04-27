@@ -10,6 +10,19 @@ import { DataSource } from 'typeorm';
 describe('PatientsService', () => {
   let service: PatientsService;
 
+  const mockQueryBuilder = {
+    andWhere: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    distinct: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    getCount: jest.fn(),
+    getRawMany: jest.fn(),
+  };
+
   const mockPatientRepo = {
     findOne: jest.fn(),
     find: jest.fn(),
@@ -17,6 +30,7 @@ describe('PatientsService', () => {
     create: jest.fn((dto) => dto),
     save: jest.fn((entity) => Promise.resolve({ id: 1, ...entity })),
     remove: jest.fn((entity) => Promise.resolve(entity)),
+    createQueryBuilder: jest.fn(() => mockQueryBuilder),
   };
 
   const mockStatusChangeRepo = {
@@ -57,6 +71,18 @@ describe('PatientsService', () => {
 
     service = module.get(PatientsService);
     jest.clearAllMocks();
+
+    mockQueryBuilder.andWhere.mockClear().mockReturnThis();
+    mockQueryBuilder.innerJoin.mockClear().mockReturnThis();
+    mockQueryBuilder.distinct.mockClear().mockReturnThis();
+    mockQueryBuilder.select.mockClear().mockReturnThis();
+    mockQueryBuilder.addSelect.mockClear().mockReturnThis();
+    mockQueryBuilder.orderBy.mockClear().mockReturnThis();
+    mockQueryBuilder.offset.mockClear().mockReturnThis();
+    mockQueryBuilder.limit.mockClear().mockReturnThis();
+    mockQueryBuilder.getCount.mockReset();
+    mockQueryBuilder.getRawMany.mockReset();
+    mockPatientRepo.createQueryBuilder.mockClear().mockReturnValue(mockQueryBuilder);
 
     // Reset mockQueryRunner mocks
     mockQueryRunner.connect.mockReset();
@@ -300,5 +326,106 @@ describe('PatientsService', () => {
       relations: ['performedBy'],
       order: { createdAt: 'DESC' },
     });
+  });
+
+  // findAdvanced — q matches RUT regardless of formatting
+  it('findAdvanced q matches RUT ignoring punctuation', async () => {
+    mockQueryBuilder.getCount.mockResolvedValue(1);
+    mockQueryBuilder.getRawMany.mockResolvedValue([
+      { id: 1, rut: '13.856.216-6', firstName: 'Luis', lastName: 'Alarcon' },
+    ]);
+
+    const result = await service.findAdvanced({
+      page: 1,
+      limit: 20,
+      q: '13856216',
+    });
+
+    const andWhereCalls = mockQueryBuilder.andWhere.mock.calls;
+    const qClauseCall = andWhereCalls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
+    );
+    expect(qClauseCall).toBeDefined();
+    expect(qClauseCall![1]).toMatchObject({
+      qNormLike: '%13856216%',
+      qLike: '%13856216%',
+    });
+    expect(result.total).toBe(1);
+  });
+
+  // findAdvanced — q matches partial firstName/lastName via the same OR clause
+  it('findAdvanced q applies partial-name match in the same OR clause', async () => {
+    mockQueryBuilder.getCount.mockResolvedValue(1);
+    mockQueryBuilder.getRawMany.mockResolvedValue([
+      { id: 5, rut: '6.174.623-4', firstName: 'Mario', lastName: 'Basaez' },
+    ]);
+
+    await service.findAdvanced({ page: 1, limit: 20, q: 'basa' });
+
+    const qClause = mockQueryBuilder.andWhere.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
+    );
+    expect(qClause).toBeDefined();
+    expect(qClause![0]).toContain('p."firstName" ILIKE :qLike');
+    expect(qClause![0]).toContain('p."lastName" ILIKE :qLike');
+    expect(qClause![0]).toContain(`p."firstName" || ' ' || p."lastName"`);
+    expect(qClause![1]).toMatchObject({ qLike: '%basa%' });
+  });
+
+  // findAdvanced — q matches partial phone via the same OR clause
+  it('findAdvanced q applies partial-phone match in the same OR clause', async () => {
+    mockQueryBuilder.getCount.mockResolvedValue(1);
+    mockQueryBuilder.getRawMany.mockResolvedValue([
+      { id: 1, rut: '13.856.216-6', firstName: 'Luis', lastName: 'Alarcon', phone: '951530817' },
+    ]);
+
+    await service.findAdvanced({ page: 1, limit: 20, q: '95153' });
+
+    const qClause = mockQueryBuilder.andWhere.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
+    );
+    expect(qClause).toBeDefined();
+    expect(qClause![0]).toContain('p.phone ILIKE :qLike');
+    expect(qClause![0]).toContain('p.phone IS NOT NULL');
+    expect(qClause![1]).toMatchObject({ qLike: '%95153%' });
+  });
+
+  // findAdvanced — q combined with gender filter applies both as AND
+  it('findAdvanced applies q AND gender filter together', async () => {
+    mockQueryBuilder.getCount.mockResolvedValue(0);
+    mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+    await service.findAdvanced({
+      page: 1,
+      limit: 20,
+      q: 'ana',
+      gender: 'Femenino',
+    });
+
+    const calls = mockQueryBuilder.andWhere.mock.calls;
+    const hasGender = calls.some(
+      ([sql, params]) =>
+        typeof sql === 'string' &&
+        sql.includes('p.gender = :gender') &&
+        params?.gender === 'Femenino',
+    );
+    const hasQ = calls.some(
+      ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
+    );
+    expect(hasGender).toBe(true);
+    expect(hasQ).toBe(true);
+  });
+
+  // findAdvanced — empty q is ignored (no q clause added)
+  it('findAdvanced ignores empty q', async () => {
+    mockQueryBuilder.getCount.mockResolvedValue(0);
+    mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+    await service.findAdvanced({ page: 1, limit: 20, q: '   ' });
+
+    const hasQ = mockQueryBuilder.andWhere.mock.calls.some(
+      ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
+    );
+    expect(hasQ).toBe(false);
   });
 });
