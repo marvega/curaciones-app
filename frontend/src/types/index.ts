@@ -38,6 +38,7 @@ export interface Curacion {
   date: string;
   quantity?: number;
   observations?: string;
+  bootDelivered?: boolean;
   createdAt: string;
   patient?: Patient;
   appointment?: Appointment;
@@ -99,6 +100,7 @@ export interface DetailedReport {
   };
   total: number;
   byGender: Record<string, number>;
+  bootsDelivered: number;
 }
 
 export interface DashboardTodayItem {

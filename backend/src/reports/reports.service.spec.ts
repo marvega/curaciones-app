@@ -44,6 +44,10 @@ describe('ReportsService', () => {
     }).compile();
     service = module.get(ReportsService);
     jest.clearAllMocks();
+    mockCuracionRepo.createQueryBuilder.mockReset();
+    mockGetRawMany.mockReset();
+    mockDetailedGetRawMany.mockReset();
+    mockCyclesService.getEffectiveDates.mockReset();
   });
 
   describe('getMonthlyReport', () => {
@@ -94,8 +98,14 @@ describe('ReportsService', () => {
   });
 
   describe('getDetailedReport', () => {
+    const mockGetCount = jest.fn();
+
+    beforeEach(() => {
+      mockGetCount.mockReset();
+    });
+
     function setupDetailedQueryBuilder() {
-      const qb = {
+      const patientsQb = {
         innerJoin: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
@@ -104,13 +114,22 @@ describe('ReportsService', () => {
         groupBy: jest.fn().mockReturnThis(),
         getRawMany: mockDetailedGetRawMany,
       };
-      mockCuracionRepo.createQueryBuilder.mockReturnValueOnce(qb);
-      return qb;
+      const bootsQb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: mockGetCount,
+      };
+      mockCuracionRepo.createQueryBuilder
+        .mockReturnValueOnce(patientsQb)
+        .mockReturnValueOnce(bootsQb);
+      return { patientsQb, bootsQb };
     }
 
     it('filters only pie_diabetico curaciones', async () => {
-      const qb = setupDetailedQueryBuilder();
+      const { patientsQb: qb } = setupDetailedQueryBuilder();
       mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
 
       await service.getDetailedReport({});
 
@@ -120,11 +139,14 @@ describe('ReportsService', () => {
     });
 
     it('applies quarter filter using cycle dates', async () => {
-      const qb = setupDetailedQueryBuilder();
+      const { patientsQb: qb } = setupDetailedQueryBuilder();
       mockCyclesService.getEffectiveDates
+        .mockResolvedValueOnce({ startDate: '2026-01-01', endDate: '2026-01-31' })
+        .mockResolvedValueOnce({ startDate: '2026-03-01', endDate: '2026-03-31' })
         .mockResolvedValueOnce({ startDate: '2026-01-01', endDate: '2026-01-31' })
         .mockResolvedValueOnce({ startDate: '2026-03-01', endDate: '2026-03-31' });
       mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
 
       await service.getDetailedReport({ year: 2026, quarter: 1 });
 
@@ -137,8 +159,9 @@ describe('ReportsService', () => {
     });
 
     it('applies gender filter', async () => {
-      const qb = setupDetailedQueryBuilder();
+      const { patientsQb: qb } = setupDetailedQueryBuilder();
       mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
 
       await service.getDetailedReport({ gender: 'F' });
 
@@ -151,6 +174,7 @@ describe('ReportsService', () => {
         { gender: 'Femenino', total: '3' },
         { gender: 'Masculino', total: '2' },
       ]);
+      mockGetCount.mockResolvedValueOnce(0);
 
       const result = await service.getDetailedReport({});
 
@@ -159,8 +183,9 @@ describe('ReportsService', () => {
     });
 
     it('uses COUNT(DISTINCT c.patientId) for unique patients', async () => {
-      const qb = setupDetailedQueryBuilder();
+      const { patientsQb: qb } = setupDetailedQueryBuilder();
       mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
 
       await service.getDetailedReport({});
 
@@ -168,6 +193,51 @@ describe('ReportsService', () => {
         'COUNT(DISTINCT c.patientId)',
         'total',
       );
+    });
+
+    it('returns 0 bootsDelivered when no boots in period', async () => {
+      setupDetailedQueryBuilder();
+      mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
+
+      const result = await service.getDetailedReport({});
+
+      expect(result.bootsDelivered).toBe(0);
+    });
+
+    it('returns the boot count from the boots query', async () => {
+      setupDetailedQueryBuilder();
+      mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(3);
+
+      const result = await service.getDetailedReport({});
+
+      expect(result.bootsDelivered).toBe(3);
+    });
+
+    it('boots query filters by pie_diabetico type and bootDelivered=true', async () => {
+      const { bootsQb } = setupDetailedQueryBuilder();
+      mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
+
+      await service.getDetailedReport({});
+
+      expect(bootsQb.where).toHaveBeenCalledWith('c.type = :type', {
+        type: 'pie_diabetico',
+      });
+      expect(bootsQb.andWhere).toHaveBeenCalledWith('c.bootDelivered = true');
+    });
+
+    it('boots query respects gender filter', async () => {
+      const { bootsQb } = setupDetailedQueryBuilder();
+      mockDetailedGetRawMany.mockResolvedValueOnce([]);
+      mockGetCount.mockResolvedValueOnce(0);
+
+      await service.getDetailedReport({ gender: 'Femenino' });
+
+      expect(bootsQb.andWhere).toHaveBeenCalledWith('p.gender = :gender', {
+        gender: 'Femenino',
+      });
     });
   });
 });
