@@ -1,9 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion } from '../services/api';
-import type { Patient, CuracionType, Appointment, PatientStatusChange } from '../types';
-import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText } from 'lucide-react';
+import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient, saveConsentSignature, getConsentSignatures, getConsentSignatureUrl } from '../services/api';
+import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage, ConsentSignature } from '../types';
+import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import WoundEvolutionChart from '../components/WoundEvolutionChart';
+
+const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
+  red: 'Rojo (granulaci\u00f3n)',
+  yellow: 'Amarillo (esfacelo)',
+  black: 'Negro (necr\u00f3tico)',
+  pink: 'Rosado (epitelizando)',
+  mixed: 'Mixto',
+};
+
+const EXUDATE_LABELS: Record<ExudateLevel, string> = {
+  none: 'Sin exudado',
+  low: 'Bajo',
+  moderate: 'Moderado',
+  high: 'Alto',
+};
+
+const HEALING_STAGE_LABELS: Record<HealingStage, string> = {
+  inflammatory: 'Inflamatoria',
+  proliferative: 'Proliferativa',
+  maturation: 'Maduraci\u00f3n',
+  chronic: 'Cr\u00f3nica',
+};
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Curación Avanzada',
@@ -50,6 +74,102 @@ export default function PatientPage() {
     phone: '',
     address: '',
   });
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+
+  // Wound photos state
+  const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
+  const [showPhotoSection, setShowPhotoSection] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoDate, setPhotoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [photoDescription, setPhotoDescription] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<WoundPhoto | null>(null);
+
+  // Wound notes state
+  const [woundNotes, setWoundNotes] = useState<Record<number, WoundNote>>({});
+  const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteForm, setNoteForm] = useState({
+    woundWidth: '',
+    woundLength: '',
+    woundColor: '' as string,
+    exudateLevel: '' as string,
+    healingStage: '' as string,
+    notes: '',
+  });
+
+  // Consent signatures state
+  const [consentSignatures, setConsentSignatures] = useState<ConsentSignature[]>([]);
+  const [showConsentSection, setShowConsentSection] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [consentText, setConsentText] = useState('Autorizo la realizaci\u00f3n de los procedimientos de curaci\u00f3n indicados por el profesional de enfermer\u00eda.');
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [viewingSignature, setViewingSignature] = useState<ConsentSignature | null>(null);
+  const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+
+  const getCanvasPos = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const canvas = signatureCanvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: ((e as React.MouseEvent).clientX - rect.left) * scaleX,
+      y: ((e as React.MouseEvent).clientY - rect.top) * scaleY,
+    };
+  }, []);
+
+  const handleCanvasStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getCanvasPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    setIsDrawing(true);
+    setHasSignature(true);
+  }, [getCanvasPos]);
+
+  const handleCanvasMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getCanvasPos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }, [isDrawing, getCanvasPos]);
+
+  const handleCanvasEnd = useCallback(() => {
+    setIsDrawing(false);
+  }, []);
+
+  const clearSignatureCanvas = useCallback(() => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+  }, []);
 
   const [editingCuracion, setEditingCuracion] = useState<any>(null);
   const [curacionEditForm, setCuracionEditForm] = useState({
@@ -105,10 +225,47 @@ export default function PatientPage() {
     }
   };
 
+  const loadWoundPhotos = async () => {
+    if (!id) return;
+    try {
+      const data = await getWoundPhotos(parseInt(id));
+      setWoundPhotos(data);
+    } catch {
+      setWoundPhotos([]);
+    }
+  };
+
+  const loadWoundNotes = async () => {
+    if (!id) return;
+    try {
+      const data = await getWoundNotesByPatient(parseInt(id));
+      const map: Record<number, WoundNote> = {};
+      for (const note of data) {
+        map[note.curacionId] = note;
+      }
+      setWoundNotes(map);
+    } catch {
+      setWoundNotes({});
+    }
+  };
+
+  const loadConsentSignatures = async () => {
+    if (!id) return;
+    try {
+      const data = await getConsentSignatures(parseInt(id));
+      setConsentSignatures(data);
+    } catch {
+      setConsentSignatures([]);
+    }
+  };
+
   useEffect(() => {
     loadPatient();
     loadAppointments();
     loadStatusHistory();
+    loadWoundPhotos();
+    loadWoundNotes();
+    loadConsentSignatures();
   }, [id]);
 
   useEffect(() => {
@@ -167,6 +324,43 @@ export default function PatientPage() {
     };
     fetchAvailability();
   }, [curacionEditForm.appointmentDate]);
+
+  const handleToggleNoteForm = (curacionId: number) => {
+    if (expandedNoteId === curacionId) {
+      setExpandedNoteId(null);
+    } else {
+      setExpandedNoteId(curacionId);
+      setNoteForm({
+        woundWidth: '',
+        woundLength: '',
+        woundColor: '',
+        exudateLevel: '',
+        healingStage: '',
+        notes: '',
+      });
+    }
+  };
+
+  const handleSaveWoundNote = async (e: React.FormEvent, curacionId: number) => {
+    e.preventDefault();
+    setSavingNote(true);
+    try {
+      const payload: any = { curacionId };
+      if (noteForm.woundWidth) payload.woundWidth = parseFloat(noteForm.woundWidth);
+      if (noteForm.woundLength) payload.woundLength = parseFloat(noteForm.woundLength);
+      if (noteForm.woundColor) payload.woundColor = noteForm.woundColor;
+      if (noteForm.exudateLevel) payload.exudateLevel = noteForm.exudateLevel;
+      if (noteForm.healingStage) payload.healingStage = noteForm.healingStage;
+      if (noteForm.notes.trim()) payload.notes = noteForm.notes.trim();
+      await createWoundNote(payload);
+      setExpandedNoteId(null);
+      await loadWoundNotes();
+    } catch {
+      alert('Error al guardar la nota de evoluci\u00f3n');
+    } finally {
+      setSavingNote(false);
+    }
+  };
 
   const handleOpenEdit = (curacion: any) => {
     setEditingCuracion(curacion);
@@ -298,6 +492,51 @@ export default function PatientPage() {
     }
   };
 
+  const handleUploadPhoto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patient || !photoFile) return;
+    setUploadingPhoto(true);
+    try {
+      await uploadWoundPhoto(patient.id, photoFile, photoDate, photoDescription || undefined);
+      setPhotoFile(null);
+      setPhotoDate(new Date().toISOString().split('T')[0]);
+      setPhotoDescription('');
+      setShowPhotoUpload(false);
+      await loadWoundPhotos();
+    } catch {
+      alert('Error al subir la foto');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!confirm('¿Desea eliminar esta foto?')) return;
+    try {
+      await deleteWoundPhoto(photoId);
+      await loadWoundPhotos();
+    } catch {
+      alert('Error al eliminar la foto');
+    }
+  };
+
+  const handleSaveSignature = async () => {
+    if (!patient || !signatureCanvasRef.current || !hasSignature) return;
+    setSavingSignature(true);
+    try {
+      const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+      await saveConsentSignature(patient.id, dataUrl, consentText || undefined);
+      clearSignatureCanvas();
+      setShowSignaturePad(false);
+      setConsentText('Autorizo la realizaci\u00f3n de los procedimientos de curaci\u00f3n indicados por el profesional de enfermer\u00eda.');
+      await loadConsentSignatures();
+    } catch {
+      alert('Error al guardar la firma');
+    } finally {
+      setSavingSignature(false);
+    }
+  };
+
   const handleDischarge = async (cancelAppointments: boolean) => {
     if (!patient) return;
     setSaving(true);
@@ -389,6 +628,31 @@ export default function PatientPage() {
               title="Editar paciente"
             >
               <Pencil className="w-4.5 h-4.5" />
+            </button>
+            <button
+              onClick={async () => {
+                if (!patient) return;
+                setDownloadingPdf(true);
+                try {
+                  await downloadPatientPdf(patient.id);
+                } catch {
+                  alert('Error al descargar PDF');
+                } finally {
+                  setDownloadingPdf(false);
+                }
+              }}
+              disabled={downloadingPdf}
+              className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+              title="Descargar ficha clínica PDF"
+            >
+              {downloadingPdf ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <FileDown className="w-4.5 h-4.5" />}
+            </button>
+            <button
+              onClick={() => setShowQR(true)}
+              className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all cursor-pointer"
+              title="Código QR del paciente"
+            >
+              <QrCode className="w-4.5 h-4.5" />
             </button>
             <button
               onClick={() => setShowDeleteModal(true)}
@@ -791,6 +1055,279 @@ export default function PatientPage() {
         </div>
       )}
 
+      {/* Wound evolution chart */}
+      {patient && <WoundEvolutionChart patientId={patient.id} />}
+
+      {/* Wound photos section */}
+      <div className="card p-5 sm:p-6">
+        <button
+          onClick={() => setShowPhotoSection(!showPhotoSection)}
+          className="w-full flex items-center justify-between cursor-pointer"
+          type="button"
+        >
+          <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Camera className="w-4.5 h-4.5 text-slate-400" />
+            Registro Fotográfico
+            <span className="text-sm font-normal text-slate-400">({woundPhotos.length})</span>
+          </h3>
+          {showPhotoSection ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+
+        {showPhotoSection && (
+          <div className="mt-4">
+            {/* Upload button */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setShowPhotoUpload(!showPhotoUpload)}
+                className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+                {showPhotoUpload ? 'Cancelar' : 'Subir Foto'}
+              </button>
+            </div>
+
+            {/* Upload form */}
+            {showPhotoUpload && (
+              <form onSubmit={handleUploadPhoto} className="space-y-4 mb-6 p-4 bg-slate-50 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Foto *</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                      required
+                      className="form-control w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha *</label>
+                    <input
+                      type="date"
+                      value={photoDate}
+                      onChange={(e) => setPhotoDate(e.target.value)}
+                      required
+                      className="form-control w-full"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Descripción</label>
+                  <textarea
+                    value={photoDescription}
+                    onChange={(e) => setPhotoDescription(e.target.value)}
+                    rows={2}
+                    placeholder="Ej: Herida pierna derecha, segunda semana de tratamiento..."
+                    className="form-control w-full resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={uploadingPhoto || !photoFile}
+                  className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                  {uploadingPhoto ? 'Subiendo...' : 'Subir Foto'}
+                </button>
+              </form>
+            )}
+
+            {/* Photo timeline */}
+            {woundPhotos.length > 0 ? (
+              <div className="space-y-6">
+                {Object.entries(
+                  woundPhotos.reduce<Record<string, WoundPhoto[]>>((groups, photo) => {
+                    const date = photo.photoDate;
+                    if (!groups[date]) groups[date] = [];
+                    groups[date].push(photo);
+                    return groups;
+                  }, {}),
+                ).map(([date, photos]) => (
+                  <div key={date}>
+                    <h4 className="text-sm font-medium text-slate-500 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-400 rounded-full" />
+                      {date}
+                      <span className="text-xs text-slate-400">({photos.length} foto{photos.length !== 1 ? 's' : ''})</span>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {photos.map((photo) => (
+                        <div key={photo.id} className="group relative">
+                          <div
+                            className="aspect-square rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200 hover:border-blue-300 transition-all"
+                            onClick={() => setViewingPhoto(photo)}
+                          >
+                            <img
+                              src={getWoundPhotoUrl(photo.filename)}
+                              alt={photo.description || 'Foto de herida'}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-sm"
+                            type="button"
+                            title="Eliminar foto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          {photo.description && (
+                            <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">{photo.description}</p>
+                          )}
+                          <p className="text-xs text-slate-400 mt-0.5">por {photo.uploadedBy?.username}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-center py-8 text-sm">
+                Sin registro fotográfico
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Consent signatures section */}
+      <div className="card p-5 sm:p-6">
+        <button
+          onClick={() => setShowConsentSection(!showConsentSection)}
+          className="w-full flex items-center justify-between cursor-pointer"
+          type="button"
+        >
+          <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <PenTool className="w-4.5 h-4.5 text-slate-400" />
+            Consentimiento Informado
+            <span className="text-sm font-normal text-slate-400">({consentSignatures.length})</span>
+          </h3>
+          {showConsentSection ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+
+        {showConsentSection && (
+          <div className="mt-4">
+            {/* Signature pad toggle */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => { setShowSignaturePad(!showSignaturePad); if (!showSignaturePad) setHasSignature(false); }}
+                className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+                {showSignaturePad ? 'Cancelar' : 'Nueva Firma'}
+              </button>
+            </div>
+
+            {/* Signature pad */}
+            {showSignaturePad && (
+              <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Texto del consentimiento</label>
+                  <textarea
+                    value={consentText}
+                    onChange={(e) => setConsentText(e.target.value)}
+                    rows={3}
+                    className="form-control w-full resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Firma del paciente</label>
+                  <div className="bg-white border-2 border-dashed border-slate-300 rounded-xl overflow-hidden">
+                    <canvas
+                      ref={signatureCanvasRef}
+                      width={600}
+                      height={200}
+                      className="w-full touch-none cursor-crosshair"
+                      style={{ height: '200px' }}
+                      onMouseDown={handleCanvasStart}
+                      onMouseMove={handleCanvasMove}
+                      onMouseUp={handleCanvasEnd}
+                      onMouseLeave={handleCanvasEnd}
+                      onTouchStart={handleCanvasStart}
+                      onTouchMove={handleCanvasMove}
+                      onTouchEnd={handleCanvasEnd}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Dibuje la firma con el mouse o el dedo en pantalla t&aacute;ctil</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={clearSignatureCanvas}
+                    className="btn-secondary text-sm cursor-pointer"
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSignature}
+                    disabled={savingSignature || !hasSignature}
+                    className="btn-primary text-sm cursor-pointer flex items-center gap-2"
+                  >
+                    {savingSignature ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenTool className="w-3.5 h-3.5" />}
+                    {savingSignature ? 'Guardando...' : 'Guardar Firma'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Signatures list */}
+            {consentSignatures.length > 0 ? (
+              <div className="space-y-4">
+                {consentSignatures.map((sig) => (
+                  <div key={sig.id} className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-sm font-medium text-slate-800">
+                            {new Date(sig.signedAt).toLocaleDateString('es-CL')}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(sig.signedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            Testigo: {sig.witnessedBy?.username}
+                          </span>
+                        </div>
+                        {sig.consentText && (
+                          <p className="text-sm text-slate-600 mb-2">{sig.consentText}</p>
+                        )}
+                      </div>
+                      <div
+                        className="flex-shrink-0 w-32 h-16 border border-slate-200 rounded-lg overflow-hidden bg-white cursor-pointer hover:border-blue-300 transition-all"
+                        onClick={() => setViewingSignature(sig)}
+                      >
+                        <img
+                          src={getConsentSignatureUrl(sig.filename)}
+                          alt="Firma"
+                          className="w-full h-full object-contain"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-center py-8 text-sm">
+                Sin firmas de consentimiento registradas
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Curaciones history */}
       <div className="card p-5 sm:p-6">
         <h3 className="text-base font-semibold text-slate-800 mb-4">
@@ -815,53 +1352,238 @@ export default function PatientPage() {
                     Cant.
                   </th>
                   <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
-                    Próxima Cita
+                    Pr&oacute;xima Cita
                   </th>
                   <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
                     Observaciones
                   </th>
+                  <th className="text-center py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">
+                    Nota
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {patient.curaciones.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="py-3 px-2 text-slate-800">
-                      {c.date}
-                      {c.edits && c.edits.length > 0 && (
-                        <span className="ml-1.5 inline-flex" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
-                          <Pencil className="w-3 h-3 text-slate-400" />
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-2">
-                      {isAdmin ? (
-                        <span
-                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(c); }}
-                          className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-100 transition-all"
-                          title="Click para editar"
-                        >
-                          {CURACION_LABELS[c.type]}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
-                          {CURACION_LABELS[c.type]}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-2 text-center font-medium text-slate-800">
-                      {c.quantity || 1}
-                    </td>
-                    <td className="py-3 px-2 text-slate-600">
-                      {c.appointment ? `${c.appointment.date} ${c.appointment.time}` : '-'}
-                    </td>
-                    <td className="py-3 px-2 text-slate-500">
-                      {c.observations || '-'}
-                    </td>
-                  </tr>
-                ))}
+                {patient.curaciones.map((c) => {
+                  const existingNote = woundNotes[c.id];
+                  const isExpanded = expandedNoteId === c.id;
+                  return (
+                    <tr key={c.id} className="border-b border-slate-100">
+                      <td colSpan={6} className="p-0">
+                        <div className="flex items-center hover:bg-slate-50 transition-colors">
+                          <div className="py-3 px-2 text-slate-800 flex-shrink-0" style={{ width: '16%' }}>
+                            {c.date}
+                            {c.edits && c.edits.length > 0 && (
+                              <span className="ml-1.5 inline-flex" title={`Editado por ${c.edits[0].editedBy.username}: ${c.edits[0].reason}`}>
+                                <Pencil className="w-3 h-3 text-slate-400" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="py-3 px-2 flex-shrink-0" style={{ width: '24%' }}>
+                            {isAdmin ? (
+                              <span
+                                onClick={(e) => { e.stopPropagation(); handleOpenEdit(c); }}
+                                className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-100 transition-all"
+                                title="Click para editar"
+                              >
+                                {CURACION_LABELS[c.type]}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
+                                {CURACION_LABELS[c.type]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="py-3 px-2 text-center font-medium text-slate-800 flex-shrink-0" style={{ width: '8%' }}>
+                            {c.quantity || 1}
+                          </div>
+                          <div className="py-3 px-2 text-slate-600 flex-shrink-0" style={{ width: '20%' }}>
+                            {c.appointment ? `${c.appointment.date} ${c.appointment.time}` : '-'}
+                          </div>
+                          <div className="py-3 px-2 text-slate-500 flex-1 min-w-0 truncate">
+                            {c.observations || '-'}
+                          </div>
+                          <div className="py-3 px-2 text-center flex-shrink-0" style={{ width: '8%' }}>
+                            {existingNote ? (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedNoteId(isExpanded ? null : c.id)}
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                                title="Ver nota de evoluci&oacute;n"
+                              >
+                                <ClipboardList className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleNoteForm(c.id)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                                title="Agregar nota de evoluci&oacute;n"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Expanded wound note display or form */}
+                        {isExpanded && existingNote && (
+                          <div className="px-4 pb-4">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm">
+                              <div className="flex items-center gap-2 mb-3">
+                                <ClipboardList className="w-4 h-4 text-emerald-600" />
+                                <span className="font-medium text-emerald-800">Nota de Evoluci&oacute;n</span>
+                                <span className="text-xs text-emerald-600 ml-auto">por {existingNote.recordedBy?.username}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {(existingNote.woundWidth != null || existingNote.woundLength != null) && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Dimensiones</span>
+                                    <span className="text-slate-800 font-medium">
+                                      {existingNote.woundWidth ?? '-'} x {existingNote.woundLength ?? '-'} cm
+                                    </span>
+                                  </div>
+                                )}
+                                {existingNote.woundArea != null && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">&Aacute;rea</span>
+                                    <span className="text-slate-800 font-medium">{existingNote.woundArea} cm&sup2;</span>
+                                  </div>
+                                )}
+                                {existingNote.woundColor && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Color</span>
+                                    <span className="text-slate-800 font-medium">{WOUND_COLOR_LABELS[existingNote.woundColor]}</span>
+                                  </div>
+                                )}
+                                {existingNote.exudateLevel && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Exudado</span>
+                                    <span className="text-slate-800 font-medium">{EXUDATE_LABELS[existingNote.exudateLevel]}</span>
+                                  </div>
+                                )}
+                                {existingNote.healingStage && (
+                                  <div>
+                                    <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Etapa</span>
+                                    <span className="text-slate-800 font-medium">{HEALING_STAGE_LABELS[existingNote.healingStage]}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {existingNote.notes && (
+                                <div className="mt-3 pt-3 border-t border-emerald-200">
+                                  <span className="text-emerald-600 text-xs uppercase tracking-wider block mb-0.5">Notas</span>
+                                  <p className="text-slate-700">{existingNote.notes}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {isExpanded && !existingNote && (
+                          <div className="px-4 pb-4">
+                            <form onSubmit={(e) => handleSaveWoundNote(e, c.id)} className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <ClipboardList className="w-4 h-4 text-blue-600" />
+                                <span className="font-medium text-blue-800 text-sm">Nueva Nota de Evoluci&oacute;n</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Ancho (cm)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={noteForm.woundWidth}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundWidth: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Largo (cm)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={noteForm.woundLength}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundLength: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Color de herida</label>
+                                  <select
+                                    value={noteForm.woundColor}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundColor: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {Object.entries(WOUND_COLOR_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Nivel de exudado</label>
+                                  <select
+                                    value={noteForm.exudateLevel}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, exudateLevel: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {Object.entries(EXUDATE_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-700 mb-1">Etapa de cicatrizaci&oacute;n</label>
+                                  <select
+                                    value={noteForm.healingStage}
+                                    onChange={(e) => setNoteForm(prev => ({ ...prev, healingStage: e.target.value }))}
+                                    className="form-control w-full text-sm"
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {Object.entries(HEALING_STAGE_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">Notas libres</label>
+                                <textarea
+                                  value={noteForm.notes}
+                                  onChange={(e) => setNoteForm(prev => ({ ...prev, notes: e.target.value }))}
+                                  rows={2}
+                                  className="form-control w-full text-sm resize-none"
+                                  placeholder="Observaciones sobre el estado de la herida..."
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedNoteId(null)}
+                                  className="btn-secondary text-sm cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={savingNote}
+                                  className="btn-primary text-sm cursor-pointer flex items-center gap-2"
+                                >
+                                  {savingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                  {savingNote ? 'Guardando...' : 'Guardar nota'}
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1036,6 +1758,73 @@ export default function PatientPage() {
       </div>
     )}
 
+    {/* Photo viewer modal */}
+    {viewingPhoto && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={() => setViewingPhoto(null)}
+      >
+        <div
+          className="relative max-w-4xl max-h-[90vh] w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setViewingPhoto(null)}
+            className="absolute -top-10 right-0 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={getWoundPhotoUrl(viewingPhoto.filename)}
+            alt={viewingPhoto.description || 'Foto de herida'}
+            className="w-full h-auto max-h-[80vh] object-contain rounded-xl"
+          />
+          <div className="mt-3 text-white text-sm">
+            <p className="font-medium">{viewingPhoto.photoDate}</p>
+            {viewingPhoto.description && <p className="text-white/80 mt-1">{viewingPhoto.description}</p>}
+            <p className="text-white/60 text-xs mt-1">Subida por {viewingPhoto.uploadedBy?.username}</p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Signature viewer modal */}
+    {viewingSignature && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={() => setViewingSignature(null)}
+      >
+        <div
+          className="relative max-w-2xl w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setViewingSignature(null)}
+            className="absolute -top-10 right-0 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="bg-white rounded-xl p-6">
+            <img
+              src={getConsentSignatureUrl(viewingSignature.filename)}
+              alt="Firma de consentimiento"
+              className="w-full h-auto object-contain"
+            />
+            <div className="mt-4 border-t border-slate-200 pt-4 text-sm">
+              <p className="text-slate-800 font-medium">
+                {new Date(viewingSignature.signedAt).toLocaleDateString('es-CL')} a las{' '}
+                {new Date(viewingSignature.signedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              {viewingSignature.consentText && (
+                <p className="text-slate-600 mt-2">{viewingSignature.consentText}</p>
+              )}
+              <p className="text-slate-400 text-xs mt-2">Testigo: {viewingSignature.witnessedBy?.username}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* Discharge modal */}
     {showDischargeModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowDischargeModal(false)}>
@@ -1069,6 +1858,36 @@ export default function PatientPage() {
             <button type="button" onClick={() => handleDischarge(true)} disabled={saving}
               className="btn-danger cursor-pointer">
               {saving ? 'Procesando...' : (appointments.length > 0 ? 'Alta y cancelar citas' : 'Confirmar Alta')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {/* QR code modal */}
+    {showQR && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 print:bg-white print:backdrop-blur-none"
+        onClick={() => setShowQR(false)}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center print:shadow-none print:rounded-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <QRCodeSVG value={patient.rut} size={200} level="M" className="mx-auto" />
+          <p className="mt-4 text-lg font-bold text-slate-800">{patient.firstName} {patient.lastName}</p>
+          <p className="text-sm text-slate-500">{patient.rut}</p>
+          <div className="flex gap-3 mt-6 print:hidden">
+            <button
+              onClick={() => window.print()}
+              className="btn-primary flex-1 cursor-pointer"
+            >
+              Imprimir
+            </button>
+            <button
+              onClick={() => setShowQR(false)}
+              className="btn-secondary flex-1 cursor-pointer"
+            >
+              Cerrar
             </button>
           </div>
         </div>

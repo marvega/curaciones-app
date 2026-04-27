@@ -97,8 +97,82 @@ export interface DetailedReport {
     ageMin?: number;
     ageMax?: number;
   };
-  summary: {
-    avanzada: { total: number; byGender: Record<string, number> };
-    ulcera_venosa: { total: number; byGender: Record<string, number> };
-  };
+  total: number;
+  byGender: Record<string, number>;
+}
+
+export interface DashboardTodayItem {
+  id: number;
+  date: string;
+  time: string;
+  patient: { id: number; firstName: string; lastName: string; rut: string };
+  curacion?: { id: number; type: CuracionType };
+  source: 'curacion' | 'standalone';
+}
+
+export interface PatientNoAppointment {
+  id: number;
+  firstName: string;
+  lastName: string;
+  rut: string;
+  lastCuracion: { date: string; type: string } | null;
+  daysSinceLastCuracion: number | null;
+}
+
+export interface PatientInactive {
+  id: number;
+  firstName: string;
+  lastName: string;
+  rut: string;
+  lastCuracionDate: string | null;
+  lastCuracionType: string | null;
+  daysSinceLastCuracion: number | null;
+}
+
+export interface UserPreferences {
+  inactivityThresholdDays: number;
+}
+
+export interface WoundPhoto {
+  id: number;
+  patientId: number;
+  filename: string;
+  description: string | null;
+  photoDate: string;
+  createdAt: string;
+  uploadedBy: { id: number; username: string };
+}
+
+export type WoundColor = 'red' | 'yellow' | 'black' | 'pink' | 'mixed';
+export type ExudateLevel = 'none' | 'low' | 'moderate' | 'high';
+export type HealingStage = 'inflammatory' | 'proliferative' | 'maturation' | 'chronic';
+
+export interface WoundNote {
+  id: number;
+  curacionId: number;
+  woundWidth: number | null;
+  woundLength: number | null;
+  woundArea: number | null;
+  woundColor: WoundColor | null;
+  exudateLevel: ExudateLevel | null;
+  healingStage: HealingStage | null;
+  notes: string | null;
+  createdAt: string;
+  recordedBy: { id: number; username: string };
+}
+
+export interface WoundEvolutionPoint {
+  date: string;
+  woundArea: number | null;
+  woundColor: WoundColor | null;
+  healingStage: HealingStage | null;
+}
+
+export interface ConsentSignature {
+  id: number;
+  patientId: number;
+  filename: string;
+  consentText: string | null;
+  signedAt: string;
+  witnessedBy: { id: number; username: string };
 }

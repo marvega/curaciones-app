@@ -89,52 +89,25 @@ export default function DetailedReportPage() {
         : 'Todas las edades',
     ].join(', ');
 
-    const summaryData: (string | number)[][] = [
-      ['Reporte Trimestral Detallado de Curaciones'],
+    const sheetData: (string | number)[][] = [
+      ['Reporte Trimestral de Pie Diabético'],
       [`Filtros: ${filterLabel}`],
       [],
-      ['Tipo de Curación', 'Total'],
-      ['Curación Avanzada', report.summary.avanzada.total],
-      ['Curación Úlcera Venosa', report.summary.ulcera_venosa.total],
-    ];
-
-    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-    wsSummary['!cols'] = [{ wch: 30 }, { wch: 15 }];
-
-    const avanzadaData: (string | number)[][] = [
-      ['Curación Avanzada - Detalle por Género'],
-      [`Filtros: ${filterLabel}`],
+      ['Total de pacientes únicos', report.total],
       [],
-      ['Género', 'Cantidad'],
+      ['Detalle por Género'],
+      ['Género', 'Pacientes únicos'],
     ];
-    for (const [g, count] of Object.entries(report.summary.avanzada.byGender)) {
-      avanzadaData.push([g, count]);
+
+    for (const [g, count] of Object.entries(report.byGender)) {
+      sheetData.push([g, count]);
     }
-    avanzadaData.push([]);
-    avanzadaData.push(['Total', report.summary.avanzada.total]);
 
-    const wsAvanzada = XLSX.utils.aoa_to_sheet(avanzadaData);
-    wsAvanzada['!cols'] = [{ wch: 25 }, { wch: 15 }];
-
-    const ulceraData: (string | number)[][] = [
-      ['Curación Úlcera Venosa - Detalle por Género'],
-      [`Filtros: ${filterLabel}`],
-      [],
-      ['Género', 'Cantidad'],
-    ];
-    for (const [g, count] of Object.entries(report.summary.ulcera_venosa.byGender)) {
-      ulceraData.push([g, count]);
-    }
-    ulceraData.push([]);
-    ulceraData.push(['Total', report.summary.ulcera_venosa.total]);
-
-    const wsUlcera = XLSX.utils.aoa_to_sheet(ulceraData);
-    wsUlcera['!cols'] = [{ wch: 25 }, { wch: 15 }];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = [{ wch: 30 }, { wch: 18 }];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
-    XLSX.utils.book_append_sheet(wb, wsAvanzada, 'Curacion Avanzada');
-    XLSX.utils.book_append_sheet(wb, wsUlcera, 'Ulcera Venosa');
+    XLSX.utils.book_append_sheet(wb, ws, 'Pie Diabético');
 
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], {
@@ -142,7 +115,10 @@ export default function DetailedReportPage() {
     });
 
     const dateStr = new Date().toISOString().split('T')[0];
-    saveAs(blob, `Reporte_Trimestral_${report.filters.year}_Q${report.filters.quarter}_${dateStr}.xlsx`);
+    saveAs(
+      blob,
+      `Reporte_PieDiabetico_${report.filters.year}_Q${report.filters.quarter}_${dateStr}.xlsx`,
+    );
   };
 
   const buildPieData = (byGender: Record<string, number>) => {
@@ -155,9 +131,12 @@ export default function DetailedReportPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="card p-5 sm:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6">
-          Reporte Trimestral Detallado
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">
+          Reporte Trimestral de Pie Diabético
         </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          Pacientes únicos atendidos por curación de pie diabético en el período seleccionado.
+        </p>
 
         <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end mb-6">
           <div>
@@ -248,145 +227,83 @@ export default function DetailedReportPage() {
 
         {report && (
           <div className="space-y-8">
-            {/* Summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-                <h3 className="text-base font-semibold text-blue-800 mb-2">
-                  Curación Avanzada
-                </h3>
-                <div className="text-4xl font-bold text-blue-700 mb-4">
-                  {report.summary.avanzada.total}
-                </div>
-                {Object.keys(report.summary.avanzada.byGender).length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="text-xs font-medium text-blue-600 uppercase tracking-wider mb-2">
-                      Por género
-                    </div>
-                    {Object.entries(report.summary.avanzada.byGender).map(
-                      ([g, count]) => (
-                        <div
-                          key={g}
-                          className="flex justify-between text-sm text-blue-700"
-                        >
-                          <span>{g}</span>
-                          <span className="font-semibold">{count}</span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                )}
+            {/* Summary card */}
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+              <h3 className="text-base font-semibold text-blue-800 mb-1">
+                Pacientes únicos con Pie Diabético
+              </h3>
+              <div className="text-xs text-blue-600 mb-3 flex flex-wrap gap-x-3 gap-y-1">
+                <span>
+                  <span className="font-medium">Grupo etáreo:</span>{' '}
+                  {report.filters.ageMin !== undefined
+                    ? report.filters.ageMax !== undefined && report.filters.ageMax >= 150
+                      ? `${report.filters.ageMin} y más años`
+                      : `${report.filters.ageMin} - ${report.filters.ageMax} años`
+                    : 'Todos'}
+                </span>
+                <span>
+                  <span className="font-medium">Género:</span>{' '}
+                  {report.filters.gender || 'Todos'}
+                </span>
               </div>
-
-              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
-                <h3 className="text-base font-semibold text-indigo-800 mb-2">
-                  Curación Úlcera Venosa
-                </h3>
-                <div className="text-4xl font-bold text-indigo-700 mb-4">
-                  {report.summary.ulcera_venosa.total}
-                </div>
-                {Object.keys(report.summary.ulcera_venosa.byGender).length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="text-xs font-medium text-indigo-600 uppercase tracking-wider mb-2">
-                      Por género
-                    </div>
-                    {Object.entries(report.summary.ulcera_venosa.byGender).map(
-                      ([g, count]) => (
-                        <div
-                          key={g}
-                          className="flex justify-between text-sm text-indigo-700"
-                        >
-                          <span>{g}</span>
-                          <span className="font-semibold">{count}</span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                )}
+              <div className="text-4xl font-bold text-blue-700 mb-4">
+                {report.total}
               </div>
-            </div>
-
-            {/* Charts */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {report.summary.avanzada.total > 0 && (
-                <div>
-                  <h4 className="text-center text-sm font-medium text-slate-600 mb-3">
-                    Curación Avanzada por Género
-                  </h4>
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={buildPieData(report.summary.avanzada.byGender)}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
-                        >
-                          {buildPieData(
-                            report.summary.avanzada.byGender,
-                          ).map((_, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                          }}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
+              {Object.keys(report.byGender).length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-blue-600 uppercase tracking-wider mb-2">
+                    Por género
                   </div>
-                </div>
-              )}
-
-              {report.summary.ulcera_venosa.total > 0 && (
-                <div>
-                  <h4 className="text-center text-sm font-medium text-slate-600 mb-3">
-                    Úlcera Venosa por Género
-                  </h4>
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={buildPieData(
-                            report.summary.ulcera_venosa.byGender,
-                          )}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
-                        >
-                          {buildPieData(
-                            report.summary.ulcera_venosa.byGender,
-                          ).map((_, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                          }}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {Object.entries(report.byGender).map(([g, count]) => (
+                    <div
+                      key={g}
+                      className="flex justify-between text-sm text-blue-700"
+                    >
+                      <span>{g}</span>
+                      <span className="font-semibold">{count}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
+
+            {/* Chart */}
+            {report.total > 0 && (
+              <div>
+                <h4 className="text-center text-sm font-medium text-slate-600 mb-3">
+                  Pie Diabético por Género
+                </h4>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart margin={{ top: 30, right: 30, bottom: 10, left: 30 }}>
+                      <Pie
+                        data={buildPieData(report.byGender)}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value}`}
+                      >
+                        {buildPieData(report.byGender).map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        }}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
 
             {/* Filters applied */}
             <div className="text-center text-sm text-slate-500 bg-slate-50 rounded-xl py-2.5 px-4">

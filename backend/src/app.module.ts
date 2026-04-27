@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PerUserThrottlerGuard } from './common/per-user-throttler.guard';
 import { HealthController } from './health.controller';
@@ -18,6 +18,16 @@ import { CyclesModule } from './cycles/cycles.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { AuditLog } from './audit-log/audit-log.entity';
+import { AuditLogModule } from './audit-log/audit-log.module';
+import { AuditLogInterceptor } from './audit-log/audit-log.interceptor';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { WoundPhoto } from './wound-photos/wound-photo.entity';
+import { WoundPhotosModule } from './wound-photos/wound-photos.module';
+import { WoundNote } from './wound-notes/wound-note.entity';
+import { WoundNotesModule } from './wound-notes/wound-notes.module';
+import { ConsentSignature } from './consent/consent-signature.entity';
+import { ConsentModule } from './consent/consent.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -38,8 +48,8 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit],
-      synchronize: true,
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature],
+      synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     }),
     AuthModule,
@@ -49,10 +59,16 @@ import { BootstrapService } from './bootstrap.service';
     ReportsModule,
     CyclesModule,
     AppointmentsModule,
+    DashboardModule,
+    AuditLogModule,
+    WoundPhotosModule,
+    WoundNotesModule,
+    ConsentModule,
   ],
   controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: PerUserThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     BootstrapService,
   ],
 })

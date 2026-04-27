@@ -64,9 +64,9 @@ export class ReportsService {
     const qb = this.curacionRepo
       .createQueryBuilder('c')
       .innerJoin('c.patient', 'p')
-      .select('c.type', 'type')
-      .addSelect('COUNT(*)', 'total')
-      .addSelect('p.gender', 'gender');
+      .select('p.gender', 'gender')
+      .addSelect('COUNT(DISTINCT c.patientId)', 'total')
+      .where('c.type = :type', { type: 'pie_diabetico' });
 
     // Manejo de trimestre basado en ciclos configurados
     if (filters.year && filters.quarter) {
@@ -93,8 +93,6 @@ export class ReportsService {
     }
 
     if (filters.ageMin !== undefined || filters.ageMax !== undefined) {
-      const today = new Date().toISOString().split('T')[0];
-
       if (filters.ageMax !== undefined) {
         const minBirthDate = new Date();
         minBirthDate.setFullYear(
@@ -116,30 +114,20 @@ export class ReportsService {
       }
     }
 
-    const results = await qb.groupBy('c.type').addGroupBy('p.gender').getRawMany();
+    const results = await qb.groupBy('p.gender').getRawMany();
 
-    const summary = {
-      avanzada: { total: 0, byGender: {} as Record<string, number> },
-      ulcera_venosa: { total: 0, byGender: {} as Record<string, number> },
-    };
-
+    const byGender: Record<string, number> = {};
+    let total = 0;
     for (const row of results) {
       const count = parseInt(row.total, 10);
-      if (row.type === 'avanzada' || row.type === 'pie_diabetico') {
-        summary.avanzada.total += count;
-        summary.avanzada.byGender[row.gender] =
-          (summary.avanzada.byGender[row.gender] || 0) + count;
-      }
-      if (row.type === 'ulcera_venosa') {
-        summary.ulcera_venosa.total += count;
-        summary.ulcera_venosa.byGender[row.gender] =
-          (summary.ulcera_venosa.byGender[row.gender] || 0) + count;
-      }
+      byGender[row.gender] = count;
+      total += count;
     }
 
     return {
       filters,
-      summary,
+      total,
+      byGender,
     };
   }
 }
