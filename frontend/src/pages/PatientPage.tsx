@@ -428,7 +428,12 @@ export default function PatientPage() {
     try {
       await createCuracion({
         patientId: patient.id,
-        ...curacionForm,
+        type: curacionForm.type,
+        date: curacionForm.date,
+        quantity: curacionForm.quantity,
+        observations: curacionForm.observations || undefined,
+        appointmentDate: curacionForm.appointmentDate || undefined,
+        appointmentTime: curacionForm.appointmentTime || undefined,
         bootDelivered,
       });
       setShowForm(false);
