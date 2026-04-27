@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CuracionType } from './curacion.entity';
@@ -41,4 +42,9 @@ export class CreateCuracionDto {
   @IsString()
   @IsOptional()
   observations?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'Boot (ayuda técnica de descarga) delivered — only meaningful for pie_diabetico' })
+  @IsBoolean()
+  @IsOptional()
+  bootDelivered?: boolean;
 }

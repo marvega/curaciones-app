@@ -38,6 +38,9 @@ export class Curacion {
   @Column({ type: 'text', nullable: true })
   observations: string;
 
+  @Column({ type: 'boolean', default: false })
+  bootDelivered: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
