@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import PDFDocument from 'pdfkit';
 import { Patient } from './patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Appointment } from '../appointments/appointment.entity';
@@ -21,6 +20,8 @@ export class PatientPdfService {
   ) {}
 
   async generatePdf(patientId: number): Promise<Buffer> {
+    const { default: PDFDocument } = await import('pdfkit');
+
     const patient = await this.patientRepo.findOne({
       where: { id: patientId },
     });
