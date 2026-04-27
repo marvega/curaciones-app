@@ -1,9 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { verify, JwtPayload } from 'jsonwebtoken';
 
+// Health-check paths the platform (Render) probes frequently. Throttling
+// these returns 429, which Render interprets as "unhealthy" and restarts
+// the container — caused our prod crash-loop.
+const ALWAYS_SKIP_PATHS = new Set(['/api/health', '/api/health/memory']);
+
 @Injectable()
 export class PerUserThrottlerGuard extends ThrottlerGuard {
+  protected async shouldSkip(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest();
+    const path = typeof req?.path === 'string' ? req.path : req?.url;
+    if (path && ALWAYS_SKIP_PATHS.has(path)) return true;
+    return super.shouldSkip(context);
+  }
+
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const auth = req.headers?.authorization;
     if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
