@@ -51,6 +51,10 @@ import { BootstrapService } from './bootstrap.service';
       entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      extra: {
+        max: parseInt(process.env.DB_POOL_MAX ?? '3', 10),
+        idleTimeoutMillis: 30000,
+      },
     }),
     AuthModule,
     UsersModule,
