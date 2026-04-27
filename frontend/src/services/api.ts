@@ -162,7 +162,7 @@ export const getAvailability = async (date: string): Promise<any[]> => {
 
 export const updateCuracion = async (
   id: number,
-  data: { type?: string; quantity?: number; appointmentDate?: string | null; appointmentTime?: string | null; reason: string },
+  data: { type?: string; quantity?: number; appointmentDate?: string | null; appointmentTime?: string | null; reason: string; bootDelivered?: boolean },
 ): Promise<Curacion> => {
   const { data: result } = await api.put(`/curaciones/${id}`, data);
   return result;
