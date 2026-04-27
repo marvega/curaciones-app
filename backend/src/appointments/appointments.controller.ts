@@ -8,10 +8,13 @@ import {
   ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './create-appointment.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@ApiTags('Appointments')
+@ApiBearerAuth()
 @Controller('api/appointments')
 @UseGuards(JwtAuthGuard)
 export class AppointmentsController {

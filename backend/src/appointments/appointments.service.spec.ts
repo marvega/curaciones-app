@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AppointmentsService } from './appointments.service';
 import { Appointment } from './appointment.entity';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('AppointmentsService', () => {
   let service: AppointmentsService;
@@ -11,6 +11,7 @@ describe('AppointmentsService', () => {
     save: jest.fn((entity) => Promise.resolve({ id: 1, ...entity })),
     findOne: jest.fn(() => Promise.resolve(null)),
     find: jest.fn(() => Promise.resolve([])),
+    remove: jest.fn(() => Promise.resolve()),
   };
 
   beforeEach(async () => {
@@ -68,5 +69,104 @@ describe('AppointmentsService', () => {
     await expect(
       service.create({ patientId: 1, date: '2099-12-01', time: '13:00' }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  describe('create', () => {
+    it('creates standalone appointment with valid slot', async () => {
+      const result = await service.create({
+        patientId: 5,
+        date: '2099-12-01',
+        time: '14:30',
+      });
+      expect(result).toBeDefined();
+      expect(result.patientId).toBe(5);
+      expect(mockRepo.create).toHaveBeenCalledWith({
+        patientId: 5,
+        date: '2099-12-01',
+        time: '14:30',
+      });
+      expect(mockRepo.save).toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for past date', async () => {
+      await expect(
+        service.create({ patientId: 1, date: '2000-06-15', time: '13:00' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for double-booked slot', async () => {
+      mockRepo.findOne.mockResolvedValueOnce({ id: 50, date: '2099-12-01', time: '14:00' });
+      await expect(
+        service.create({ patientId: 2, date: '2099-12-01', time: '14:00' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('throws NotFoundException for non-existent appointment', async () => {
+      mockRepo.findOne.mockResolvedValueOnce(null);
+      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('removes an existing appointment', async () => {
+      const appointment = { id: 10, date: '2099-12-01', time: '13:00' };
+      mockRepo.findOne.mockResolvedValueOnce(appointment);
+      await service.remove(10);
+      expect(mockRepo.remove).toHaveBeenCalledWith(appointment);
+    });
+  });
+
+  describe('getAvailability', () => {
+    it('returns slots with available flag', async () => {
+      // 2099-12-01 is a regular day → PM slots
+      mockRepo.find.mockResolvedValueOnce([
+        {
+          time: '13:00',
+          patient: { id: 1, firstName: 'Ana', lastName: 'Garcia', rut: '12345678-9' },
+        },
+      ]);
+
+      const result = await service.getAvailability('2099-12-01');
+
+      expect(result.length).toBeGreaterThan(0);
+      const bookedSlot = result.find((s) => s.time === '13:00');
+      expect(bookedSlot.available).toBe(false);
+      expect(bookedSlot.patient).toBeDefined();
+      expect(bookedSlot.patient.firstName).toBe('Ana');
+
+      const freeSlot = result.find((s) => s.time === '14:00');
+      expect(freeSlot.available).toBe(true);
+      expect(freeSlot.patient).toBeNull();
+    });
+  });
+
+  describe('createLinked', () => {
+    it('creates appointment linked to curacion', async () => {
+      const result = await service.createLinked(1, 5, '2099-12-01', '13:00');
+
+      expect(result).toBeDefined();
+      expect(mockRepo.create).toHaveBeenCalledWith({
+        patientId: 1,
+        curacionId: 5,
+        date: '2099-12-01',
+        time: '13:00',
+      });
+      expect(mockRepo.save).toHaveBeenCalled();
+    });
+
+    it('rejects invalid slot for linked appointment', async () => {
+      await expect(
+        service.createLinked(1, 5, '2099-12-01', '09:00'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects double-booked slot for linked appointment', async () => {
+      mockRepo.findOne.mockResolvedValueOnce({ id: 50 });
+      await expect(
+        service.createLinked(1, 5, '2099-12-01', '13:00'),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 });

@@ -1,3 +1,6 @@
+# Worktrees
+.worktrees/
+
 # Dependencies
 node_modules/
 backend/node_modules/
@@ -32,3 +35,12 @@ npm-debug.log*
 # SQLite (ya no usado, pero por si acaso)
 *.sqlite
 *.sqlite3
+
+# Test environment
+backend/.env.test
+
+# Backup credentials
+scripts/.env.backup
+
+# Uploaded files
+backend/uploads/

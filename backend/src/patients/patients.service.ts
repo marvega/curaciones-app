@@ -103,6 +103,81 @@ export class PatientsService {
     };
   }
 
+  async findAdvanced(filters: {
+    page: number;
+    limit: number;
+    status?: string;
+    gender?: string;
+    curacionType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    ageMin?: number;
+    ageMax?: number;
+  }) {
+    const qb = this.patientRepo.createQueryBuilder('p');
+
+    if (filters.status) {
+      qb.andWhere('p.status = :status', { status: filters.status });
+    }
+
+    if (filters.gender) {
+      qb.andWhere('p.gender = :gender', { gender: filters.gender });
+    }
+
+    if (filters.curacionType) {
+      qb.innerJoin('p.curaciones', 'c', 'c.type = :cType', { cType: filters.curacionType });
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      if (!filters.curacionType) {
+        qb.innerJoin('p.curaciones', 'c');
+      }
+      if (filters.dateFrom) {
+        qb.andWhere('c.date >= :dateFrom', { dateFrom: filters.dateFrom });
+      }
+      if (filters.dateTo) {
+        qb.andWhere('c.date <= :dateTo', { dateTo: filters.dateTo });
+      }
+    }
+
+    if (filters.ageMin !== undefined) {
+      const maxBirthDate = new Date();
+      maxBirthDate.setFullYear(maxBirthDate.getFullYear() - filters.ageMin);
+      qb.andWhere('p."birthDate" <= :maxBirth', { maxBirth: maxBirthDate.toISOString().split('T')[0] });
+    }
+
+    if (filters.ageMax !== undefined) {
+      const minBirthDate = new Date();
+      minBirthDate.setFullYear(minBirthDate.getFullYear() - filters.ageMax - 1);
+      qb.andWhere('p."birthDate" >= :minBirth', { minBirth: minBirthDate.toISOString().split('T')[0] });
+    }
+
+    // Distinct because joins can duplicate rows
+    qb.select('DISTINCT p.id', 'id')
+      .addSelect('p."firstName"', 'firstName')
+      .addSelect('p."lastName"', 'lastName')
+      .addSelect('p.rut', 'rut')
+      .addSelect('p.gender', 'gender')
+      .addSelect('p.status', 'status')
+      .addSelect('p."birthDate"', 'birthDate')
+      .addSelect('p.phone', 'phone');
+
+    const total = await qb.getCount();
+
+    const data = await qb
+      .orderBy('p."lastName"', 'ASC')
+      .offset((filters.page - 1) * filters.limit)
+      .limit(filters.limit)
+      .getRawMany();
+
+    return {
+      data,
+      total,
+      page: filters.page,
+      totalPages: Math.ceil(total / filters.limit),
+    };
+  }
+
   async discharge(
     id: number,
     performedById: number,

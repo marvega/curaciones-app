@@ -10,6 +10,14 @@ import type {
   Appointment,
   AgendaItem,
   PatientStatusChange,
+  DashboardTodayItem,
+  PatientNoAppointment,
+  PatientInactive,
+  UserPreferences,
+  WoundPhoto,
+  WoundNote,
+  WoundEvolutionPoint,
+  ConsentSignature,
 } from '../types';
 
 const api = axios.create({
@@ -85,6 +93,21 @@ export const getPatientsPaginated = async (
   limit: number = 20,
 ): Promise<PaginatedResponse<Patient>> => {
   const { data } = await api.get('/patients', { params: { page, limit } });
+  return data;
+};
+
+export const searchPatientsAdvanced = async (filters: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  gender?: string;
+  curacionType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  ageMin?: number;
+  ageMax?: number;
+}): Promise<PaginatedResponse<Patient>> => {
+  const { data } = await api.get('/patients', { params: filters });
   return data;
 };
 
@@ -224,4 +247,137 @@ export const getPatientStatusHistory = async (
 ): Promise<PatientStatusChange[]> => {
   const { data } = await api.get(`/patients/${id}/status-history`);
   return data;
+};
+
+// Audit Logs (admin only)
+export const getAuditLogs = async (params: {
+  page?: number;
+  limit?: number;
+  entity?: string;
+  from?: string;
+  to?: string;
+}) => {
+  const { data } = await api.get('/audit-logs', { params });
+  return data;
+};
+
+// Dashboard
+export const getDashboardToday = async (): Promise<DashboardTodayItem[]> => {
+  const { data } = await api.get('/dashboard/today');
+  return data;
+};
+
+export const getDashboardNoAppointment = async (): Promise<PatientNoAppointment[]> => {
+  const { data } = await api.get('/dashboard/no-appointment');
+  return data;
+};
+
+export const getDashboardInactive = async (days: number): Promise<PatientInactive[]> => {
+  const { data } = await api.get('/dashboard/inactive', { params: { days } });
+  return data;
+};
+
+// User Preferences
+export const getUserPreferences = async (): Promise<UserPreferences> => {
+  const { data } = await api.get('/users/me/preferences');
+  return data;
+};
+
+export const updateUserPreferences = async (prefs: Partial<UserPreferences>): Promise<UserPreferences> => {
+  const { data } = await api.put('/users/me/preferences', prefs);
+  return data;
+};
+
+// Wound Photos
+export const getWoundPhotos = async (patientId: number): Promise<WoundPhoto[]> => {
+  const { data } = await api.get(`/wound-photos/patient/${patientId}`);
+  return data;
+};
+
+export const uploadWoundPhoto = async (
+  patientId: number,
+  photo: File,
+  photoDate: string,
+  description?: string,
+): Promise<WoundPhoto> => {
+  const formData = new FormData();
+  formData.append('photo', photo);
+  formData.append('patientId', String(patientId));
+  formData.append('photoDate', photoDate);
+  if (description) formData.append('description', description);
+  const { data } = await api.post('/wound-photos', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
+
+export const deleteWoundPhoto = async (id: number): Promise<void> => {
+  await api.delete(`/wound-photos/${id}`);
+};
+
+export const getWoundPhotoUrl = (filename: string): string => {
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  return `${baseURL}/wound-photos/file/${filename}`;
+};
+
+// Wound Notes
+export const createWoundNote = async (note: {
+  curacionId: number;
+  woundWidth?: number;
+  woundLength?: number;
+  woundColor?: string;
+  exudateLevel?: string;
+  healingStage?: string;
+  notes?: string;
+}): Promise<WoundNote> => {
+  const { data } = await api.post('/wound-notes', note);
+  return data;
+};
+
+export const getWoundNotesByCuracion = async (curacionId: number): Promise<WoundNote | null> => {
+  const { data } = await api.get(`/wound-notes/curacion/${curacionId}`);
+  return data;
+};
+
+export const getWoundNotesByPatient = async (patientId: number): Promise<WoundNote[]> => {
+  const { data } = await api.get(`/wound-notes/patient/${patientId}`);
+  return data;
+};
+
+export const getWoundEvolution = async (patientId: number): Promise<WoundEvolutionPoint[]> => {
+  const { data } = await api.get(`/wound-notes/evolution/${patientId}`);
+  return data;
+};
+
+// Consent Signatures
+export const saveConsentSignature = async (
+  patientId: number,
+  signature: string,
+  consentText?: string,
+): Promise<ConsentSignature> => {
+  const { data } = await api.post('/consent', { patientId, signature, consentText });
+  return data;
+};
+
+export const getConsentSignatures = async (patientId: number): Promise<ConsentSignature[]> => {
+  const { data } = await api.get(`/consent/patient/${patientId}`);
+  return data;
+};
+
+export const getConsentSignatureUrl = (filename: string): string => {
+  const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  return `${baseURL}/consent/file/${filename}`;
+};
+
+// PDF Export
+export const downloadPatientPdf = async (patientId: number): Promise<void> => {
+  const response = await api.get(`/patients/${patientId}/pdf`, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `ficha-paciente-${patientId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };

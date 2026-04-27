@@ -2,8 +2,9 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from './user.entity';
+import { User, UserPreferences, DEFAULT_PREFERENCES } from './user.entity';
 import { CreateUserDto } from './create-user.dto';
+import { UpdatePreferencesDto } from './update-preferences.dto';
 
 @Injectable()
 export class UsersService {
@@ -48,6 +49,18 @@ export class UsersService {
       order: { username: 'ASC' },
       select: ['id', 'username', 'role', 'createdAt'],
     });
+  }
+
+  async getPreferences(userId: number): Promise<UserPreferences> {
+    const user = await this.findById(userId);
+    return { ...DEFAULT_PREFERENCES, ...user.preferences };
+  }
+
+  async updatePreferences(userId: number, dto: UpdatePreferencesDto): Promise<UserPreferences> {
+    const user = await this.findById(userId);
+    user.preferences = { ...DEFAULT_PREFERENCES, ...user.preferences, ...dto };
+    await this.userRepo.save(user);
+    return user.preferences as UserPreferences;
   }
 
   async seed() {

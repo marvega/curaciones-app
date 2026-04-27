@@ -120,18 +120,18 @@ export default function AgendaPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="card p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
             Agenda de Citas
           </h2>
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
             {viewButtons.map((btn) => (
               <button
                 key={btn.mode}
                 onClick={() => setViewMode(btn.mode)}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
                   viewMode === btn.mode
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 {btn.label}
@@ -143,13 +143,13 @@ export default function AgendaPage() {
         <div className="flex items-center justify-between gap-4 mb-6">
           <button
             onClick={() => navigateDate(-1)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 cursor-pointer"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-500 dark:text-slate-400 cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3 flex-wrap justify-center">
             {viewMode === 'month' ? (
-              <span className="px-4 py-2 text-lg font-semibold text-slate-700 capitalize">
+              <span className="px-4 py-2 text-lg font-semibold text-slate-700 dark:text-slate-300 capitalize">
                 {getPeriodLabel()}
               </span>
             ) : (
@@ -169,7 +169,7 @@ export default function AgendaPage() {
           </div>
           <button
             onClick={() => navigateDate(1)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 cursor-pointer"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-500 dark:text-slate-400 cursor-pointer"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -195,7 +195,7 @@ export default function AgendaPage() {
           </div>
         ) : appointments.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
               <CalendarOff className="w-6 h-6 text-slate-400" />
             </div>
             <p className="text-slate-500">
@@ -219,14 +219,14 @@ export default function AgendaPage() {
                       <div
                         key={apt.id}
                         onClick={() => navigate(`/paciente/${apt.patient.id}`)}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-slate-50 rounded-xl hover:bg-blue-50 cursor-pointer transition-all border border-transparent hover:border-blue-200"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer transition-all border border-transparent hover:border-blue-200 dark:hover:border-slate-600"
                       >
                         <div className="flex items-center gap-2 text-blue-700 sm:w-20">
                           <Clock className="w-4 h-4 text-blue-500" />
                           <span className="text-base font-bold">{apt.time}</span>
                         </div>
                         <div className="flex-1">
-                          <div className="font-medium text-slate-800">
+                          <div className="font-medium text-slate-800 dark:text-slate-200">
                             {apt.patient.firstName} {apt.patient.lastName}
                           </div>
                           <div className="text-sm text-slate-500">
