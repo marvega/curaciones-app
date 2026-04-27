@@ -1,3 +1,6 @@
+# Worktrees
+.worktrees/
+
 # Dependencies
 node_modules/
 backend/node_modules/
