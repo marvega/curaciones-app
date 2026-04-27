@@ -10,6 +10,18 @@ import { DataSource } from 'typeorm';
 describe('PatientsService', () => {
   let service: PatientsService;
 
+  const mockQueryBuilder = {
+    andWhere: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    getCount: jest.fn(),
+    getRawMany: jest.fn(),
+  };
+
   const mockPatientRepo = {
     findOne: jest.fn(),
     find: jest.fn(),
@@ -17,6 +29,7 @@ describe('PatientsService', () => {
     create: jest.fn((dto) => dto),
     save: jest.fn((entity) => Promise.resolve({ id: 1, ...entity })),
     remove: jest.fn((entity) => Promise.resolve(entity)),
+    createQueryBuilder: jest.fn(() => mockQueryBuilder),
   };
 
   const mockStatusChangeRepo = {
@@ -57,6 +70,17 @@ describe('PatientsService', () => {
 
     service = module.get(PatientsService);
     jest.clearAllMocks();
+
+    mockQueryBuilder.andWhere.mockClear().mockReturnThis();
+    mockQueryBuilder.innerJoin.mockClear().mockReturnThis();
+    mockQueryBuilder.select.mockClear().mockReturnThis();
+    mockQueryBuilder.addSelect.mockClear().mockReturnThis();
+    mockQueryBuilder.orderBy.mockClear().mockReturnThis();
+    mockQueryBuilder.offset.mockClear().mockReturnThis();
+    mockQueryBuilder.limit.mockClear().mockReturnThis();
+    mockQueryBuilder.getCount.mockReset();
+    mockQueryBuilder.getRawMany.mockReset();
+    mockPatientRepo.createQueryBuilder.mockClear().mockReturnValue(mockQueryBuilder);
 
     // Reset mockQueryRunner mocks
     mockQueryRunner.connect.mockReset();
@@ -300,5 +324,30 @@ describe('PatientsService', () => {
       relations: ['performedBy'],
       order: { createdAt: 'DESC' },
     });
+  });
+
+  // findAdvanced — q matches RUT regardless of formatting
+  it('findAdvanced q matches RUT ignoring punctuation', async () => {
+    mockQueryBuilder.getCount.mockResolvedValue(1);
+    mockQueryBuilder.getRawMany.mockResolvedValue([
+      { id: 1, rut: '13.856.216-6', firstName: 'Luis', lastName: 'Alarcon' },
+    ]);
+
+    const result = await service.findAdvanced({
+      page: 1,
+      limit: 20,
+      q: '13856216',
+    });
+
+    const andWhereCalls = mockQueryBuilder.andWhere.mock.calls;
+    const qClauseCall = andWhereCalls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
+    );
+    expect(qClauseCall).toBeDefined();
+    expect(qClauseCall![1]).toMatchObject({
+      qNormLike: '%13856216%',
+      qLike: '%13856216%',
+    });
+    expect(result.total).toBe(1);
   });
 });
