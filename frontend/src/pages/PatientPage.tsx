@@ -48,6 +48,7 @@ export default function PatientPage() {
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [statusHistory, setStatusHistory] = useState<PatientStatusChange[]>([]);
   const [dischargeCheckbox, setDischargeCheckbox] = useState(false);
+  const [bootDelivered, setBootDelivered] = useState(false);
 
   const [curacionForm, setCuracionForm] = useState({
     type: 'avanzada' as CuracionType,
@@ -289,6 +290,12 @@ export default function PatientPage() {
   }, [curacionForm.appointmentDate]);
 
   useEffect(() => {
+    if (curacionForm.type !== 'pie_diabetico') {
+      setBootDelivered(false);
+    }
+  }, [curacionForm.type]);
+
+  useEffect(() => {
     const fetchAvailability = async () => {
       if (appointmentForm.date) {
         setLoadingAppointmentAvailability(true);
@@ -413,6 +420,7 @@ export default function PatientPage() {
       await createCuracion({
         patientId: patient.id,
         ...curacionForm,
+        bootDelivered,
       });
       setShowForm(false);
       setCuracionForm({
@@ -423,6 +431,7 @@ export default function PatientPage() {
         quantity: 1,
         observations: '',
       });
+      setBootDelivered(false);
       await loadPatient();
       if (dischargeCheckbox) {
         await dischargePatient(patient.id, true);
@@ -1004,6 +1013,16 @@ export default function PatientPage() {
                 label="Dar de alta al paciente"
                 helpText="Cierra el caso al guardar"
               />
+              {curacionForm.type === 'pie_diabetico' && (
+                <div className="border-t border-slate-200 dark:border-slate-700">
+                  <Switch
+                    checked={bootDelivered}
+                    onChange={setBootDelivered}
+                    label="Bota de descarga entregada"
+                    helpText="Descuenta de inventario · solo pie diabético"
+                  />
+                </div>
+              )}
             </fieldset>
 
             <button
