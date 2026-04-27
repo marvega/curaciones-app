@@ -130,8 +130,16 @@ export const seedPatients = async (): Promise<{ created: number }> => {
 };
 
 // Curaciones
+export type CreateCuracionPayload = Omit<
+  Curacion,
+  'id' | 'createdAt' | 'patient' | 'appointment' | 'edits'
+> & {
+  appointmentDate?: string;
+  appointmentTime?: string;
+};
+
 export const createCuracion = async (
-  curacion: Omit<Curacion, 'id' | 'createdAt' | 'patient'>,
+  curacion: CreateCuracionPayload,
 ): Promise<Curacion> => {
   const { data } = await api.post('/curaciones', curacion);
   return data;
