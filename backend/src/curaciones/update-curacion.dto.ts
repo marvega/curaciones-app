@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, IsDateString, IsNotEmpty } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, IsDateString, IsNotEmpty, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CuracionType } from './curacion.entity';
 
@@ -22,6 +22,11 @@ export class UpdateCuracionDto {
   @IsString()
   @IsOptional()
   appointmentTime?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsBoolean()
+  @IsOptional()
+  bootDelivered?: boolean;
 
   @ApiProperty({ example: 'Correction' })
   @IsString()
