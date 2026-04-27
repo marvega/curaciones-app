@@ -272,12 +272,26 @@ export default function DetailedReportPage() {
               <h3 className="text-base font-semibold text-blue-800 mb-1">
                 Botas entregadas
               </h3>
-              <p className="text-xs text-blue-600 mb-3">
-                Total de ayudas técnicas en el período filtrado
-              </p>
+              <div className="text-xs text-blue-600 mb-3 flex flex-wrap gap-x-3 gap-y-1">
+                <span>
+                  <span className="font-medium">Grupo etáreo:</span>{' '}
+                  {report.filters.ageMin !== undefined
+                    ? report.filters.ageMax !== undefined && report.filters.ageMax >= 150
+                      ? `${report.filters.ageMin} y más años`
+                      : `${report.filters.ageMin} - ${report.filters.ageMax} años`
+                    : 'Todos'}
+                </span>
+                <span>
+                  <span className="font-medium">Género:</span>{' '}
+                  {report.filters.gender || 'Todos'}
+                </span>
+              </div>
               <div className="text-4xl font-bold text-blue-700">
                 {report.bootsDelivered}
               </div>
+              <p className="text-xs text-blue-600 mt-2">
+                Total de ayudas técnicas entregadas en el período
+              </p>
             </div>
             </div>
 
