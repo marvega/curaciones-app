@@ -171,7 +171,8 @@ export class PatientsService {
     }
 
     // Distinct because joins can duplicate rows
-    qb.select('DISTINCT p.id', 'id')
+    qb.distinct(true)
+      .select('p.id', 'id')
       .addSelect('p."firstName"', 'firstName')
       .addSelect('p."lastName"', 'lastName')
       .addSelect('p.rut', 'rut')
