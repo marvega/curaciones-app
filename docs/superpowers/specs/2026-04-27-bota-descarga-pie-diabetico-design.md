@@ -34,7 +34,7 @@ Use the same column-decoration style as the surrounding entity (no explicit `nam
 bootDelivered: boolean;
 ```
 
-The project uses TypeORM `synchronize: true` (no manual migrations folder per current conventions). The column is added automatically to existing rows with `false`, which is the correct default — no historical record contained boot tracking.
+In dev, TypeORM `synchronize: true` adds the column automatically (the project sets `synchronize: process.env.NODE_ENV !== 'production'`). For production deploys, run `backend/scripts/migrate-boot-delivered.sql` BEFORE deploying the new application code (the script is idempotent thanks to `ADD COLUMN IF NOT EXISTS`). The column defaults to `false` for existing rows, which is correct — no historical record contained boot tracking.
 
 ### DTOs
 

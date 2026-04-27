@@ -92,6 +92,8 @@ Expected output (column name may be `bootDelivered` or `boot_delivered` dependin
  boot_delivered  | boolean |  | not null | false
 ```
 
+**Production note:** In production `synchronize` is disabled. Run `backend/scripts/migrate-boot-delivered.sql` (created in this branch) before deploying the new application code.
+
 - [ ] **Step 6: Commit**
 
 ```bash
