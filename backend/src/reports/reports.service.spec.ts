@@ -99,14 +99,25 @@ describe('ReportsService', () => {
         innerJoin: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         groupBy: jest.fn().mockReturnThis(),
-        addGroupBy: jest.fn().mockReturnThis(),
         getRawMany: mockDetailedGetRawMany,
       };
       mockCuracionRepo.createQueryBuilder.mockReturnValueOnce(qb);
       return qb;
     }
+
+    it('filters only pie_diabetico curaciones', async () => {
+      const qb = setupDetailedQueryBuilder();
+      mockDetailedGetRawMany.mockResolvedValueOnce([]);
+
+      await service.getDetailedReport({});
+
+      expect(qb.where).toHaveBeenCalledWith('c.type = :type', {
+        type: 'pie_diabetico',
+      });
+    });
 
     it('applies quarter filter using cycle dates', async () => {
       const qb = setupDetailedQueryBuilder();
@@ -134,20 +145,29 @@ describe('ReportsService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('p.gender = :gender', { gender: 'F' });
     });
 
-    it('groups avanzada and pie_diabetico together', async () => {
+    it('returns distinct patient counts by gender', async () => {
       setupDetailedQueryBuilder();
       mockDetailedGetRawMany.mockResolvedValueOnce([
-        { type: 'avanzada', total: '4', gender: 'F' },
-        { type: 'pie_diabetico', total: '2', gender: 'F' },
-        { type: 'ulcera_venosa', total: '3', gender: 'M' },
+        { gender: 'Femenino', total: '3' },
+        { gender: 'Masculino', total: '2' },
       ]);
 
       const result = await service.getDetailedReport({});
 
-      expect(result.summary.avanzada.total).toBe(6); // 4 + 2
-      expect(result.summary.avanzada.byGender['F']).toBe(6);
-      expect(result.summary.ulcera_venosa.total).toBe(3);
-      expect(result.summary.ulcera_venosa.byGender['M']).toBe(3);
+      expect(result.total).toBe(5);
+      expect(result.byGender).toEqual({ Femenino: 3, Masculino: 2 });
+    });
+
+    it('uses COUNT(DISTINCT c.patientId) for unique patients', async () => {
+      const qb = setupDetailedQueryBuilder();
+      mockDetailedGetRawMany.mockResolvedValueOnce([]);
+
+      await service.getDetailedReport({});
+
+      expect(qb.addSelect).toHaveBeenCalledWith(
+        'COUNT(DISTINCT c.patientId)',
+        'total',
+      );
     });
   });
 });

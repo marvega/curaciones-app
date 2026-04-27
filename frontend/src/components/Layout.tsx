@@ -23,7 +23,7 @@ const navItems = [
   { to: '/pacientes', label: 'Pacientes', icon: Users },
   { to: '/agenda', label: 'Agenda', icon: Calendar },
   { to: '/reportes/mensual', label: 'Reporte Mensual', icon: FileBarChart },
-  { to: '/reportes/detallado', label: 'Reporte Detallado', icon: PieChart },
+  { to: '/reportes/detallado', label: 'Reporte Pie Diabético', icon: PieChart },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -32,7 +32,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/paciente/nuevo': 'Nuevo Paciente',
   '/agenda': 'Agenda',
   '/reportes/mensual': 'Reporte Mensual',
-  '/reportes/detallado': 'Reporte Detallado',
+  '/reportes/detallado': 'Reporte Pie Diabético',
   '/usuarios': 'Usuarios',
   '/audit-log': 'Auditoría',
 };

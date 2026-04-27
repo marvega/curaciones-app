@@ -32,9 +32,9 @@ import { BootstrapService } from './bootstrap.service';
 @Module({
   imports: [
     ThrottlerModule.forRoot({
-      throttlers: process.env.NODE_ENV === 'test'
-        ? [{ name: 'default', ttl: 60000, limit: 10000 }, { name: 'login', ttl: 60000, limit: 10000 }]
-        : [{ name: 'default', ttl: 60000, limit: 100 }, { name: 'login', ttl: 60000, limit: 5 }],
+      throttlers: process.env.NODE_ENV === 'production'
+        ? [{ name: 'default', ttl: 60000, limit: 100 }, { name: 'login', ttl: 60000, limit: 5 }]
+        : [{ name: 'default', ttl: 60000, limit: 10000 }, { name: 'login', ttl: 60000, limit: 10000 }],
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',

@@ -97,10 +97,8 @@ export interface DetailedReport {
     ageMin?: number;
     ageMax?: number;
   };
-  summary: {
-    avanzada: { total: number; byGender: Record<string, number> };
-    ulcera_venosa: { total: number; byGender: Record<string, number> };
-  };
+  total: number;
+  byGender: Record<string, number>;
 }
 
 export interface DashboardTodayItem {
