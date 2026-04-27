@@ -180,6 +180,7 @@ export default function PatientPage() {
     appointmentDate: '',
     appointmentTime: '',
     reason: '',
+    bootDelivered: false,
   });
   const [editAvailability, setEditAvailability] = useState<any[]>([]);
   const [loadingEditAvailability, setLoadingEditAvailability] = useState(false);
@@ -333,6 +334,12 @@ export default function PatientPage() {
     fetchAvailability();
   }, [curacionEditForm.appointmentDate]);
 
+  useEffect(() => {
+    if (curacionEditForm.type !== 'pie_diabetico' && curacionEditForm.bootDelivered) {
+      setCuracionEditForm(prev => ({ ...prev, bootDelivered: false }));
+    }
+  }, [curacionEditForm.type]);
+
   const handleToggleNoteForm = (curacionId: number) => {
     if (expandedNoteId === curacionId) {
       setExpandedNoteId(null);
@@ -378,6 +385,7 @@ export default function PatientPage() {
       appointmentDate: curacion.appointment?.date || '',
       appointmentTime: curacion.appointment?.time || '',
       reason: '',
+      bootDelivered: curacion.bootDelivered ?? false,
     });
   };
 
@@ -392,6 +400,7 @@ export default function PatientPage() {
         appointmentDate: curacionEditForm.appointmentDate || null,
         appointmentTime: curacionEditForm.appointmentTime || null,
         reason: curacionEditForm.reason,
+        bootDelivered: curacionEditForm.bootDelivered,
       });
       setEditingCuracion(null);
       await loadPatient();
@@ -1760,6 +1769,19 @@ export default function PatientPage() {
                 <input type="text" value={editingCuracion.observations || '-'} disabled className="form-control w-full bg-slate-50" />
               </div>
             </div>
+            {curacionEditForm.type === 'pie_diabetico' && (
+              <fieldset className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-1">
+                <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Inventario
+                </legend>
+                <Switch
+                  checked={curacionEditForm.bootDelivered}
+                  onChange={(v) => setCuracionEditForm(prev => ({ ...prev, bootDelivered: v }))}
+                  label="Bota de descarga entregada"
+                  helpText="Descuenta de inventario"
+                />
+              </fieldset>
+            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Motivo de la edición *</label>
               <textarea value={curacionEditForm.reason}
