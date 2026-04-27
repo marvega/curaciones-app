@@ -106,6 +106,7 @@ export const searchPatientsAdvanced = async (filters: {
   dateTo?: string;
   ageMin?: number;
   ageMax?: number;
+  q?: string;
 }): Promise<PaginatedResponse<Patient>> => {
   const { data } = await api.get('/patients', { params: filters });
   return data;
