@@ -13,6 +13,7 @@ describe('PatientsService', () => {
   const mockQueryBuilder = {
     andWhere: jest.fn().mockReturnThis(),
     innerJoin: jest.fn().mockReturnThis(),
+    distinct: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -73,6 +74,7 @@ describe('PatientsService', () => {
 
     mockQueryBuilder.andWhere.mockClear().mockReturnThis();
     mockQueryBuilder.innerJoin.mockClear().mockReturnThis();
+    mockQueryBuilder.distinct.mockClear().mockReturnThis();
     mockQueryBuilder.select.mockClear().mockReturnThis();
     mockQueryBuilder.addSelect.mockClear().mockReturnThis();
     mockQueryBuilder.orderBy.mockClear().mockReturnThis();
