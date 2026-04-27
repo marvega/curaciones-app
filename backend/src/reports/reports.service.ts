@@ -80,10 +80,19 @@ export class ReportsService {
       total += count;
     }
 
+    const bootsQb = this.curacionRepo
+      .createQueryBuilder('c')
+      .innerJoin('c.patient', 'p')
+      .where('c.type = :type', { type: 'pie_diabetico' })
+      .andWhere('c.bootDelivered = true');
+    await this.applyDetailedFilters(bootsQb, filters);
+    const bootsDelivered = await bootsQb.getCount();
+
     return {
       filters,
       total,
       byGender,
+      bootsDelivered,
     };
   }
 
