@@ -121,3 +121,28 @@ select {
     font-size: 16px;
   }
 }
+
+/* Design tokens — namespaced --ui-* to avoid collision with Tailwind v4 theme tokens */
+:root {
+  --ui-space-1: 0.25rem;
+  --ui-space-2: 0.5rem;
+  --ui-space-3: 0.75rem;
+  --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem;
+  --ui-space-6: 1.5rem;
+  --ui-space-8: 2rem;
+
+  --ui-radius-sm: 0.375rem;
+  --ui-radius-md: 0.5rem;
+  --ui-radius-lg: 0.75rem;
+  --ui-radius-xl: 1rem;
+
+  --ui-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ui-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --ui-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --ui-shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  --ui-z-overlay: 40;
+  --ui-z-modal: 50;
+  --ui-z-toast: 60;
+}

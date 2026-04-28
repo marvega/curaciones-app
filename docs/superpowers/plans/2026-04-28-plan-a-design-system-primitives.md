@@ -185,32 +185,32 @@ git commit -m "feat(ui): add cn() helper for class merging"
 
 - [ ] **Step 1: Append tokens block**
 
-Append to the end of `frontend/src/index.css` (preserve existing rules above):
+Append to the end of `frontend/src/index.css` (preserve existing rules above). All tokens namespaced under `--ui-*` to avoid collisions with Tailwind v4 internal tokens (Tailwind emits `--radius-md`, `--shadow-md`, etc. in `@layer theme`):
 
 ```css
-/* Design tokens */
+/* Design tokens — namespaced --ui-* to avoid collision with Tailwind v4 theme tokens */
 :root {
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  --ui-space-1: 0.25rem;
+  --ui-space-2: 0.5rem;
+  --ui-space-3: 0.75rem;
+  --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem;
+  --ui-space-6: 1.5rem;
+  --ui-space-8: 2rem;
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --ui-radius-sm: 0.375rem;
+  --ui-radius-md: 0.5rem;
+  --ui-radius-lg: 0.75rem;
+  --ui-radius-xl: 1rem;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --ui-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ui-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --ui-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --ui-shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 
-  --z-overlay: 40;
-  --z-modal: 50;
-  --z-toast: 60;
+  --ui-z-overlay: 40;
+  --ui-z-modal: 50;
+  --ui-z-toast: 60;
 }
 ```
 
