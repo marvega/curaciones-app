@@ -46,11 +46,12 @@ export class LotsController {
   }
 
   @Get('expiring')
-  expiring(@Query('days') days?: string, @Query('establishmentId') establishmentId?: string) {
-    return this.lots.getExpiring(
+  async expiring(@Query('days') days?: string, @Query('establishmentId') establishmentId?: string) {
+    const lots = await this.lots.getExpiring(
       establishmentId ? parseInt(establishmentId, 10) : undefined,
       days ? parseInt(days, 10) : 30,
     );
+    return { lots, total: lots.length };
   }
 
   @Get('stock-snapshot')
