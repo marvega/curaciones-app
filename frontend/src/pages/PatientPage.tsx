@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient, saveConsentSignature, getConsentSignatures, getConsentSignatureUrl } from '../services/api';
 import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage, ConsentSignature } from '../types';
 import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool, QrCode } from 'lucide-react';
@@ -40,6 +42,8 @@ export default function PatientPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const { showError } = useToast();
+  const confirm = useConfirm();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -371,7 +375,7 @@ export default function PatientPage() {
       setExpandedNoteId(null);
       await loadWoundNotes();
     } catch {
-      alert('Error al guardar la nota de evoluci\u00f3n');
+      showError('Error al guardar la nota de evoluci\u00f3n');
     } finally {
       setSavingNote(false);
     }
@@ -406,7 +410,7 @@ export default function PatientPage() {
       await loadPatient();
       await loadAppointments();
     } catch {
-      alert('Error al editar la curación');
+      showError('Error al editar la curación');
     } finally {
       setSavingEdit(false);
     }
@@ -419,7 +423,7 @@ export default function PatientPage() {
     if (curacionForm.appointmentDate && curacionForm.appointmentTime) {
       const slot = availability.find(s => s.time === curacionForm.appointmentTime);
       if (slot && !slot.available) {
-        alert(`El horario ${curacionForm.appointmentTime} ya está ocupado por ${slot.patient.firstName} ${slot.patient.lastName}.`);
+        showError(`El horario ${curacionForm.appointmentTime} ya está ocupado por ${slot.patient.firstName} ${slot.patient.lastName}.`);
         return;
       }
     }
@@ -455,7 +459,7 @@ export default function PatientPage() {
         await loadStatusHistory();
       }
     } catch {
-      alert('Error al registrar la curación');
+      showError('Error al registrar la curación');
     } finally {
       setSaving(false);
     }
@@ -470,7 +474,7 @@ export default function PatientPage() {
       setShowEditForm(false);
       await loadPatient();
     } catch {
-      alert('Error al actualizar los datos del paciente');
+      showError('Error al actualizar los datos del paciente');
     } finally {
       setSaving(false);
     }
@@ -484,7 +488,7 @@ export default function PatientPage() {
       await deletePatient(patient.id);
       navigate('/pacientes');
     } catch {
-      alert('Error al eliminar el paciente');
+      showError('Error al eliminar el paciente');
     } finally {
       setSaving(false);
     }
@@ -500,19 +504,25 @@ export default function PatientPage() {
       setAppointmentForm({ date: '', time: '' });
       await loadAppointments();
     } catch {
-      alert('Error al agendar la cita');
+      showError('Error al agendar la cita');
     } finally {
       setSavingAppointment(false);
     }
   };
 
   const handleDeleteAppointment = async (appointmentId: number) => {
-    if (!confirm('¿Desea cancelar esta cita?')) return;
+    const ok = await confirm({
+      title: 'Cancelar cita',
+      message: '¿Desea cancelar esta cita?',
+      confirmText: 'Sí, cancelar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
     try {
       await deleteAppointment(appointmentId);
       await loadAppointments();
     } catch {
-      alert('Error al cancelar la cita');
+      showError('Error al cancelar la cita');
     }
   };
 
@@ -528,19 +538,25 @@ export default function PatientPage() {
       setShowPhotoUpload(false);
       await loadWoundPhotos();
     } catch {
-      alert('Error al subir la foto');
+      showError('Error al subir la foto');
     } finally {
       setUploadingPhoto(false);
     }
   };
 
   const handleDeletePhoto = async (photoId: number) => {
-    if (!confirm('¿Desea eliminar esta foto?')) return;
+    const ok = await confirm({
+      title: 'Eliminar foto',
+      message: '¿Desea eliminar esta foto? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
     try {
       await deleteWoundPhoto(photoId);
       await loadWoundPhotos();
     } catch {
-      alert('Error al eliminar la foto');
+      showError('Error al eliminar la foto');
     }
   };
 
@@ -555,7 +571,7 @@ export default function PatientPage() {
       setConsentText('Autorizo la realizaci\u00f3n de los procedimientos de curaci\u00f3n indicados por el profesional de enfermer\u00eda.');
       await loadConsentSignatures();
     } catch {
-      alert('Error al guardar la firma');
+      showError('Error al guardar la firma');
     } finally {
       setSavingSignature(false);
     }
@@ -571,7 +587,7 @@ export default function PatientPage() {
       await loadAppointments();
       await loadStatusHistory();
     } catch {
-      alert('Error al dar de alta al paciente');
+      showError('Error al dar de alta al paciente');
     } finally {
       setSaving(false);
     }
@@ -579,14 +595,20 @@ export default function PatientPage() {
 
   const handleReadmit = async () => {
     if (!patient) return;
-    if (!confirm(`¿Confirma reingresar a ${patient.firstName} ${patient.lastName}?`)) return;
+    const ok = await confirm({
+      title: 'Reingresar paciente',
+      message: `¿Confirma reingresar a ${patient.firstName} ${patient.lastName}?`,
+      confirmText: 'Reingresar',
+      variant: 'default',
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       await readmitPatient(patient.id);
       await loadPatient();
       await loadStatusHistory();
     } catch {
-      alert('Error al reingresar al paciente');
+      showError('Error al reingresar al paciente');
     } finally {
       setSaving(false);
     }
@@ -660,7 +682,7 @@ export default function PatientPage() {
                 try {
                   await downloadPatientPdf(patient.id);
                 } catch {
-                  alert('Error al descargar PDF');
+                  showError('Error al descargar PDF');
                 } finally {
                   setDownloadingPdf(false);
                 }
