@@ -21,6 +21,7 @@ import StockCountPage from './pages/inventory/StockCountPage';
 import CatalogAdminPage from './pages/inventory/CatalogAdminPage';
 import CanastaAdminPage from './pages/inventory/CanastaAdminPage';
 import AuditExportPage from './pages/inventory/AuditExportPage';
+import UiGalleryPage from './pages/dev/UiGalleryPage';
 
 function App() {
   return (
@@ -48,6 +49,9 @@ function App() {
               <Route path="inventory/audit-export" element={<AuditExportPage />} />
               <Route path="inventory/admin/catalog" element={<CatalogAdminPage />} />
               <Route path="inventory/admin/canasta" element={<CanastaAdminPage />} />
+              {import.meta.env.DEV && (
+                <Route path="dev/ui" element={<UiGalleryPage />} />
+              )}
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

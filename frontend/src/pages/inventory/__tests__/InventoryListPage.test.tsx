@@ -13,15 +13,16 @@ describe('InventoryListPage', () => {
 
   it('renders lots with expiring highlights', async () => {
     (api.listLots as any) = vi.fn().mockResolvedValue([
-      { id: 1, productId: 1, establishmentId: 1, lotCode: 'L1', expiresAt: '2027-01-01', receivedAt: '2026-04-01', createdAt: '', currentStock: 10, daysToExpiry: 90, product: { id: 1, name: 'Apósito X' } },
-      { id: 2, productId: 2, establishmentId: 1, lotCode: 'L2', expiresAt: '2026-05-15', receivedAt: '2026-04-01', createdAt: '', currentStock: 5, daysToExpiry: 18, product: { id: 2, name: 'Apósito Y' } },
+      { id: 1, productId: 1, establishmentId: 1, lotCode: 'L1', expiresAt: '2027-01-01', receivedAt: '2026-04-01', createdAt: '', currentStock: 10, daysToExpiry: 90, product: { id: 1, name: 'APOSITO HIDROCOLOIDE', codes: [] } },
+      { id: 2, productId: 2, establishmentId: 1, lotCode: 'L2', expiresAt: '2026-05-15', receivedAt: '2026-04-01', createdAt: '', currentStock: 5, daysToExpiry: 18, product: { id: 2, name: 'APOSITO ESPUMA', codes: [] } },
     ]);
     render(
       <MemoryRouter>
         <InventoryListPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Apósito X')).toBeInTheDocument());
+    // Product name is rendered via toSentenceCase + accent recovery, e.g. 'APOSITO HIDROCOLOIDE' -> 'Apósito hidrocoloide'
+    await waitFor(() => expect(screen.getByText('Apósito hidrocoloide')).toBeInTheDocument());
     expect(screen.getByText('Vence en 18d')).toBeInTheDocument();
   });
 });
