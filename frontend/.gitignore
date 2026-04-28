@@ -28,3 +28,8 @@ dist-ssr
 test-results/
 playwright-report/
 e2e/.auth/
+
+# Storybook
+storybook-static/
+
+*storybook.log
