@@ -51,20 +51,42 @@ export class PatientPdfService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Title
+      this.drawHeader(doc);
+
+      // Título y folio
+      const folio = this.formatFolio(patientId);
+      const generadoTxt = `Generado: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+
       doc
-        .fontSize(20)
+        .fillColor(COLORS.primary)
         .font('Helvetica-Bold')
-        .text('Ficha Clínica', { align: 'center' });
+        .fontSize(16)
+        .text('FICHA CLÍNICA', PAGE.margin, doc.y);
+
+      doc.moveDown(0.2);
+      const folioY = doc.y;
+      doc
+        .fillColor(COLORS.textMuted)
+        .font('Helvetica')
+        .fontSize(9)
+        .text(`Folio: ${folio}`, PAGE.margin, folioY, {
+          width: PAGE.contentWidth / 2,
+          align: 'left',
+        });
+      doc.text(generadoTxt, PAGE.margin + PAGE.contentWidth / 2, folioY, {
+        width: PAGE.contentWidth / 2,
+        align: 'right',
+      });
+
       doc.moveDown(0.5);
       doc
-        .fontSize(10)
-        .font('Helvetica')
-        .text(
-          `Generado: ${new Date().toLocaleDateString('es-CL')}`,
-          { align: 'center' },
-        );
-      doc.moveDown(1);
+        .strokeColor(COLORS.primary)
+        .lineWidth(0.5)
+        .moveTo(PAGE.margin, doc.y)
+        .lineTo(PAGE.margin + PAGE.contentWidth, doc.y)
+        .stroke();
+      doc.moveDown(0.8);
+      doc.fillColor(COLORS.textDark);
 
       // Patient info
       doc.fontSize(14).font('Helvetica-Bold').text('Datos del Paciente');
@@ -179,5 +201,42 @@ export class PatientPdfService {
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
     return `${patientId}-${yyyy}-${mm}-${dd}`;
+  }
+
+  private drawHeader(doc: PDFKit.PDFDocument): void {
+    const bannerHeight = 60;
+    const margin = PAGE.margin;
+
+    // Franja teal de ancho completo
+    doc.save();
+    doc.rect(0, 0, PAGE.width, bannerHeight).fill(COLORS.primary);
+    doc.restore();
+
+    // Nombre del CESFAM
+    doc
+      .fillColor('#FFFFFF')
+      .font('Helvetica-Bold')
+      .fontSize(20)
+      .text(INSTITUTIONAL_INFO.name, margin, 16, {
+        width: PAGE.contentWidth,
+        align: 'left',
+      });
+
+    // Dependencia + dirección en una línea
+    doc
+      .fillColor('#FFFFFF')
+      .font('Helvetica')
+      .fontSize(10)
+      .text(
+        `${INSTITUTIONAL_INFO.dependency} · ${INSTITUTIONAL_INFO.address}`,
+        margin,
+        42,
+        { width: PAGE.contentWidth, align: 'left' },
+      );
+
+    // Reset cursor debajo del banner con espaciado
+    doc.fillColor(COLORS.textDark);
+    doc.y = bannerHeight + 16;
+    doc.x = margin;
   }
 }
