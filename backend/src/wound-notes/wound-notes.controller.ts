@@ -16,7 +16,7 @@ import { CreateWoundNoteDto } from './create-wound-note.dto';
 @ApiTags('Wound Notes')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('wound-notes')
+@Controller('api/wound-notes')
 export class WoundNotesController {
   constructor(private readonly service: WoundNotesService) {}
 
