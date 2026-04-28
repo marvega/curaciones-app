@@ -48,7 +48,6 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
-    "eslint-plugin-storybook": "^10.3.5",
     "globals": "^16.5.0",
     "jsdom": "^29.0.1",
     "storybook": "^8.6.18",
@@ -58,10 +57,5 @@
     "vite": "^7.3.1",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.0"
-  },
-  "eslintConfig": {
-    "extends": [
-      "plugin:storybook/recommended"
-    ]
   }
 }
