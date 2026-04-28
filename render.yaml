@@ -14,7 +14,7 @@ services:
     name: curaciones-api
     region: oregon
     rootDir: backend
-    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npx puppeteer browsers install chrome && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     preDeployCommand: npm run migration:run:prod
     startCommand: npm run start:prod
     healthCheckPath: /api/health
@@ -29,8 +29,6 @@ services:
         value: https://curaciones-app.onrender.com
       - key: PORT
         value: 3000
-      - key: PUPPETEER_CACHE_DIR
-        value: /opt/render/project/.cache/puppeteer
 
   # Frontend - React Static Site
   - type: web

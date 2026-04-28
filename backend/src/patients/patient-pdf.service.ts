@@ -156,11 +156,7 @@ export class PatientPdfService {
   }
 
   private async htmlToPdfBuffer(html: string): Promise<Buffer> {
-    const { default: puppeteer } = await import('puppeteer');
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const browser = await this.launchBrowser();
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'networkidle0' });
@@ -173,5 +169,24 @@ export class PatientPdfService {
     } finally {
       await browser.close();
     }
+  }
+
+  private async launchBrowser() {
+    const { default: puppeteer } = await import('puppeteer-core');
+    if (process.platform === 'linux') {
+      const { default: chromium } = await import('@sparticuz/chromium');
+      return puppeteer.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      });
+    }
+    return puppeteer.launch({
+      headless: true,
+      executablePath:
+        process.env.PUPPETEER_EXECUTABLE_PATH ??
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
   }
 }
