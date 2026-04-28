@@ -2,12 +2,19 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CanastaService } from './canasta.service';
-import { CanastaCategory } from './canasta-category.entity';
+import { CanastaCategory, CanastaSection } from './canasta-category.entity';
 import { ProductsService } from '../products/products.service';
 
 describe('CanastaService', () => {
   let service: CanastaService;
-  const repo: any = { find: jest.fn(), findOne: jest.fn(), save: jest.fn() };
+  const repo: any = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    save: jest.fn(),
+    create: jest.fn(),
+    count: jest.fn(),
+    delete: jest.fn(),
+  };
   const ds: any = { query: jest.fn() };
   const productsServiceMock: any = { list: jest.fn(), listAll: jest.fn() };
 
@@ -24,14 +31,32 @@ describe('CanastaService', () => {
     jest.clearAllMocks();
   });
 
-  it('list returns categories ordered by displayOrder with products', async () => {
+  it('list excludes archived by default', async () => {
     repo.find.mockResolvedValue([{ id: 1, name: 'A', displayOrder: 1, products: [] }]);
     const r = await service.list();
     expect(r).toHaveLength(1);
-    expect(repo.find).toHaveBeenCalledWith({ relations: ['products'], order: { displayOrder: 'ASC' } });
+    expect(repo.find).toHaveBeenCalledWith({
+      where: { archived: false },
+      relations: ['products'],
+      order: { displayOrder: 'ASC' },
+    });
   });
 
-  it('replaceProducts deletes old links then inserts new ones in transaction', async () => {
+  it('list(true) includes archived', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, name: 'A', displayOrder: 1, products: [], archived: false },
+      { id: 2, name: 'B', displayOrder: 2, products: [], archived: true },
+    ]);
+    const r = await service.list(true);
+    expect(r).toHaveLength(2);
+    expect(repo.find).toHaveBeenCalledWith({
+      where: {},
+      relations: ['products'],
+      order: { displayOrder: 'ASC' },
+    });
+  });
+
+  it('replaceProducts wipes ALL associations and inserts new with auto_mapped=FALSE', async () => {
     repo.findOne.mockResolvedValue({ id: 5 });
     ds.query.mockResolvedValue(undefined);
     await service.replaceProducts(5, [10, 20, 30]);
@@ -40,29 +65,51 @@ describe('CanastaService', () => {
       [5],
     );
     expect(ds.query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO canasta_category_products'),
+      expect.stringContaining('"auto_mapped"'),
       expect.any(Array),
     );
+    const insertCall = ds.query.mock.calls.find((c: any[]) =>
+      String(c[0]).includes('INSERT INTO canasta_category_products'),
+    );
+    expect(insertCall![0]).toContain('FALSE');
   });
 
-  describe('applyDefaultMappings', () => {
-    it('matches products by avisCodes and namePatterns', async () => {
-      repo.find.mockResolvedValue([
-        { id: 1, displayOrder: 1, name: 'Apósitos bacteriostáticos', section: 'INSUMOS' },
-      ]);
-      productsServiceMock.listAll.mockResolvedValue([
-        { id: 100, name: 'APÓSITO RINGER CON PHMB 10X10 CM', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '1778' }] },
-        { id: 101, name: 'APÓSITO MIEL GEL 30 GR', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '2066' }] },
-        { id: 102, name: 'GASA 10X10', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '819' }] },
-      ]);
-      repo.findOne.mockResolvedValue({ id: 1, products: [] });
-      ds.query.mockResolvedValue(undefined);
-      const result = await service.applyDefaultMappings();
-      // Bacteriostáticos: matches AVIS 1778 + Miel Gel by name = 2 matches; GASA does not match.
-      expect(result.associated).toBeGreaterThanOrEqual(2);
-      expect(result.details[0].productIds).toContain(100);
-      expect(result.details[0].productIds).toContain(101);
-      expect(result.details[0].productIds).not.toContain(102);
-    });
+  it('createCategory uses default displayOrder = count + 1 when omitted', async () => {
+    repo.count.mockResolvedValue(7);
+    const created = { id: 99, name: 'Nueva', section: CanastaSection.INSUMOS, displayOrder: 8 };
+    repo.create.mockReturnValue(created);
+    repo.save.mockResolvedValue(created);
+    const r = await service.createCategory({ name: 'Nueva', section: CanastaSection.INSUMOS });
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Nueva',
+        section: CanastaSection.INSUMOS,
+        displayOrder: 8,
+        archived: false,
+        sourceKey: null,
+      }),
+    );
+    expect(r).toBe(created);
+  });
+
+  it('updateCategory loads, assigns, and saves', async () => {
+    const entity = { id: 4, name: 'Old', section: CanastaSection.INSUMOS, archived: false };
+    repo.findOne.mockResolvedValue(entity);
+    repo.save.mockImplementation(async (e: any) => e);
+    const r = await service.updateCategory(4, { name: 'New', archived: true });
+    expect(r.name).toBe('New');
+    expect(r.archived).toBe(true);
+  });
+
+  it('deleteCategory removes products links then deletes entity', async () => {
+    repo.findOne.mockResolvedValue({ id: 9 });
+    ds.query.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(undefined);
+    await service.deleteCategory(9);
+    expect(ds.query).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM canasta_category_products'),
+      [9],
+    );
+    expect(repo.delete).toHaveBeenCalledWith(9);
   });
 });

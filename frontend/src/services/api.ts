@@ -23,6 +23,8 @@ import type {
   StockCount,
   LotMovement,
   CanastaCategory,
+  CanastaImportResult,
+  CanastaSection,
   ImportResult,
   ProductType,
   CodeSystem,
@@ -435,9 +437,39 @@ export const patchStockCountEntry = async (id: number, lotId: number, dto: { abs
 export const closeStockCount = async (id: number): Promise<StockCount> => (await api.post(`/inventory/stock-counts/${id}/close`)).data;
 
 // Inventory - Canasta
-export const listCanasta = async (): Promise<CanastaCategory[]> => (await api.get('/inventory/canasta')).data;
+export const listCanasta = async (includeArchived = false): Promise<CanastaCategory[]> =>
+  (await api.get('/inventory/canasta', { params: includeArchived ? { includeArchived: 'true' } : {} })).data;
 export const replaceCanastaProducts = async (id: number, productIds: number[]) => (await api.put(`/inventory/canasta/${id}/products`, { productIds })).data;
-export const seedCanastaDefaults = async () => (await api.post('/inventory/canasta/seed-defaults')).data;
+export const createCanastaCategory = async (dto: {
+  name: string;
+  section: CanastaSection;
+  displayOrder?: number;
+  isOptional?: boolean;
+  notes?: string;
+}): Promise<CanastaCategory> => (await api.post('/inventory/canasta/categories', dto)).data;
+export const updateCanastaCategory = async (
+  id: number,
+  dto: Partial<{
+    name: string;
+    section: CanastaSection;
+    displayOrder: number;
+    isOptional: boolean;
+    notes: string | null;
+    archived: boolean;
+  }>,
+): Promise<CanastaCategory> => (await api.patch(`/inventory/canasta/categories/${id}`, dto)).data;
+export const deleteCanastaCategory = async (id: number): Promise<void> => {
+  await api.delete(`/inventory/canasta/categories/${id}`);
+};
+export const importCanastaGuide = async (file: File, sheet?: string): Promise<CanastaImportResult> => {
+  const fd = new FormData();
+  fd.append('file', file);
+  if (sheet) fd.append('sheet', sheet);
+  const { data } = await api.post('/inventory/canasta/import', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
 
 // Inventory - Audit export
 export const downloadAuditExport = async (params: { mode: 'current' | 'month'; establishmentId?: number; year?: number; month?: number }): Promise<Blob> => {

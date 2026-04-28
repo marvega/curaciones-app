@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAgenda } from '../services/api';
 import type { AgendaItem, CuracionType } from '../types';
 import { CalendarOff, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { Button, Card, EmptyState, Skeleton } from '../components/ui';
 
 const CURACION_LABELS: Record<CuracionType, string> = {
   avanzada: 'Avanzada',
@@ -118,35 +119,39 @@ export default function AgendaPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="card p-5 sm:p-6">
+      <Card padding="md" className="sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
             Agenda de Citas
           </h2>
           <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
             {viewButtons.map((btn) => (
-              <button
+              <Button
                 key={btn.mode}
+                variant="ghost"
+                size="sm"
                 onClick={() => setViewMode(btn.mode)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
+                className={
                   viewMode === btn.mode
                     ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
+                }
               >
                 {btn.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-4 mb-6">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigateDate(-1)}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-500 dark:text-slate-400 cursor-pointer"
+            aria-label="Anterior"
           >
             <ChevronLeft className="w-5 h-5" />
-          </button>
+          </Button>
           <div className="flex items-center gap-3 flex-wrap justify-center">
             {viewMode === 'month' ? (
               <span className="px-4 py-2 text-lg font-semibold text-slate-700 dark:text-slate-300 capitalize">
@@ -160,19 +165,23 @@ export default function AgendaPage() {
                 className="form-control"
               />
             )}
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setDate(new Date().toISOString().split('T')[0])}
-              className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer font-medium"
+              className="bg-blue-50 text-blue-700 hover:bg-blue-100"
             >
               Hoy
-            </button>
+            </Button>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigateDate(1)}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-500 dark:text-slate-400 cursor-pointer"
+            aria-label="Siguiente"
           >
             <ChevronRight className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Summary */}
@@ -184,24 +193,20 @@ export default function AgendaPage() {
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex gap-4 p-4">
-                <div className="skeleton h-6 w-14" />
+                <Skeleton height={24} width={56} />
                 <div className="flex-1 space-y-2">
-                  <div className="skeleton h-4 w-48" />
-                  <div className="skeleton h-3 w-32" />
+                  <Skeleton height={16} width={192} />
+                  <Skeleton height={12} width={128} />
                 </div>
-                <div className="skeleton h-6 w-20 rounded-full" />
+                <Skeleton height={24} width={80} className="rounded-full" />
               </div>
             ))}
           </div>
         ) : appointments.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
-              <CalendarOff className="w-6 h-6 text-slate-400" />
-            </div>
-            <p className="text-slate-500">
-              No hay citas programadas para este período
-            </p>
-          </div>
+          <EmptyState
+            icon={CalendarOff}
+            title="No hay citas programadas para este período"
+          />
         ) : (
           <div className="space-y-6">
             {Object.entries(grouped)
@@ -249,7 +254,7 @@ export default function AgendaPage() {
               ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

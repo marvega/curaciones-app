@@ -2,6 +2,48 @@ import { useEffect, useState, useRef } from 'react';
 import { listLots, openStockCount, patchStockCountEntry, closeStockCount } from '../../services/api';
 import type { Lot, StockCount } from '../../types';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import {
+  Button,
+  Card,
+  CodePill,
+  DataTable,
+  Input,
+  PageHeader,
+  Tag,
+} from '../../components/ui';
+import { formatCode, toSentenceCase } from '../../formatters/text';
+
+function primaryCode(p: { codes?: { code: string }[] } | undefined): string {
+  if (!p || !p.codes || p.codes.length === 0) return '—';
+  return formatCode(p.codes[0].code);
+}
+
+interface ObservedInputProps {
+  lotId: number;
+  value: number;
+  saving: boolean;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}
+
+function ObservedInput({ value, saving, disabled, onChange }: ObservedInputProps) {
+  return (
+    <div className="inline-flex items-center gap-2 justify-end">
+      <div className="w-24">
+        <Input
+          type="number"
+          min={0}
+          disabled={disabled}
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+          aria-label="Cantidad observada"
+          className="text-right py-1.5 px-2"
+        />
+      </div>
+      {saving && <span className="text-xs text-slate-500">guardando…</span>}
+    </div>
+  );
+}
 
 export default function StockCountPage() {
   const confirm = useConfirm();
@@ -9,17 +51,22 @@ export default function StockCountPage() {
   const [lots, setLots] = useState<Lot[]>([]);
   const [values, setValues] = useState<Record<number, number>>({});
   const [savingLotIds, setSavingLotIds] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
   const debounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     (async () => {
-      const sc = await openStockCount({ establishmentId: 1 });
-      setCount(sc);
-      const ls = await listLots({ establishmentId: 1, active: true });
-      setLots(ls);
-      const initial: Record<number, number> = {};
-      for (const l of ls) initial[l.id] = l.currentStock ?? 0;
-      setValues(initial);
+      try {
+        const sc = await openStockCount({ establishmentId: 1 });
+        setCount(sc);
+        const ls = await listLots({ establishmentId: 1, active: true });
+        setLots(ls);
+        const initial: Record<number, number> = {};
+        for (const l of ls) initial[l.id] = l.currentStock ?? 0;
+        setValues(initial);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -54,58 +101,93 @@ export default function StockCountPage() {
     setCount(updated);
   }
 
-  if (!count) return <div>Cargando...</div>;
+  if (loading || !count) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Conteo de inventario" subtitle="Cargando…" />
+      </div>
+    );
+  }
 
   const closed = count.status === 'CLOSED';
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Conteo del {count.countDate}</h2>
-          <p className="text-sm text-slate-500">Estado: {count.status}</p>
-        </div>
-        {!closed && (
-          <button onClick={onClose} className="px-4 py-2 bg-amber-600 text-white rounded">
-            Cerrar conteo
-          </button>
-        )}
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={`Conteo del ${count.countDate}`}
+        subtitle={
+          <span className="inline-flex items-center gap-2">
+            Estado:{' '}
+            <Tag variant={closed ? 'gray' : 'blue'}>
+              {closed ? 'Cerrado' : 'Borrador'}
+            </Tag>
+          </span>
+        }
+        actions={
+          !closed ? (
+            <Button variant="secondary" onClick={onClose}>
+              Cerrar conteo
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className="bg-white dark:bg-slate-900 rounded shadow overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-800">
-            <tr>
-              <th className="text-left p-3">Producto</th>
-              <th className="text-left p-3">Lote</th>
-              <th className="text-left p-3">Vence</th>
-              <th className="text-right p-3">Stock derivado</th>
-              <th className="text-right p-3">Cantidad observada</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lots.map((l) => (
-              <tr key={l.id} className="border-t dark:border-slate-700">
-                <td className="p-3">{l.product?.name ?? `Producto ${l.productId}`}</td>
-                <td className="p-3">{l.lotCode ?? '—'}</td>
-                <td className="p-3">{l.expiresAt ?? '—'}</td>
-                <td className="p-3 text-right font-mono">{l.currentStock ?? 0}</td>
-                <td className="p-3 text-right">
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={closed}
-                    value={values[l.id] ?? 0}
-                    onChange={(e) => onChange(l.id, parseInt(e.target.value, 10) || 0)}
-                    className="w-24 border rounded px-2 py-1 text-right dark:bg-slate-800 dark:border-slate-700 disabled:opacity-50"
-                  />
-                  {savingLotIds.has(l.id) && <span className="ml-2 text-xs text-slate-500">guardando...</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card padding="none">
+        <DataTable<Lot>
+          columns={[
+            {
+              key: 'product',
+              label: 'Producto',
+              render: (l) => (
+                <div className="flex items-center gap-2">
+                  <CodePill>{primaryCode(l.product)}</CodePill>
+                  <span>
+                    {l.product?.name ? toSentenceCase(l.product.name) : `Producto ${l.productId}`}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: 'lot',
+              label: 'Lote',
+              width: 140,
+              render: (l) => l.lotCode ?? '—',
+            },
+            {
+              key: 'expires',
+              label: 'Vence',
+              width: 130,
+              render: (l) => l.expiresAt ?? '—',
+            },
+            {
+              key: 'derived',
+              label: 'Stock derivado',
+              width: 130,
+              align: 'right',
+              render: (l) => (
+                <span className="font-mono">{l.currentStock ?? 0}</span>
+              ),
+            },
+            {
+              key: 'observed',
+              label: 'Cantidad observada',
+              width: 200,
+              align: 'right',
+              render: (l) => (
+                <ObservedInput
+                  lotId={l.id}
+                  value={values[l.id] ?? 0}
+                  saving={savingLotIds.has(l.id)}
+                  disabled={closed}
+                  onChange={(v) => onChange(l.id, v)}
+                />
+              ),
+            },
+          ]}
+          data={lots}
+          keyExtractor={(l) => l.id}
+        />
+      </Card>
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchPatientByRut, getPatientsPaginated, getAgenda, getDashboardToday, getDashboardNoAppointment, getDashboardInactive, getUserPreferences, updateUserPreferences } from '../services/api';
 import type { Patient, AgendaItem, DashboardTodayItem, PatientNoAppointment, PatientInactive } from '../types';
-import { Search, UserPlus, ChevronRight, UserX, Loader2, Users, CalendarCheck, Activity, Clock, AlertTriangle, CalendarOff, Clock3 } from 'lucide-react';
+import { Search, UserPlus, ChevronRight, UserX, Users, CalendarCheck, Activity, Clock, AlertTriangle, CalendarOff, Clock3 } from 'lucide-react';
+import { Button, Input, Select, Card, Skeleton } from '../components/ui';
 
 export default function HomePage() {
   const [rut, setRut] = useState('');
@@ -111,12 +112,12 @@ export default function HomePage() {
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card p-5">
+        <Card>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pacientes</p>
               {statsLoading ? (
-                <div className="skeleton h-8 w-16 mt-1" />
+                <Skeleton height={32} width={64} className="mt-1" />
               ) : (
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{activePatients}</p>
               )}
@@ -125,14 +126,14 @@ export default function HomePage() {
               <Users className="w-5 h-5 text-blue-600" />
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="card p-5">
+        <Card>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Próximas Citas</p>
               {statsLoading ? (
-                <div className="skeleton h-8 w-16 mt-1" />
+                <Skeleton height={32} width={64} className="mt-1" />
               ) : (
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{todayAppointments.length}</p>
               )}
@@ -141,14 +142,14 @@ export default function HomePage() {
               <CalendarCheck className="w-5 h-5 text-emerald-600" />
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="card p-5">
+        <Card>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Próxima Cita</p>
               {statsLoading ? (
-                <div className="skeleton h-8 w-24 mt-1" />
+                <Skeleton height={32} width={96} className="mt-1" />
               ) : todayAppointments.length > 0 ? (
                 <div>
                   <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{todayAppointments[0].time}</p>
@@ -162,35 +163,33 @@ export default function HomePage() {
               <Activity className="w-5 h-5 text-amber-600" />
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Quick search */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="card p-5">
+          <Card>
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">Buscar Paciente</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Busque por RUT</p>
 
             <form onSubmit={handleSearch} className="space-y-3">
-              <input
+              <Input
                 type="text"
                 value={rut}
                 onChange={handleRutChange}
                 placeholder="12.345.678-9"
-                className="form-control text-lg"
+                className="text-lg"
               />
-              <button
+              <Button
                 type="submit"
+                loading={loading}
                 disabled={loading || !rut.trim()}
-                className="btn-primary w-full"
+                leftIcon={!loading ? <Search className="w-4 h-4" /> : undefined}
+                className="w-full"
               >
-                {loading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Buscando...</>
-                ) : (
-                  <><Search className="w-4 h-4" /> Buscar</>
-                )}
-              </button>
+                {loading ? 'Buscando...' : 'Buscar'}
+              </Button>
             </form>
 
             {searched && (
@@ -203,50 +202,56 @@ export default function HomePage() {
                       </span>
                       <span className="text-xs text-emerald-600 font-medium">{patient.rut}</span>
                     </div>
-                    <button
+                    <Button
                       onClick={() => navigate(`/paciente/${patient.id}`)}
-                      className="w-full mt-2 btn-primary text-sm"
+                      rightIcon={<ChevronRight className="w-4 h-4" />}
+                      size="sm"
+                      className="w-full mt-2"
                     >
-                      Ver Ficha <ChevronRight className="w-4 h-4" />
-                    </button>
+                      Ver Ficha
+                    </Button>
                   </div>
                 ) : (
                   <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-center">
                     <UserX className="w-5 h-5 text-slate-400 mx-auto mb-1" />
                     <p className="text-sm text-slate-600 mb-2">No encontrado</p>
-                    <button
+                    <Button
                       onClick={() => navigate(`/paciente/nuevo?rut=${encodeURIComponent(rut)}`)}
-                      className="btn-primary text-sm w-full"
+                      leftIcon={<UserPlus className="w-4 h-4" />}
+                      size="sm"
+                      className="w-full"
                     >
-                      <UserPlus className="w-4 h-4" /> Registrar
-                    </button>
+                      Registrar
+                    </Button>
                   </div>
                 )}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
         {/* Today's agenda */}
         <div className="lg:col-span-3">
-          <div className="card p-5">
+          <Card>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Próximas Citas</h2>
-              <button
+              <Button
+                variant="link"
+                size="sm"
                 onClick={() => navigate('/agenda')}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer flex items-center gap-1"
+                rightIcon={<ChevronRight className="w-4 h-4" />}
               >
-                Ver toda <ChevronRight className="w-4 h-4" />
-              </button>
+                Ver toda
+              </Button>
             </div>
 
             {statsLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3 p-3">
-                    <div className="skeleton h-5 w-14" />
-                    <div className="skeleton h-4 flex-1" />
-                    <div className="skeleton h-5 w-20 rounded-full" />
+                    <Skeleton height={20} width={56} />
+                    <Skeleton height={16} className="flex-1" />
+                    <Skeleton height={20} width={80} className="rounded-full" />
                   </div>
                 ))}
               </div>
@@ -291,14 +296,14 @@ export default function HomePage() {
                 )}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* Dashboard cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Card 1: Citas de hoy */}
-        <div className="card p-5">
+        <Card>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
               <Clock3 className="w-4 h-4 text-blue-600" />
@@ -310,9 +315,9 @@ export default function HomePage() {
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-2">
-                  <div className="skeleton h-4 w-12" />
-                  <div className="skeleton h-4 flex-1" />
-                  <div className="skeleton h-5 w-16 rounded-full" />
+                  <Skeleton height={16} width={48} />
+                  <Skeleton height={16} className="flex-1" />
+                  <Skeleton height={20} width={64} className="rounded-full" />
                 </div>
               ))}
             </div>
@@ -346,10 +351,10 @@ export default function HomePage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Card 2: Pacientes sin cita agendada */}
-        <div className="card p-5">
+        <Card>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
               <CalendarOff className="w-4 h-4 text-amber-600" />
@@ -361,9 +366,9 @@ export default function HomePage() {
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-2">
-                  <div className="skeleton h-4 flex-1" />
-                  <div className="skeleton h-4 w-20" />
-                  <div className="skeleton h-5 w-16 rounded-full" />
+                  <Skeleton height={16} className="flex-1" />
+                  <Skeleton height={16} width={80} />
+                  <Skeleton height={20} width={64} className="rounded-full" />
                 </div>
               ))}
             </div>
@@ -396,10 +401,10 @@ export default function HomePage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Card 3: Pacientes sin atención reciente */}
-        <div className="card p-5">
+        <Card>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center">
@@ -407,25 +412,27 @@ export default function HomePage() {
               </div>
               <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Sin atención reciente</h2>
             </div>
-            <select
-              value={thresholdDays}
-              onChange={(e) => handleThresholdChange(Number(e.target.value))}
-              className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800"
-            >
-              <option value={7}>7 días</option>
-              <option value={14}>14 días</option>
-              <option value={21}>21 días</option>
-              <option value={30}>30 días</option>
-            </select>
+            <div className="w-24">
+              <Select
+                value={String(thresholdDays)}
+                onChange={(v) => handleThresholdChange(Number(v))}
+                options={[
+                  { value: '7', label: '7 días' },
+                  { value: '14', label: '14 días' },
+                  { value: '21', label: '21 días' },
+                  { value: '30', label: '30 días' },
+                ]}
+              />
+            </div>
           </div>
 
           {inactiveLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-2">
-                  <div className="skeleton h-4 flex-1" />
-                  <div className="skeleton h-4 w-20" />
-                  <div className="skeleton h-5 w-16 rounded-full" />
+                  <Skeleton height={16} className="flex-1" />
+                  <Skeleton height={16} width={80} />
+                  <Skeleton height={20} width={64} className="rounded-full" />
                 </div>
               ))}
             </div>
@@ -458,7 +465,7 @@ export default function HomePage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

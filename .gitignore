@@ -44,3 +44,6 @@ scripts/.env.backup
 
 # Uploaded files
 backend/uploads/
+
+# Brainstorming companion
+.superpowers/

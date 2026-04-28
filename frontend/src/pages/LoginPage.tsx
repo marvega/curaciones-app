@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { Button, Input } from '../components/ui';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -77,34 +78,24 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Usuario
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="form-control"
-                placeholder="Usuario"
-                required
-                autoComplete="username"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="form-control"
-                placeholder="Contraseña"
-                required
-                autoComplete="current-password"
-              />
-            </div>
+            <Input
+              label="Usuario"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Usuario"
+              required
+              autoComplete="username"
+            />
+            <Input
+              label="Contraseña"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Contraseña"
+              required
+              autoComplete="current-password"
+            />
 
             {error && (
               <div className="text-rose-600 dark:text-rose-400 text-sm bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800 px-4 py-2.5 rounded-lg">
@@ -112,13 +103,9 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Iniciando sesión...</>
-              ) : (
-                'Iniciar sesión'
-              )}
-            </button>
+            <Button type="submit" loading={loading} className="w-full">
+              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            </Button>
           </form>
         </div>
       </div>
