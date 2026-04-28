@@ -88,32 +88,7 @@ export class PatientPdfService {
       doc.moveDown(0.8);
       doc.fillColor(COLORS.textDark);
 
-      // Patient info
-      doc.fontSize(14).font('Helvetica-Bold').text('Datos del Paciente');
-      doc.moveDown(0.3);
-      doc.fontSize(10).font('Helvetica');
-
-      const info: [string, string][] = [
-        ['Nombre', `${patient.firstName} ${patient.lastName}`],
-        ['RUT', patient.rut],
-        [
-          'Fecha de Nacimiento',
-          new Date(patient.birthDate + 'T00:00:00').toLocaleDateString('es-CL'),
-        ],
-        ['Género', patient.gender],
-        ['Teléfono', patient.phone || 'No registrado'],
-        ['Dirección', patient.address || 'No registrada'],
-        [
-          'Estado',
-          patient.status === 'active' ? 'Activo' : 'Dado de Alta',
-        ],
-      ];
-
-      for (const [label, value] of info) {
-        doc.font('Helvetica-Bold').text(`${label}: `, { continued: true });
-        doc.font('Helvetica').text(value);
-      }
-      doc.moveDown(1);
+      this.drawPatientCard(doc, patient);
 
       // Curaciones
       doc
@@ -238,5 +213,122 @@ export class PatientPdfService {
     doc.fillColor(COLORS.textDark);
     doc.y = bannerHeight + 16;
     doc.x = margin;
+  }
+
+  private drawPatientCard(doc: PDFKit.PDFDocument, patient: Patient): void {
+    const margin = PAGE.margin;
+    const cardWidth = PAGE.contentWidth;
+    const padding = 12;
+    const colWidth = (cardWidth - padding * 2) / 2;
+
+    // Título de sección
+    doc
+      .fillColor(COLORS.primary)
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .text('DATOS DEL PACIENTE', margin, doc.y);
+    doc.moveDown(0.4);
+
+    const cardTopY = doc.y;
+    const startX = margin + padding;
+    const col2X = startX + colWidth;
+
+    // Reservamos altura provisional; se ajusta al final
+    const lineHeight = 16;
+    const rows = 4; // 3 filas de 2 columnas + 1 fila completa para dirección
+    const cardHeight = padding * 2 + lineHeight * rows;
+
+    // Recuadro
+    doc
+      .strokeColor(COLORS.border)
+      .lineWidth(0.8)
+      .rect(margin, cardTopY, cardWidth, cardHeight)
+      .stroke();
+
+    const drawField = (
+      label: string,
+      value: string,
+      x: number,
+      y: number,
+      width: number,
+    ) => {
+      doc
+        .fillColor(COLORS.textMuted)
+        .font('Helvetica-Bold')
+        .fontSize(8)
+        .text(label.toUpperCase(), x, y, { width, continued: false });
+      doc
+        .fillColor(COLORS.textDark)
+        .font('Helvetica')
+        .fontSize(10)
+        .text(value, x, y + 8, { width });
+    };
+
+    let rowY = cardTopY + padding;
+    drawField(
+      'Nombre',
+      `${patient.firstName} ${patient.lastName}`,
+      startX,
+      rowY,
+      colWidth - 6,
+    );
+    drawField('RUT', patient.rut, col2X, rowY, colWidth - 6);
+
+    rowY += lineHeight;
+    drawField(
+      'Fecha de nacimiento',
+      new Date(patient.birthDate + 'T00:00:00').toLocaleDateString('es-CL'),
+      startX,
+      rowY,
+      colWidth - 6,
+    );
+    drawField('Género', patient.gender, col2X, rowY, colWidth - 6);
+
+    rowY += lineHeight;
+    drawField(
+      'Teléfono',
+      patient.phone || 'No registrado',
+      startX,
+      rowY,
+      colWidth - 6,
+    );
+
+    // Badge de estado en columna derecha de fila 3
+    const isActive = patient.status === 'active';
+    const badgeText = isActive ? 'ACTIVO' : 'DADO DE ALTA';
+    const badgeColor = isActive ? COLORS.badgeActive : COLORS.badgeInactive;
+    doc
+      .fillColor(COLORS.textMuted)
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .text('ESTADO', col2X, rowY);
+    const badgeY = rowY + 8;
+    const badgePaddingX = 8;
+    const badgePaddingY = 3;
+    doc.font('Helvetica-Bold').fontSize(8);
+    const badgeTextWidth = doc.widthOfString(badgeText);
+    const badgeWidth = badgeTextWidth + badgePaddingX * 2;
+    const badgeHeight = 14;
+    doc
+      .roundedRect(col2X, badgeY, badgeWidth, badgeHeight, 3)
+      .fill(badgeColor);
+    doc
+      .fillColor('#FFFFFF')
+      .text(badgeText, col2X + badgePaddingX, badgeY + badgePaddingY);
+
+    // Dirección en fila completa
+    rowY += lineHeight;
+    drawField(
+      'Dirección',
+      patient.address || 'No registrada',
+      startX,
+      rowY,
+      cardWidth - padding * 2,
+    );
+
+    // Mover cursor debajo del card
+    doc.fillColor(COLORS.textDark);
+    doc.x = margin;
+    doc.y = cardTopY + cardHeight + 16;
   }
 }
