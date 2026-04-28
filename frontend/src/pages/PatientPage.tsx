@@ -9,6 +9,17 @@ import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, F
 import { QRCodeSVG } from 'qrcode.react';
 import WoundEvolutionChart from '../components/WoundEvolutionChart';
 import Switch from '../components/Switch';
+import {
+  Button,
+  Card,
+  DataTable,
+  Input,
+  Modal,
+  Select,
+  Skeleton,
+  Tag,
+  Textarea,
+} from '../components/ui';
 
 const WOUND_COLOR_LABELS: Record<WoundColor, string> = {
   red: 'Rojo (granulaci\u00f3n)',
@@ -626,23 +637,23 @@ export default function PatientPage() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="card p-6">
+        <Card padding="lg">
           <div className="flex items-center justify-between mb-6">
-            <div className="skeleton h-7 w-48" />
+            <Skeleton height={28} width={192} />
             <div className="flex gap-2">
-              <div className="skeleton h-8 w-20 rounded-lg" />
-              <div className="skeleton h-8 w-20 rounded-lg" />
+              <Skeleton height={32} width={80} className="rounded-lg" />
+              <Skeleton height={32} width={80} className="rounded-lg" />
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i}>
-                <div className="skeleton h-3 w-20 mb-2" />
-                <div className="skeleton h-4 w-28" />
+                <Skeleton height={12} width={80} className="mb-2" />
+                <Skeleton height={16} width={112} />
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -662,20 +673,25 @@ export default function PatientPage() {
     <>
     <div className="max-w-4xl mx-auto space-y-5">
       {/* Patient info */}
-      <div className="card p-5 sm:p-6">
+      <Card padding="lg">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
             {patient.firstName} {patient.lastName}
           </h2>
           <div className="flex items-center gap-2 flex-wrap">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowEditForm(!showEditForm)}
-              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
               title="Editar paciente"
+              aria-label="Editar paciente"
+              className="p-2 hover:text-blue-600 hover:bg-blue-50"
             >
               <Pencil className="w-4.5 h-4.5" />
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={async () => {
                 if (!patient) return;
                 setDownloadingPdf(true);
@@ -688,118 +704,100 @@ export default function PatientPage() {
                 }
               }}
               disabled={downloadingPdf}
-              className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer disabled:opacity-50"
               title="Descargar ficha clínica PDF"
+              aria-label="Descargar ficha clínica PDF"
+              className="p-2 hover:text-emerald-600 hover:bg-emerald-50"
             >
               {downloadingPdf ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <FileDown className="w-4.5 h-4.5" />}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowQR(true)}
-              className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all cursor-pointer"
               title="Código QR del paciente"
+              aria-label="Código QR del paciente"
+              className="p-2 hover:text-violet-600 hover:bg-violet-50"
             >
               <QrCode className="w-4.5 h-4.5" />
-            </button>
-            <button
-              onClick={() => setShowDeleteModal(true)}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+              onClick={() => setShowDeleteModal(true)}
               title="Eliminar paciente"
+              aria-label="Eliminar paciente"
+              className="p-2 hover:text-rose-600 hover:bg-rose-50"
             >
               <Trash2 className="w-4.5 h-4.5" />
-            </button>
-            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium">
+            </Button>
+            <Tag variant="blue" className="px-2.5 py-1 border border-blue-200 rounded-lg">
               {patient.rut}
-            </span>
-            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-              patient.status === 'discharged'
-                ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            }`}>
+            </Tag>
+            <Tag
+              variant={patient.status === 'discharged' ? 'gray' : 'green'}
+              className={`px-2.5 py-1 rounded-lg ${patient.status === 'discharged' ? 'border border-slate-200' : 'border border-emerald-200'}`}
+            >
               {patient.status === 'discharged' ? 'Alta médica' : 'Activo'}
-            </span>
+            </Tag>
           </div>
         </div>
 
         {showEditForm ? (
           <form onSubmit={handleUpdatePatient} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Nombre</label>
-              <input
-                type="text"
-                value={editForm.firstName}
-                onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
-                className="form-control w-full"
-                required
-              />
-            </div>
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Apellido</label>
-              <input
-                type="text"
-                value={editForm.lastName}
-                onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
-                className="form-control w-full"
-                required
-              />
-            </div>
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha Nacimiento</label>
-              <input
-                type="date"
-                value={editForm.birthDate}
-                onChange={(e) => setEditForm(prev => ({ ...prev, birthDate: e.target.value }))}
-                className="form-control w-full"
-                required
-              />
-            </div>
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Género</label>
-              <select
-                value={editForm.gender}
-                onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
-                className="form-control w-full"
-                required
-              >
-                <option value="Femenino">Femenino</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Otro">Otro</option>
-              </select>
-            </div>
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Teléfono</label>
-              <input
-                type="text"
-                value={editForm.phone}
-                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                className="form-control w-full"
-              />
-            </div>
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Dirección</label>
-              <input
-                type="text"
-                value={editForm.address}
-                onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
-                className="form-control w-full"
-              />
-            </div>
+            <Input
+              label="Nombre"
+              value={editForm.firstName}
+              onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+              required
+            />
+            <Input
+              label="Apellido"
+              value={editForm.lastName}
+              onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+              required
+            />
+            <Input
+              label="Fecha Nacimiento"
+              type="date"
+              value={editForm.birthDate}
+              onChange={(e) => setEditForm(prev => ({ ...prev, birthDate: e.target.value }))}
+              required
+            />
+            <Select
+              label="Género"
+              options={[
+                { value: 'Femenino', label: 'Femenino' },
+                { value: 'Masculino', label: 'Masculino' },
+                { value: 'Otro', label: 'Otro' },
+              ]}
+              value={editForm.gender}
+              onChange={(v) => setEditForm(prev => ({ ...prev, gender: v }))}
+            />
+            <Input
+              label="Teléfono"
+              value={editForm.phone}
+              onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+            />
+            <Input
+              label="Dirección"
+              value={editForm.address}
+              onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+            />
             <div className="col-span-1 sm:col-span-2 flex flex-col-reverse sm:flex-row justify-end gap-2 mt-2">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setShowEditForm(false)}
-                className="btn-secondary cursor-pointer"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                disabled={saving}
-                className="btn-primary cursor-pointer flex items-center justify-center gap-2"
+                loading={saving}
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {saving ? 'Guardando...' : 'Guardar Cambios'}
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -828,60 +826,64 @@ export default function PatientPage() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Action buttons */}
       <div className="flex justify-end gap-2">
         {patient.status !== 'discharged' ? (
           <>
-            <button
+            <Button
+              size="sm"
               onClick={() => { setShowAppointmentForm(!showAppointmentForm); setShowForm(false); }}
-              className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+              leftIcon={<CalendarPlus className="w-4 h-4" />}
             >
-              <CalendarPlus className="w-4 h-4" />
               {showAppointmentForm ? 'Cancelar' : 'Agendar Cita'}
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               onClick={() => { setShowForm(!showForm); setShowAppointmentForm(false); }}
-              className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+              leftIcon={<Plus className="w-4 h-4" />}
             >
-              <Plus className="w-4 h-4" />
               {showForm ? 'Cancelar' : 'Nueva Curación'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setShowDischargeModal(true)}
-              className="btn-secondary cursor-pointer inline-flex items-center gap-2 text-sm"
+              leftIcon={<UserCheck className="w-4 h-4" />}
             >
-              <UserCheck className="w-4 h-4" />
               Dar de Alta
-            </button>
+            </Button>
           </>
         ) : (
-          <button
+          <Button
+            variant="success"
+            size="sm"
             onClick={handleReadmit}
             disabled={saving}
-            className="btn-success cursor-pointer inline-flex items-center gap-2 text-sm"
+            leftIcon={<RotateCcw className="w-4 h-4" />}
           >
-            <RotateCcw className="w-4 h-4" />
             {saving ? 'Reingresando...' : 'Reingresar Paciente'}
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Appointment form */}
       {showAppointmentForm && (
-        <div className="card p-5 sm:p-6">
+        <Card padding="lg">
           <h3 className="text-base font-semibold text-slate-800 mb-4">Agendar Cita</h3>
           <form onSubmit={handleSaveAppointment} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Fecha *"
+                type="date"
+                value={appointmentForm.date}
+                onChange={(e) => setAppointmentForm(prev => ({ ...prev, date: e.target.value, time: '' }))}
+                required
+              />
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha *</label>
-                <input type="date" value={appointmentForm.date}
-                  onChange={(e) => setAppointmentForm(prev => ({ ...prev, date: e.target.value, time: '' }))}
-                  required className="form-control w-full" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Hora *</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Hora *</label>
+                {/* eslint-disable-next-line ui/use-primitives -- per-option disabled state needed for slot availability */}
                 <select value={appointmentForm.time}
                   onChange={(e) => setAppointmentForm(prev => ({ ...prev, time: e.target.value }))}
                   disabled={!appointmentForm.date || loadingAppointmentAvailability}
@@ -895,106 +897,86 @@ export default function PatientPage() {
                 </select>
               </div>
             </div>
-            <button type="submit" disabled={savingAppointment}
-              className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2">
-              {savingAppointment ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            <Button
+              type="submit"
+              loading={savingAppointment}
+              className="w-full"
+            >
               {savingAppointment ? 'Agendando...' : 'Agendar Cita'}
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
       )}
 
       {/* New curacion form */}
       {showForm && (
-        <div className="card p-5 sm:p-6">
+        <Card padding="lg">
           <h3 className="text-base font-semibold text-slate-800 mb-4">
             Registrar Curación
           </h3>
           <form onSubmit={handleSaveCuracion} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Tipo de Curación *
-                </label>
-                <select
-                  value={curacionForm.type}
-                  onChange={(e) =>
-                    setCuracionForm((prev) => ({
-                      ...prev,
-                      type: e.target.value as CuracionType,
-                    }))
-                  }
-                  className="form-control w-full"
-                >
-                  <option value="avanzada">Curación Avanzada</option>
-                  <option value="pie_diabetico">
-                    Curación Avanzada - Pie Diabético
-                  </option>
-                  <option value="ulcera_venosa">
-                    Curación Avanzada - Úlcera Venosa
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Fecha de Curación *
-                </label>
-                <input
-                  type="date"
-                  value={curacionForm.date}
-                  onChange={(e) =>
-                    setCuracionForm((prev) => ({
-                      ...prev,
-                      date: e.target.value,
-                    }))
-                  }
-                  required
-                  className="form-control w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Cantidad de Curaciones *
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={curacionForm.quantity}
-                  onChange={(e) =>
-                    setCuracionForm((prev) => ({
-                      ...prev,
-                      quantity: parseInt(e.target.value) || 1,
-                    }))
-                  }
-                  required
-                  className="form-control w-full"
-                />
-              </div>
+              <Select
+                label="Tipo de Curación *"
+                value={curacionForm.type}
+                onChange={(v) =>
+                  setCuracionForm((prev) => ({
+                    ...prev,
+                    type: v as CuracionType,
+                  }))
+                }
+                options={[
+                  { value: 'avanzada', label: 'Curación Avanzada' },
+                  { value: 'pie_diabetico', label: 'Curación Avanzada - Pie Diabético' },
+                  { value: 'ulcera_venosa', label: 'Curación Avanzada - Úlcera Venosa' },
+                ]}
+              />
+              <Input
+                label="Fecha de Curación *"
+                type="date"
+                value={curacionForm.date}
+                onChange={(e) =>
+                  setCuracionForm((prev) => ({
+                    ...prev,
+                    date: e.target.value,
+                  }))
+                }
+                required
+              />
+              <Input
+                label="Cantidad de Curaciones *"
+                type="number"
+                min={1}
+                value={curacionForm.quantity}
+                onChange={(e) =>
+                  setCuracionForm((prev) => ({
+                    ...prev,
+                    quantity: parseInt(e.target.value) || 1,
+                  }))
+                }
+                required
+              />
             </div>
 
             {!dischargeCheckbox && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Próxima Cita (Fecha)"
+                  type="date"
+                  value={curacionForm.appointmentDate}
+                  onChange={(e) =>
+                    setCuracionForm((prev) => ({
+                      ...prev,
+                      appointmentDate: e.target.value,
+                      appointmentTime: '',
+                    }))
+                  }
+                />
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Próxima Cita (Fecha)
-                  </label>
-                  <input
-                    type="date"
-                    value={curacionForm.appointmentDate}
-                    onChange={(e) =>
-                      setCuracionForm((prev) => ({
-                        ...prev,
-                        appointmentDate: e.target.value,
-                        appointmentTime: '',
-                      }))
-                    }
-                    className="form-control w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
                     Próxima Cita (Hora)
                   </label>
+                  {/* eslint-disable-next-line ui/use-primitives -- per-option disabled state needed for slot availability */}
                   <select
                     value={curacionForm.appointmentTime}
                     onChange={(e) =>
@@ -1022,22 +1004,18 @@ export default function PatientPage() {
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Observaciones
-              </label>
-              <textarea
-                value={curacionForm.observations}
-                onChange={(e) =>
-                  setCuracionForm((prev) => ({
-                    ...prev,
-                    observations: e.target.value,
-                  }))
-                }
-                rows={3}
-                className="form-control w-full resize-none"
-              />
-            </div>
+            <Textarea
+              label="Observaciones"
+              value={curacionForm.observations}
+              onChange={(e) =>
+                setCuracionForm((prev) => ({
+                  ...prev,
+                  observations: e.target.value,
+                }))
+              }
+              rows={3}
+              className="resize-none"
+            />
 
             <fieldset className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-1">
               <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1061,66 +1039,64 @@ export default function PatientPage() {
               )}
             </fieldset>
 
-            <button
+            <Button
               type="submit"
-              disabled={saving}
-              className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2"
+              loading={saving}
+              className="w-full"
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Guardando...' : 'Registrar Curación'}
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
       )}
 
       {/* Scheduled appointments */}
       {appointments.length > 0 && (
-        <div className="card p-5 sm:p-6">
+        <Card padding="lg">
           <h3 className="text-base font-semibold text-slate-800 mb-4">
             Citas Agendadas
             <span className="ml-2 text-sm font-normal text-slate-400">({appointments.length})</span>
           </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
-                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Hora</th>
-                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
-                  <th className="text-right py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {appointments.map((apt) => (
-                  <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-2 text-slate-800">{apt.date}</td>
-                    <td className="py-3 px-2 font-medium text-slate-800">{apt.time}</td>
-                    <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        apt.curacionId ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
-                      }`}>
-                        {apt.curacionId ? 'Seguimiento' : 'Cita Agendada'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 text-right">
-                      <button onClick={() => handleDeleteAppointment(apt.id)}
-                        className="px-3 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-medium transition-all cursor-pointer">
-                        Cancelar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <DataTable<Appointment>
+            columns={[
+              { key: 'date', label: 'Fecha', render: (a) => a.date },
+              { key: 'time', label: 'Hora', render: (a) => <span className="font-medium text-slate-800">{a.time}</span> },
+              {
+                key: 'type',
+                label: 'Tipo',
+                render: (a) => (
+                  <Tag variant="blue" className="border border-blue-200">
+                    {a.curacionId ? 'Seguimiento' : 'Cita Agendada'}
+                  </Tag>
+                ),
+              },
+              {
+                key: 'actions',
+                label: 'Acciones',
+                align: 'right',
+                render: (a) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteAppointment(a.id)}
+                    className="text-rose-600 hover:bg-rose-50"
+                  >
+                    Cancelar
+                  </Button>
+                ),
+              },
+            ]}
+            data={appointments}
+            keyExtractor={(a) => a.id}
+          />
+        </Card>
       )}
 
       {/* Wound evolution chart */}
       {patient && <WoundEvolutionChart patientId={patient.id} />}
 
       {/* Wound photos section */}
-      <div className="card p-5 sm:p-6">
+      <Card padding="lg">
         <button
           onClick={() => setShowPhotoSection(!showPhotoSection)}
           className="w-full flex items-center justify-between cursor-pointer"
@@ -1142,14 +1118,14 @@ export default function PatientPage() {
           <div className="mt-4">
             {/* Upload button */}
             <div className="flex justify-end mb-4">
-              <button
-                onClick={() => setShowPhotoUpload(!showPhotoUpload)}
-                className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+              <Button
+                size="sm"
                 type="button"
+                onClick={() => setShowPhotoUpload(!showPhotoUpload)}
+                leftIcon={<Plus className="w-4 h-4" />}
               >
-                <Plus className="w-4 h-4" />
                 {showPhotoUpload ? 'Cancelar' : 'Subir Foto'}
-              </button>
+              </Button>
             </div>
 
             {/* Upload form */}
@@ -1157,7 +1133,8 @@ export default function PatientPage() {
               <form onSubmit={handleUploadPhoto} className="space-y-4 mb-6 p-4 bg-slate-50 rounded-xl">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Foto *</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Foto *</label>
+                    {/* eslint-disable-next-line ui/use-primitives -- file input with capture attribute kept native */}
                     <input
                       type="file"
                       accept="image/*"
@@ -1167,35 +1144,31 @@ export default function PatientPage() {
                       className="form-control w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha *</label>
-                    <input
-                      type="date"
-                      value={photoDate}
-                      onChange={(e) => setPhotoDate(e.target.value)}
-                      required
-                      className="form-control w-full"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Descripción</label>
-                  <textarea
-                    value={photoDescription}
-                    onChange={(e) => setPhotoDescription(e.target.value)}
-                    rows={2}
-                    placeholder="Ej: Herida pierna derecha, segunda semana de tratamiento..."
-                    className="form-control w-full resize-none"
+                  <Input
+                    label="Fecha *"
+                    type="date"
+                    value={photoDate}
+                    onChange={(e) => setPhotoDate(e.target.value)}
+                    required
                   />
                 </div>
-                <button
+                <Textarea
+                  label="Descripción"
+                  value={photoDescription}
+                  onChange={(e) => setPhotoDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Ej: Herida pierna derecha, segunda semana de tratamiento..."
+                  className="resize-none"
+                />
+                <Button
                   type="submit"
-                  disabled={uploadingPhoto || !photoFile}
-                  className="btn-primary w-full cursor-pointer flex items-center justify-center gap-2"
+                  loading={uploadingPhoto}
+                  disabled={!photoFile}
+                  leftIcon={!uploadingPhoto ? <Camera className="w-4 h-4" /> : undefined}
+                  className="w-full"
                 >
-                  {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                   {uploadingPhoto ? 'Subiendo...' : 'Subir Foto'}
-                </button>
+                </Button>
               </form>
             )}
 
@@ -1230,14 +1203,17 @@ export default function PatientPage() {
                               loading="lazy"
                             />
                           </div>
-                          <button
-                            onClick={() => handleDeletePhoto(photo.id)}
-                            className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-sm"
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletePhoto(photo.id)}
                             title="Eliminar foto"
+                            aria-label="Eliminar foto"
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg opacity-0 group-hover:opacity-100 shadow-sm"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                           {photo.description && (
                             <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">{photo.description}</p>
                           )}
@@ -1255,10 +1231,10 @@ export default function PatientPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Consent signatures section */}
-      <div className="card p-5 sm:p-6">
+      <Card padding="lg">
         <button
           onClick={() => setShowConsentSection(!showConsentSection)}
           className="w-full flex items-center justify-between cursor-pointer"
@@ -1280,27 +1256,26 @@ export default function PatientPage() {
           <div className="mt-4">
             {/* Signature pad toggle */}
             <div className="flex justify-end mb-4">
-              <button
-                onClick={() => { setShowSignaturePad(!showSignaturePad); if (!showSignaturePad) setHasSignature(false); }}
-                className="btn-primary cursor-pointer inline-flex items-center gap-2 text-sm"
+              <Button
+                size="sm"
                 type="button"
+                onClick={() => { setShowSignaturePad(!showSignaturePad); if (!showSignaturePad) setHasSignature(false); }}
+                leftIcon={<Plus className="w-4 h-4" />}
               >
-                <Plus className="w-4 h-4" />
                 {showSignaturePad ? 'Cancelar' : 'Nueva Firma'}
-              </button>
+              </Button>
             </div>
 
             {/* Signature pad */}
             {showSignaturePad && (
               <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-xl">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Texto del consentimiento</label>
-                  <textarea
-                    value={consentText}
-                    onChange={(e) => setConsentText(e.target.value)}
-                    rows={3}
-                    className="form-control w-full resize-none"
-                  />
+                <Textarea
+                  label="Texto del consentimiento"
+                  value={consentText}
+                  onChange={(e) => setConsentText(e.target.value)}
+                  rows={3}
+                  className="resize-none"
+                />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Firma del paciente</label>
@@ -1323,22 +1298,24 @@ export default function PatientPage() {
                   <p className="text-xs text-slate-400 mt-1">Dibuje la firma con el mouse o el dedo en pantalla t&aacute;ctil</p>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={clearSignatureCanvas}
-                    className="btn-secondary text-sm cursor-pointer"
                   >
                     Limpiar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={handleSaveSignature}
-                    disabled={savingSignature || !hasSignature}
-                    className="btn-primary text-sm cursor-pointer flex items-center gap-2"
+                    loading={savingSignature}
+                    disabled={!hasSignature}
+                    leftIcon={!savingSignature ? <PenTool className="w-3.5 h-3.5" /> : undefined}
                   >
-                    {savingSignature ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenTool className="w-3.5 h-3.5" />}
                     {savingSignature ? 'Guardando...' : 'Guardar Firma'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -1387,10 +1364,10 @@ export default function PatientPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Curaciones history */}
-      <div className="card p-5 sm:p-6">
+      <Card padding="lg">
         <h3 className="text-base font-semibold text-slate-800 mb-4">
           Historial de Curaciones
           <span className="ml-2 text-sm font-normal text-slate-400">
@@ -1400,6 +1377,7 @@ export default function PatientPage() {
 
         {patient.curaciones && patient.curaciones.length > 0 ? (
           <div className="overflow-x-auto">
+            {/* eslint-disable ui/use-primitives -- custom table with colSpan + nested expand-form layout requires raw <table> structure */}
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -1465,23 +1443,29 @@ export default function PatientPage() {
                           </div>
                           <div className="py-3 px-2 text-center flex-shrink-0" style={{ width: '8%' }}>
                             {existingNote ? (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setExpandedNoteId(isExpanded ? null : c.id)}
-                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
-                                title="Ver nota de evoluci&oacute;n"
+                                title="Ver nota de evolución"
+                                aria-label="Ver nota de evolución"
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50"
                               >
                                 <ClipboardList className="w-4 h-4" />
-                              </button>
+                              </Button>
                             ) : (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleToggleNoteForm(c.id)}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
-                                title="Agregar nota de evoluci&oacute;n"
+                                title="Agregar nota de evolución"
+                                aria-label="Agregar nota de evolución"
+                                className="p-1.5 hover:text-blue-600 hover:bg-blue-50"
                               >
                                 <Plus className="w-4 h-4" />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -1547,96 +1531,70 @@ export default function PatientPage() {
                                 <span className="font-medium text-blue-800 text-sm">Nueva Nota de Evoluci&oacute;n</span>
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-700 mb-1">Ancho (cm)</label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={noteForm.woundWidth}
-                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundWidth: e.target.value }))}
-                                    className="form-control w-full text-sm"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-700 mb-1">Largo (cm)</label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={noteForm.woundLength}
-                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundLength: e.target.value }))}
-                                    className="form-control w-full text-sm"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-700 mb-1">Color de herida</label>
-                                  <select
-                                    value={noteForm.woundColor}
-                                    onChange={(e) => setNoteForm(prev => ({ ...prev, woundColor: e.target.value }))}
-                                    className="form-control w-full text-sm"
-                                  >
-                                    <option value="">Seleccionar</option>
-                                    {Object.entries(WOUND_COLOR_LABELS).map(([val, label]) => (
-                                      <option key={val} value={val}>{label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-700 mb-1">Nivel de exudado</label>
-                                  <select
-                                    value={noteForm.exudateLevel}
-                                    onChange={(e) => setNoteForm(prev => ({ ...prev, exudateLevel: e.target.value }))}
-                                    className="form-control w-full text-sm"
-                                  >
-                                    <option value="">Seleccionar</option>
-                                    {Object.entries(EXUDATE_LABELS).map(([val, label]) => (
-                                      <option key={val} value={val}>{label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-slate-700 mb-1">Etapa de cicatrizaci&oacute;n</label>
-                                  <select
-                                    value={noteForm.healingStage}
-                                    onChange={(e) => setNoteForm(prev => ({ ...prev, healingStage: e.target.value }))}
-                                    className="form-control w-full text-sm"
-                                  >
-                                    <option value="">Seleccionar</option>
-                                    {Object.entries(HEALING_STAGE_LABELS).map(([val, label]) => (
-                                      <option key={val} value={val}>{label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Notas libres</label>
-                                <textarea
-                                  value={noteForm.notes}
-                                  onChange={(e) => setNoteForm(prev => ({ ...prev, notes: e.target.value }))}
-                                  rows={2}
-                                  className="form-control w-full text-sm resize-none"
-                                  placeholder="Observaciones sobre el estado de la herida..."
+                                <Input
+                                  label="Ancho (cm)"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={noteForm.woundWidth}
+                                  onChange={(e) => setNoteForm(prev => ({ ...prev, woundWidth: e.target.value }))}
+                                  placeholder="0.00"
+                                />
+                                <Input
+                                  label="Largo (cm)"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={noteForm.woundLength}
+                                  onChange={(e) => setNoteForm(prev => ({ ...prev, woundLength: e.target.value }))}
+                                  placeholder="0.00"
+                                />
+                                <Select
+                                  label="Color de herida"
+                                  value={noteForm.woundColor}
+                                  onChange={(v) => setNoteForm(prev => ({ ...prev, woundColor: v }))}
+                                  placeholder="Seleccionar"
+                                  options={Object.entries(WOUND_COLOR_LABELS).map(([val, label]) => ({ value: val, label }))}
+                                />
+                                <Select
+                                  label="Nivel de exudado"
+                                  value={noteForm.exudateLevel}
+                                  onChange={(v) => setNoteForm(prev => ({ ...prev, exudateLevel: v }))}
+                                  placeholder="Seleccionar"
+                                  options={Object.entries(EXUDATE_LABELS).map(([val, label]) => ({ value: val, label }))}
+                                />
+                                <Select
+                                  label="Etapa de cicatrización"
+                                  value={noteForm.healingStage}
+                                  onChange={(v) => setNoteForm(prev => ({ ...prev, healingStage: v }))}
+                                  placeholder="Seleccionar"
+                                  options={Object.entries(HEALING_STAGE_LABELS).map(([val, label]) => ({ value: val, label }))}
                                 />
                               </div>
+                              <Textarea
+                                label="Notas libres"
+                                value={noteForm.notes}
+                                onChange={(e) => setNoteForm(prev => ({ ...prev, notes: e.target.value }))}
+                                rows={2}
+                                className="resize-none"
+                                placeholder="Observaciones sobre el estado de la herida..."
+                              />
                               <div className="flex justify-end gap-2">
-                                <button
+                                <Button
                                   type="button"
+                                  variant="secondary"
+                                  size="sm"
                                   onClick={() => setExpandedNoteId(null)}
-                                  className="btn-secondary text-sm cursor-pointer"
                                 >
                                   Cancelar
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   type="submit"
-                                  disabled={savingNote}
-                                  className="btn-primary text-sm cursor-pointer flex items-center gap-2"
+                                  size="sm"
+                                  loading={savingNote}
                                 >
-                                  {savingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                                   {savingNote ? 'Guardando...' : 'Guardar nota'}
-                                </button>
+                                </Button>
                               </div>
                             </form>
                           </div>
@@ -1647,190 +1605,155 @@ export default function PatientPage() {
                 })}
               </tbody>
             </table>
+            {/* eslint-enable ui/use-primitives */}
           </div>
         ) : (
           <p className="text-slate-500 text-center py-8 text-sm">
             No hay curaciones registradas
           </p>
         )}
-      </div>
+      </Card>
 
       {/* Status history */}
       {statusHistory.length > 0 && (
-        <div className="card p-5 sm:p-6">
+        <Card padding="lg">
           <h3 className="text-base font-semibold text-slate-800 mb-4">Historial de Altas y Reingresos</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
-                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
-                  <th className="text-left py-3 px-2 font-medium text-slate-500 text-xs uppercase tracking-wider">Usuario</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statusHistory.map((sc) => (
-                  <tr key={sc.id} className="border-b border-slate-100">
-                    <td className="py-3 px-2 text-slate-800">{new Date(sc.createdAt).toLocaleDateString('es-CL')}</td>
-                    <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        sc.type === 'discharge' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      }`}>
-                        {sc.type === 'discharge' ? 'Alta' : 'Reingreso'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 text-slate-500">{sc.performedBy.username}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <DataTable<PatientStatusChange>
+            columns={[
+              { key: 'date', label: 'Fecha', render: (sc) => new Date(sc.createdAt).toLocaleDateString('es-CL') },
+              {
+                key: 'type',
+                label: 'Tipo',
+                render: (sc) => (
+                  <Tag
+                    variant={sc.type === 'discharge' ? 'gray' : 'green'}
+                    className={sc.type === 'discharge' ? '' : 'border border-emerald-200'}
+                  >
+                    {sc.type === 'discharge' ? 'Alta' : 'Reingreso'}
+                  </Tag>
+                ),
+              },
+              { key: 'user', label: 'Usuario', render: (sc) => sc.performedBy.username },
+            ]}
+            data={statusHistory}
+            keyExtractor={(sc) => sc.id}
+          />
+        </Card>
       )}
     </div>
 
     {/* Delete confirmation modal */}
-    {showDeleteModal && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-        onClick={() => setShowDeleteModal(false)}
-      >
-        <div
-          className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">
-              Confirmar eliminación
-            </h3>
-            <button onClick={() => setShowDeleteModal(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
-              <X className="w-5 h-5 text-slate-400" />
-            </button>
-          </div>
-          <p className="text-slate-600 text-sm mb-6">
-            ¿Está seguro de que desea eliminar al paciente{' '}
-            <strong>{patient.firstName} {patient.lastName}</strong>? Esta acción no
-            se puede deshacer y se eliminará también su historial de curaciones.
-          </p>
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setShowDeleteModal(false)}
-              className="btn-secondary cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmDelete}
-              disabled={saving}
-              className="btn-danger cursor-pointer"
-            >
-              {saving ? 'Eliminando...' : 'Eliminar'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+    <Modal
+      open={showDeleteModal}
+      onClose={() => setShowDeleteModal(false)}
+      title="Confirmar eliminación"
+      size="md"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={() => setShowDeleteModal(false)}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="danger" onClick={handleConfirmDelete} loading={saving}>
+            {saving ? 'Eliminando...' : 'Eliminar'}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-slate-600 text-sm">
+        ¿Está seguro de que desea eliminar al paciente{' '}
+        <strong>{patient.firstName} {patient.lastName}</strong>? Esta acción no
+        se puede deshacer y se eliminará también su historial de curaciones.
+      </p>
+    </Modal>
 
     {/* Edit curacion modal */}
-    {editingCuracion && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setEditingCuracion(null)}>
-        <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">
-              Editar Curación — {editingCuracion.date}
-            </h3>
-            <button onClick={() => setEditingCuracion(null)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
-              <X className="w-5 h-5 text-slate-400" />
-            </button>
+    <Modal
+      open={!!editingCuracion}
+      onClose={() => setEditingCuracion(null)}
+      title={editingCuracion ? `Editar Curación — ${editingCuracion.date}` : ''}
+      size="lg"
+    >
+      {editingCuracion && (
+        <form id="edit-curacion-form" onSubmit={handleSaveEdit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Tipo de Curación"
+              value={curacionEditForm.type}
+              onChange={(v) => setCuracionEditForm(prev => ({ ...prev, type: v as CuracionType }))}
+              options={[
+                { value: 'avanzada', label: 'Curación Avanzada' },
+                { value: 'pie_diabetico', label: 'Curación Avanzada - Pie Diabético' },
+                { value: 'ulcera_venosa', label: 'Curación Avanzada - Úlcera Venosa' },
+              ]}
+            />
+            <Input
+              label="Cantidad"
+              type="number"
+              min={1}
+              value={curacionEditForm.quantity}
+              onChange={(e) => setCuracionEditForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+            />
           </div>
-          <form onSubmit={handleSaveEdit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Tipo de Curación</label>
-                <select value={curacionEditForm.type}
-                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, type: e.target.value as CuracionType }))}
-                  className="form-control w-full">
-                  <option value="avanzada">Curación Avanzada</option>
-                  <option value="pie_diabetico">Curación Avanzada - Pie Diabético</option>
-                  <option value="ulcera_venosa">Curación Avanzada - Úlcera Venosa</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Cantidad</label>
-                <input type="number" min={1} value={curacionEditForm.quantity}
-                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                  className="form-control w-full" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Próxima Cita (Fecha)</label>
-                <input type="date" value={curacionEditForm.appointmentDate}
-                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentDate: e.target.value, appointmentTime: '' }))}
-                  className="form-control w-full" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Próxima Cita (Hora)</label>
-                <select value={curacionEditForm.appointmentTime}
-                  onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentTime: e.target.value }))}
-                  disabled={!curacionEditForm.appointmentDate || loadingEditAvailability}
-                  className="form-control w-full disabled:bg-slate-50">
-                  <option value="">{loadingEditAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
-                  {editAvailability.map((slot) => (
-                    <option key={slot.time} value={slot.time} disabled={!slot.available}>
-                      {slot.time} {slot.available ? '(Disponible)' : `(Ocupado)`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-50">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha de Curación</label>
-                <input type="date" value={editingCuracion.date} disabled className="form-control w-full bg-slate-50" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Observaciones</label>
-                <input type="text" value={editingCuracion.observations || '-'} disabled className="form-control w-full bg-slate-50" />
-              </div>
-            </div>
-            {curacionEditForm.type === 'pie_diabetico' && (
-              <fieldset className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-1">
-                <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Inventario
-                </legend>
-                <Switch
-                  checked={curacionEditForm.bootDelivered}
-                  onChange={(v) => setCuracionEditForm(prev => ({ ...prev, bootDelivered: v }))}
-                  label="Bota de descarga entregada"
-                  helpText="Descuenta de inventario"
-                />
-              </fieldset>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Próxima Cita (Fecha)"
+              type="date"
+              value={curacionEditForm.appointmentDate}
+              onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentDate: e.target.value, appointmentTime: '' }))}
+            />
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Motivo de la edición *</label>
-              <textarea value={curacionEditForm.reason}
-                onChange={(e) => setCuracionEditForm(prev => ({ ...prev, reason: e.target.value }))}
-                rows={2} required placeholder="Ingrese el motivo de la corrección..."
-                className="form-control w-full resize-none" />
+              <label className="block text-xs font-medium text-slate-500 mb-1">Próxima Cita (Hora)</label>
+              {/* eslint-disable-next-line ui/use-primitives -- per-option disabled state needed for slot availability */}
+              <select value={curacionEditForm.appointmentTime}
+                onChange={(e) => setCuracionEditForm(prev => ({ ...prev, appointmentTime: e.target.value }))}
+                disabled={!curacionEditForm.appointmentDate || loadingEditAvailability}
+                className="form-control w-full disabled:bg-slate-50">
+                <option value="">{loadingEditAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
+                {editAvailability.map((slot) => (
+                  <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                    {slot.time} {slot.available ? '(Disponible)' : `(Ocupado)`}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setEditingCuracion(null)}
-                className="btn-secondary cursor-pointer">
-                Cancelar
-              </button>
-              <button type="submit" disabled={savingEdit || !curacionEditForm.reason.trim()}
-                className="btn-primary cursor-pointer flex items-center gap-2">
-                {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-50">
+            <Input label="Fecha de Curación" type="date" value={editingCuracion.date} disabled />
+            <Input label="Observaciones" value={editingCuracion.observations || '-'} disabled />
+          </div>
+          {curacionEditForm.type === 'pie_diabetico' && (
+            <fieldset className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-1">
+              <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Inventario
+              </legend>
+              <Switch
+                checked={curacionEditForm.bootDelivered}
+                onChange={(v) => setCuracionEditForm(prev => ({ ...prev, bootDelivered: v }))}
+                label="Bota de descarga entregada"
+                helpText="Descuenta de inventario"
+              />
+            </fieldset>
+          )}
+          <Textarea
+            label="Motivo de la edición *"
+            value={curacionEditForm.reason}
+            onChange={(e) => setCuracionEditForm(prev => ({ ...prev, reason: e.target.value }))}
+            rows={2}
+            required
+            placeholder="Ingrese el motivo de la corrección..."
+            className="resize-none"
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setEditingCuracion(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={savingEdit} disabled={!curacionEditForm.reason.trim()}>
+              {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
 
     {/* Photo viewer modal */}
     {viewingPhoto && (
