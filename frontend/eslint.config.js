@@ -27,7 +27,7 @@ export default defineConfig([
       ui: { rules: { 'use-primitives': usePrimitives } },
     },
     rules: {
-      'ui/use-primitives': 'warn',
+      'ui/use-primitives': 'error',
     },
   },
 ])
