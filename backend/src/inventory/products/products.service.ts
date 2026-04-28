@@ -42,7 +42,7 @@ export class ProductsService {
 
   async list(opts: { search?: string; type?: ProductType; page?: number; limit?: number }) {
     const page = opts.page ?? 1;
-    const limit = Math.min(opts.limit ?? 50, 200);
+    const limit = Math.min(opts.limit ?? 50, 5000);
     const where: any = {};
     if (opts.search) where.name = ILike(`%${opts.search}%`);
     if (opts.type) where.type = opts.type;
