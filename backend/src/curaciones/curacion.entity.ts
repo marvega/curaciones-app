@@ -7,10 +7,14 @@ import {
   OneToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Patient } from '../patients/patient.entity';
 import { Appointment } from '../appointments/appointment.entity';
 import { CuracionEdit } from './curacion-edit.entity';
+import { Organization } from '../organizations/organization.entity';
+import type { EncryptedField } from '../kms/encrypted-column.transformer';
+import { encryptedColumnTransformer } from '../kms/encrypted-column.transformer';
 
 export enum CuracionType {
   AVANZADA = 'avanzada',
@@ -19,9 +23,14 @@ export enum CuracionType {
 }
 
 @Entity('curaciones')
+@Index('IDX_curacion_org', ['organizationId'])
+@Index('IDX_curacion_org_date', ['organizationId', 'date'])
 export class Curacion {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'bigint' })
+  organizationId: string;
 
   @Column()
   patientId: number;
@@ -35,8 +44,12 @@ export class Curacion {
   @Column({ type: 'int', default: 1 })
   quantity: number;
 
-  @Column({ type: 'text', nullable: true })
-  observations: string;
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    transformer: encryptedColumnTransformer('Curacion.observations'),
+  })
+  observations: EncryptedField | null;
 
   @Column({ type: 'boolean', default: false })
   bootDelivered: boolean;
@@ -44,9 +57,11 @@ export class Curacion {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => Patient, (patient) => patient.curaciones, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
+
+  @ManyToOne(() => Patient, (patient) => patient.curaciones, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'patientId' })
   patient: Patient;
 
