@@ -4,7 +4,10 @@ import { Repository } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Appointment } from '../appointments/appointment.entity';
-import { PatientStatusChange } from './patient-status-change.entity';
+import {
+  PatientStatusChange,
+  PatientStatus,
+} from './patient-status-change.entity';
 import { INSTITUTIONAL_INFO, COLORS, PAGE } from './pdf-constants';
 
 @Injectable()
@@ -195,9 +198,14 @@ export class PatientPdfService {
           const fecha = new Date(sc.createdAt).toLocaleDateString('es-CL');
           const tipo = typeLabelsStatus[sc.type] || sc.type;
           const usuario = sc.performedBy?.username || 'Sistema';
-          doc.text(`• ${fecha} — ${tipo} (por ${usuario})`, PAGE.margin, doc.y, {
-            width: PAGE.contentWidth,
-          });
+          doc.text(
+            `• ${fecha} — ${tipo} (por ${usuario})`,
+            PAGE.margin,
+            doc.y,
+            {
+              width: PAGE.contentWidth,
+            },
+          );
         }
       }
 
@@ -329,7 +337,7 @@ export class PatientPdfService {
     );
 
     // Badge de estado en columna derecha de fila 3
-    const isActive = patient.status === 'active';
+    const isActive = patient.status === PatientStatus.ACTIVE;
     const badgeText = isActive ? 'ACTIVO' : 'DADO DE ALTA';
     const badgeColor = isActive ? COLORS.badgeActive : COLORS.badgeInactive;
     doc
@@ -344,9 +352,7 @@ export class PatientPdfService {
     const badgeTextWidth = doc.widthOfString(badgeText);
     const badgeWidth = badgeTextWidth + badgePaddingX * 2;
     const badgeHeight = 14;
-    doc
-      .roundedRect(col2X, badgeY, badgeWidth, badgeHeight, 3)
-      .fill(badgeColor);
+    doc.roundedRect(col2X, badgeY, badgeWidth, badgeHeight, 3).fill(badgeColor);
     doc
       .fillColor('#FFFFFF')
       .text(badgeText, col2X + badgePaddingX, badgeY + badgePaddingY);
@@ -369,7 +375,11 @@ export class PatientPdfService {
 
   private drawTable(
     doc: PDFKit.PDFDocument,
-    columns: { header: string; width: number; align?: 'left' | 'center' | 'right' }[],
+    columns: {
+      header: string;
+      width: number;
+      align?: 'left' | 'center' | 'right';
+    }[],
     rows: string[][],
   ): void {
     const margin = PAGE.margin;
@@ -420,9 +430,7 @@ export class PatientPdfService {
 
       // Fondo alternado
       if (idx % 2 === 1) {
-        doc
-          .rect(margin, y, PAGE.contentWidth, rowHeight)
-          .fill(COLORS.rowAlt);
+        doc.rect(margin, y, PAGE.contentWidth, rowHeight).fill(COLORS.rowAlt);
       }
 
       // Texto de la fila
