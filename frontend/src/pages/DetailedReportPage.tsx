@@ -11,7 +11,8 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { Download, Loader2 } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { Button, Input, Select, Card } from '../components/ui';
 
 const COLORS = ['#0d9488', '#f59e0b', '#6366f1', '#ec4899'];
 
@@ -131,7 +132,7 @@ export default function DetailedReportPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="card p-5 sm:p-6">
+      <Card padding="md" className="sm:p-6">
         <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">
           Reporte Trimestral de Pie Diabético
         </h2>
@@ -140,89 +141,59 @@ export default function DetailedReportPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end mb-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Año
-            </label>
-            <input
+          <div className="w-28">
+            <Input
+              label="Año"
               type="number"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
               min={2020}
               max={2030}
-              className="form-control w-28"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Trimestre
-            </label>
-            <select
-              value={quarter}
-              onChange={(e) => setQuarter(parseInt(e.target.value))}
-              className="form-control min-w-[180px]"
-            >
-              {QUARTERS.map((q) => (
-                <option key={q.value} value={q.value}>
-                  {q.label}
-                </option>
-              ))}
-            </select>
+          <div className="min-w-[180px]">
+            <Select
+              label="Trimestre"
+              value={String(quarter)}
+              onChange={(v) => setQuarter(parseInt(v))}
+              options={QUARTERS.map((q) => ({ value: String(q.value), label: q.label }))}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Género
-            </label>
-            <select
+          <div className="min-w-[120px]">
+            <Select
+              label="Género"
               value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="form-control min-w-[120px]"
-            >
-              <option value="">Todos</option>
-              <option value="Femenino">Femenino</option>
-              <option value="Masculino">Masculino</option>
-              <option value="Otro">Otro</option>
-            </select>
+              onChange={setGender}
+              options={[
+                { value: '', label: 'Todos' },
+                { value: 'Femenino', label: 'Femenino' },
+                { value: 'Masculino', label: 'Masculino' },
+                { value: 'Otro', label: 'Otro' },
+              ]}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Grupo Etáreo
-            </label>
-            <select
+          <div className="min-w-[140px]">
+            <Select
+              label="Grupo Etáreo"
               value={ageGroup}
-              onChange={(e) => setAgeGroup(e.target.value)}
-              className="form-control min-w-[140px]"
-            >
-              <option value="">Todos</option>
-              {AGE_GROUPS.map((g, i) => (
-                <option key={i} value={i}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
+              onChange={setAgeGroup}
+              options={[
+                { value: '', label: 'Todos' },
+                ...AGE_GROUPS.map((g, i) => ({ value: String(i), label: g.label })),
+              ]}
+            />
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generando...
-              </>
-            ) : (
-              'Generar Reporte'
-            )}
-          </button>
+          <Button onClick={handleGenerate} loading={loading}>
+            {loading ? 'Generando...' : 'Generar Reporte'}
+          </Button>
           {report && (
-            <button
+            <Button
+              variant="success"
               onClick={handleDownloadExcel}
-              className="btn-success inline-flex items-center gap-2"
+              leftIcon={<Download className="w-4 h-4" />}
             >
-              <Download className="w-4 h-4" />
               Descargar Excel
-            </button>
+            </Button>
           )}
         </div>
 
@@ -343,7 +314,7 @@ export default function DetailedReportPage() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
