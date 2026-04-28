@@ -1925,7 +1925,7 @@ export default function PatientPage() {
           className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center print:shadow-none print:rounded-none"
           onClick={(e) => e.stopPropagation()}
         >
-          <QRCodeSVG value={patient.rut} size={200} level="M" className="mx-auto" />
+          <QRCodeSVG value={`${window.location.origin}/paciente/${patient.id}`} size={200} level="M" className="mx-auto" />
           <p className="mt-4 text-lg font-bold text-slate-800">{patient.firstName} {patient.lastName}</p>
           <p className="text-sm text-slate-500">{patient.rut}</p>
           <div className="flex gap-3 mt-6 print:hidden">
