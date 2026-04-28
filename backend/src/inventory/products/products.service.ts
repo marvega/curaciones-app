@@ -56,6 +56,10 @@ export class ProductsService {
     return { data, total, page, totalPages: Math.ceil(total / limit) };
   }
 
+  async listAll(): Promise<Product[]> {
+    return this.productRepo.find({ order: { name: 'ASC' }, relations: ['codes'] });
+  }
+
   async update(id: number, dto: UpdateProductDto): Promise<Product> {
     await this.findById(id);
     const { codes, ...patch } = dto;

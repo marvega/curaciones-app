@@ -41,7 +41,7 @@ export class CanastaService {
 
   async applyDefaultMappings(): Promise<{ associated: number; skipped: number; details: Array<{ category: string; productIds: number[] }> }> {
     const categories = await this.repo.find({ order: { displayOrder: 'ASC' } });
-    const allProducts = await this.products.list({ limit: 5000 });
+    const allProducts = await this.products.listAll();
     let associated = 0;
     let skipped = 0;
     const details: Array<{ category: string; productIds: number[] }> = [];
@@ -50,7 +50,7 @@ export class CanastaService {
       const category = categories.find((c) => c.displayOrder === mapping.displayOrder);
       if (!category) { skipped++; continue; }
       const matchedProductIds = new Set<number>();
-      for (const p of allProducts.data) {
+      for (const p of allProducts) {
         const codes = (p.codes ?? []).map((c: any) => c.code);
         for (const matcher of mapping.matchers) {
           const codeHit = matcher.avisCodes?.some((c) => codes.includes(c)) ?? false;
