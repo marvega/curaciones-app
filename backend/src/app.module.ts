@@ -32,6 +32,7 @@ import { Establishment } from './establishments/establishment.entity';
 import { EstablishmentsModule } from './establishments/establishments.module';
 import { Product } from './inventory/products/product.entity';
 import { ProductCode } from './inventory/products/product-code.entity';
+import { ProductsModule } from './inventory/products/products.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -71,6 +72,7 @@ import { BootstrapService } from './bootstrap.service';
     WoundNotesModule,
     ConsentModule,
     EstablishmentsModule,
+    ProductsModule,
   ],
   controllers: [HealthController],
   providers: [
