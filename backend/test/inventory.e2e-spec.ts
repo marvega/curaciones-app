@@ -106,13 +106,7 @@ describe('Inventory (e2e)', () => {
       .send({ absoluteValue: 48 });
     expect(patchRes.status).toBe(200);
 
-    // 4. Apply default canasta mappings
-    const seed = await request(app.getHttpServer())
-      .post('/api/inventory/canasta/seed-defaults')
-      .set('Authorization', `Bearer ${adminToken}`);
-    expect(seed.status).toBe(201);
-
-    // 5. Export Excel
+    // 4. Export Excel
     const xlsxRes = await request(app.getHttpServer())
       .get(`/api/inventory/audit-export?mode=current&establishmentId=${establishmentId}`)
       .set('Authorization', `Bearer ${userToken}`)

@@ -437,7 +437,6 @@ export const closeStockCount = async (id: number): Promise<StockCount> => (await
 // Inventory - Canasta
 export const listCanasta = async (): Promise<CanastaCategory[]> => (await api.get('/inventory/canasta')).data;
 export const replaceCanastaProducts = async (id: number, productIds: number[]) => (await api.put(`/inventory/canasta/${id}/products`, { productIds })).data;
-export const seedCanastaDefaults = async () => (await api.post('/inventory/canasta/seed-defaults')).data;
 
 // Inventory - Audit export
 export const downloadAuditExport = async (params: { mode: 'current' | 'month'; establishmentId?: number; year?: number; month?: number }): Promise<Blob> => {
