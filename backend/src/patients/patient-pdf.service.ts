@@ -167,24 +167,27 @@ export class PatientPdfService {
         );
       }
 
-      // Status changes
+      // Historial de Estado
       if (statusChanges.length > 0) {
         doc
-          .fontSize(14)
+          .fillColor(COLORS.primary)
           .font('Helvetica-Bold')
-          .text('Historial de Estado');
+          .fontSize(12)
+          .text('HISTORIAL DE ESTADO', PAGE.margin, doc.y);
         doc.moveDown(0.3);
+
         const typeLabelsStatus: Record<string, string> = {
           discharge: 'Alta',
           readmission: 'Reingreso',
         };
+        doc.fillColor(COLORS.textDark).font('Helvetica').fontSize(10);
         for (const sc of statusChanges) {
-          doc
-            .fontSize(10)
-            .font('Helvetica')
-            .text(
-              `${new Date(sc.createdAt).toLocaleDateString('es-CL')} — ${typeLabelsStatus[sc.type] || sc.type} (por ${sc.performedBy?.username || 'Sistema'})`,
-            );
+          const fecha = new Date(sc.createdAt).toLocaleDateString('es-CL');
+          const tipo = typeLabelsStatus[sc.type] || sc.type;
+          const usuario = sc.performedBy?.username || 'Sistema';
+          doc.text(`• ${fecha} — ${tipo} (por ${usuario})`, PAGE.margin, doc.y, {
+            width: PAGE.contentWidth,
+          });
         }
       }
 
