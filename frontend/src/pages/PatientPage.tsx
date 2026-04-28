@@ -1097,10 +1097,12 @@ export default function PatientPage() {
 
       {/* Wound photos section */}
       <Card padding="lg">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setShowPhotoSection(!showPhotoSection)}
-          className="w-full flex items-center justify-between cursor-pointer"
+          className="w-full flex items-center justify-between cursor-pointer hover:bg-transparent !px-0 !py-0"
           type="button"
+          aria-expanded={showPhotoSection}
         >
           <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
             <Camera className="w-4.5 h-4.5 text-slate-400" />
@@ -1112,7 +1114,7 @@ export default function PatientPage() {
           ) : (
             <ChevronDown className="w-5 h-5 text-slate-400" />
           )}
-        </button>
+        </Button>
 
         {showPhotoSection && (
           <div className="mt-4">
@@ -1134,7 +1136,6 @@ export default function PatientPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">Foto *</label>
-                    {/* eslint-disable-next-line ui/use-primitives -- file input with capture attribute kept native */}
                     <input
                       type="file"
                       accept="image/*"
@@ -1235,10 +1236,12 @@ export default function PatientPage() {
 
       {/* Consent signatures section */}
       <Card padding="lg">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setShowConsentSection(!showConsentSection)}
-          className="w-full flex items-center justify-between cursor-pointer"
+          className="w-full flex items-center justify-between cursor-pointer hover:bg-transparent !px-0 !py-0"
           type="button"
+          aria-expanded={showConsentSection}
         >
           <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
             <PenTool className="w-4.5 h-4.5 text-slate-400" />
@@ -1250,7 +1253,7 @@ export default function PatientPage() {
           ) : (
             <ChevronDown className="w-5 h-5 text-slate-400" />
           )}
-        </button>
+        </Button>
 
         {showConsentSection && (
           <div className="mt-4">
@@ -1764,12 +1767,15 @@ export default function PatientPage() {
           className="relative max-w-4xl max-h-[90vh] w-full"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setViewingPhoto(null)}
-            className="absolute -top-10 right-0 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+            className="absolute -top-10 right-0 bg-white/20 hover:bg-white/30 text-white"
+            aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
           <img
             src={getWoundPhotoUrl(viewingPhoto.filename)}
             alt={viewingPhoto.description || 'Foto de herida'}
@@ -1794,12 +1800,15 @@ export default function PatientPage() {
           className="relative max-w-2xl w-full"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setViewingSignature(null)}
-            className="absolute -top-10 right-0 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+            className="absolute -top-10 right-0 bg-white/20 hover:bg-white/30 text-white"
+            aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
           <div className="bg-white rounded-xl p-6">
             <img
               src={getConsentSignatureUrl(viewingSignature.filename)}
@@ -1822,73 +1831,67 @@ export default function PatientPage() {
     )}
 
     {/* Discharge modal */}
-    {showDischargeModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowDischargeModal(false)}>
-        <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">Dar de Alta</h3>
-            <button onClick={() => setShowDischargeModal(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
-              <X className="w-5 h-5 text-slate-400" />
-            </button>
-          </div>
-          {appointments.length > 0 ? (
-            <p className="text-slate-600 text-sm mb-6">
-              Este paciente tiene <strong>{appointments.length}</strong> cita{appointments.length !== 1 ? 's' : ''} agendada{appointments.length !== 1 ? 's' : ''}. ¿Desea cancelarlas al dar de alta?
-            </p>
-          ) : (
-            <p className="text-slate-600 text-sm mb-6">
-              ¿Confirma dar de alta a <strong>{patient.firstName} {patient.lastName}</strong>?
-            </p>
+    <Modal
+      open={showDischargeModal}
+      onClose={() => setShowDischargeModal(false)}
+      title="Dar de Alta"
+      footer={
+        <>
+          <Button variant="secondary" onClick={() => setShowDischargeModal(false)}>
+            Cancelar
+          </Button>
+          {appointments.length > 0 && (
+            <Button
+              variant="secondary"
+              onClick={() => handleDischarge(false)}
+              disabled={saving}
+            >
+              {saving ? 'Procesando...' : 'Alta sin cancelar citas'}
+            </Button>
           )}
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setShowDischargeModal(false)}
-              className="btn-secondary cursor-pointer">
-              Cancelar
-            </button>
-            {appointments.length > 0 && (
-              <button type="button" onClick={() => handleDischarge(false)} disabled={saving}
-                className="btn-secondary cursor-pointer">
-                {saving ? 'Procesando...' : 'Alta sin cancelar citas'}
-              </button>
-            )}
-            <button type="button" onClick={() => handleDischarge(true)} disabled={saving}
-              className="btn-danger cursor-pointer">
-              {saving ? 'Procesando...' : (appointments.length > 0 ? 'Alta y cancelar citas' : 'Confirmar Alta')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+          <Button
+            variant="danger"
+            onClick={() => handleDischarge(true)}
+            disabled={saving}
+          >
+            {saving ? 'Procesando...' : appointments.length > 0 ? 'Alta y cancelar citas' : 'Confirmar Alta'}
+          </Button>
+        </>
+      }
+    >
+      {appointments.length > 0 ? (
+        <p className="text-slate-600 text-sm">
+          Este paciente tiene <strong>{appointments.length}</strong> cita{appointments.length !== 1 ? 's' : ''} agendada{appointments.length !== 1 ? 's' : ''}. ¿Desea cancelarlas al dar de alta?
+        </p>
+      ) : (
+        <p className="text-slate-600 text-sm">
+          ¿Confirma dar de alta a <strong>{patient.firstName} {patient.lastName}</strong>?
+        </p>
+      )}
+    </Modal>
+
     {/* QR code modal */}
-    {showQR && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 print:bg-white print:backdrop-blur-none"
-        onClick={() => setShowQR(false)}
-      >
-        <div
-          className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center print:shadow-none print:rounded-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <QRCodeSVG value={`${window.location.origin}/paciente/${patient.id}`} size={200} level="M" className="mx-auto" />
-          <p className="mt-4 text-lg font-bold text-slate-800">{patient.firstName} {patient.lastName}</p>
-          <p className="text-sm text-slate-500">{patient.rut}</p>
-          <div className="flex gap-3 mt-6 print:hidden">
-            <button
-              onClick={() => window.print()}
-              className="btn-primary flex-1 cursor-pointer"
-            >
-              Imprimir
-            </button>
-            <button
-              onClick={() => setShowQR(false)}
-              className="btn-secondary flex-1 cursor-pointer"
-            >
-              Cerrar
-            </button>
-          </div>
+    <Modal
+      open={showQR}
+      onClose={() => setShowQR(false)}
+      size="sm"
+      footer={
+        <div className="flex gap-3 w-full print:hidden">
+          <Button onClick={() => window.print()} className="flex-1">
+            Imprimir
+          </Button>
+          <Button variant="secondary" onClick={() => setShowQR(false)} className="flex-1">
+            Cerrar
+          </Button>
         </div>
+      }
+    >
+      <div className="text-center print:shadow-none print:rounded-none">
+        <QRCodeSVG value={`${window.location.origin}/paciente/${patient.id}`} size={200} level="M" className="mx-auto" />
+        <p className="mt-4 text-lg font-bold text-slate-800">{patient.firstName} {patient.lastName}</p>
+        <p className="text-sm text-slate-500">{patient.rut}</p>
       </div>
-    )}
+    </Modal>
     </>
   );
 }
