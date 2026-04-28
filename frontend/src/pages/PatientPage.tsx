@@ -1276,7 +1276,6 @@ export default function PatientPage() {
                   rows={3}
                   className="resize-none"
                 />
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Firma del paciente</label>
                   <div className="bg-white border-2 border-dashed border-slate-300 rounded-xl overflow-hidden">
