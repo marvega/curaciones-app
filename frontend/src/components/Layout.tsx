@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AlertBanner from './AlertBanner';
+import ExpiringLotsBanner from './ExpiringLotsBanner';
 import {
   LayoutDashboard,
   Users,
@@ -266,6 +267,7 @@ export default function Layout() {
 
         {/* Alert banner */}
         <AlertBanner />
+        <ExpiringLotsBanner />
 
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6">
