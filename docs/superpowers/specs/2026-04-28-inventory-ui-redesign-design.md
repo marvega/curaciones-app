@@ -96,45 +96,45 @@ backend/
 
 ### Tokens
 
-Extender `frontend/src/index.css` con CSS custom properties:
+Extender `frontend/src/index.css` con CSS custom properties. Todos los tokens van bajo el prefijo `--ui-*` para evitar colisiones con tokens internos que Tailwind 4 emite en `@layer theme` (ej: `--radius-md`, `--shadow-md`):
 
 ```css
 :root {
   /* Spacing scale (alineado con Tailwind) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  --ui-space-1: 0.25rem;
+  --ui-space-2: 0.5rem;
+  --ui-space-3: 0.75rem;
+  --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem;
+  --ui-space-6: 1.5rem;
+  --ui-space-8: 2rem;
 
   /* Radii */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --ui-radius-sm: 0.375rem;
+  --ui-radius-md: 0.5rem;
+  --ui-radius-lg: 0.75rem;
+  --ui-radius-xl: 1rem;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --ui-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ui-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --ui-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 
   /* Colors semánticos (referencia a Tailwind palette ya en uso) */
-  --color-bg: theme(colors.slate.100);
-  --color-surface: theme(colors.white);
-  --color-border: theme(colors.slate.200);
-  --color-primary: theme(colors.blue.600);
-  --color-text: theme(colors.slate.800);
-  --color-muted: theme(colors.slate.500);
+  --ui-color-bg: theme(colors.slate.100);
+  --ui-color-surface: theme(colors.white);
+  --ui-color-border: theme(colors.slate.200);
+  --ui-color-primary: theme(colors.blue.600);
+  --ui-color-text: theme(colors.slate.800);
+  --ui-color-muted: theme(colors.slate.500);
 }
 
 .dark {
-  --color-bg: theme(colors.slate.950);
-  --color-surface: theme(colors.slate.900);
-  --color-border: theme(colors.slate.700);
-  --color-text: theme(colors.slate.200);
-  --color-muted: theme(colors.slate.400);
+  --ui-color-bg: theme(colors.slate.950);
+  --ui-color-surface: theme(colors.slate.900);
+  --ui-color-border: theme(colors.slate.700);
+  --ui-color-text: theme(colors.slate.200);
+  --ui-color-muted: theme(colors.slate.400);
 }
 ```
 
