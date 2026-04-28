@@ -44,25 +44,4 @@ describe('CanastaService', () => {
       expect.any(Array),
     );
   });
-
-  describe('applyDefaultMappings', () => {
-    it('matches products by avisCodes and namePatterns', async () => {
-      repo.find.mockResolvedValue([
-        { id: 1, displayOrder: 1, name: 'Apósitos bacteriostáticos', section: 'INSUMOS' },
-      ]);
-      productsServiceMock.listAll.mockResolvedValue([
-        { id: 100, name: 'APÓSITO RINGER CON PHMB 10X10 CM', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '1778' }] },
-        { id: 101, name: 'APÓSITO MIEL GEL 30 GR', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '2066' }] },
-        { id: 102, name: 'GASA 10X10', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '819' }] },
-      ]);
-      repo.findOne.mockResolvedValue({ id: 1, products: [] });
-      ds.query.mockResolvedValue(undefined);
-      const result = await service.applyDefaultMappings();
-      // Bacteriostáticos: matches AVIS 1778 + Miel Gel by name = 2 matches; GASA does not match.
-      expect(result.associated).toBeGreaterThanOrEqual(2);
-      expect(result.details[0].productIds).toContain(100);
-      expect(result.details[0].productIds).toContain(101);
-      expect(result.details[0].productIds).not.toContain(102);
-    });
-  });
 });

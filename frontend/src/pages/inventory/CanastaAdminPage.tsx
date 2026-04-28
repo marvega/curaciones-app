@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { listCanasta, replaceCanastaProducts, seedCanastaDefaults, listProducts } from '../../services/api';
+import { listCanasta, replaceCanastaProducts, listProducts } from '../../services/api';
 import type { CanastaCategory, Product } from '../../types';
-import { useConfirm } from '../../contexts/ConfirmContext';
 
 export default function CanastaAdminPage() {
-  const confirm = useConfirm();
   const [categories, setCategories] = useState<CanastaCategory[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<number | null>(null);
@@ -28,24 +26,9 @@ export default function CanastaAdminPage() {
     setEditing(null);
   }
 
-  async function applyDefaults() {
-    const ok = await confirm({
-      title: 'Aplicar mapeo sugerido',
-      message: 'Esto reemplazará las asociaciones existentes en todas las categorías de la canasta.',
-      confirmText: 'Aplicar mapeo',
-      variant: 'warning',
-    });
-    if (!ok) return;
-    await seedCanastaDefaults();
-    const refreshed = await listCanasta();
-    setCategories(refreshed);
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={applyDefaults} className="px-4 py-2 bg-blue-600 text-white rounded">Aplicar mapeo sugerido</button>
-      </div>
+      {/* Replaced by import flow in Plan C */}
 
       {categories.map((cat) => (
         <div key={cat.id} className="bg-white dark:bg-slate-900 rounded shadow p-4">
