@@ -18,7 +18,7 @@ If a use case isn't covered by an existing primitive, **extend the primitive** r
 
 ### ESLint enforcement
 
-Rule `ui/use-primitives` (in `frontend/eslint-rules/use-primitives.js`) flags raw `<button>`, `<input type="text|search|...">`, `<table>`, `<select>`, `<textarea>` in `src/pages/**`. It is `warn` during the migration (Plans A-C) and promoted to `error` once Plan D completes.
+Rule `ui/use-primitives` (in `frontend/eslint-rules/use-primitives.js`) flags raw `<button>`, `<input type="text|search|...">`, `<table>`, `<select>`, `<textarea>` in `src/pages/**`. It is enforced at `error` level — raw `<button>`, `<input type=text>`, `<table>`, etc. in `src/pages/**` will fail lint.
 
 ### Whitelist
 
