@@ -76,4 +76,50 @@ export class AuditExportService {
   private async findLotsForProduct(productId: number, establishmentId: number) {
     return this.lotRepo.find({ where: { productId, establishmentId } });
   }
+
+  async generateExcel(report: AuditReport): Promise<Buffer> {
+    const XLSX = await import('xlsx');
+    const aoa: any[][] = [];
+
+    aoa.push([
+      `ANEXO 5. INSUMOS PARA CURACIÓN AVANZADA DE ÚLCERA DE PIE DIABÉTICO 2025 — Snapshot ${report.snapshotDate}`,
+    ]);
+    aoa.push([
+      'Disponibilidad de insumos de Canasta Curación Avanzada',
+      'Sí',
+      'No',
+      'Observaciones',
+      'Stock insumos del mes anterior',
+      'Stock insumos solicitados para el mes actual',
+    ]);
+
+    for (const row of report.rows.filter((r) => r.section === 'INSUMOS')) {
+      aoa.push([
+        row.name,
+        row.available === true ? 'X' : null,
+        row.available === false ? 'X' : null,
+        row.notes,
+        null,
+        null,
+      ]);
+    }
+
+    aoa.push([null, null, null, null, null, null]);
+    aoa.push([
+      'Ayudas Técnicas garantizadas para apoyo en CAPD, según decreto GES 2022-2025',
+      'Sí',
+      'No',
+      'Observaciones',
+      null,
+      null,
+    ]);
+    for (const row of report.rows.filter((r) => r.section === 'AYUDAS_TECNICAS')) {
+      aoa.push([row.name, null, null, row.notes, null, null]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Canasta CAPD');
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+  }
 }
