@@ -5,6 +5,7 @@ import { Patient } from './patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Appointment } from '../appointments/appointment.entity';
 import { PatientStatusChange } from './patient-status-change.entity';
+import { INSTITUTIONAL_INFO, COLORS, PAGE } from './pdf-constants';
 
 @Injectable()
 export class PatientPdfService {
@@ -44,7 +45,7 @@ export class PatientPdfService {
     });
 
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({ size: PAGE.size, margin: PAGE.margin });
       const chunks: Buffer[] = [];
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -170,5 +171,13 @@ export class PatientPdfService {
 
       doc.end();
     });
+  }
+
+  private formatFolio(patientId: number): string {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${patientId}-${yyyy}-${mm}-${dd}`;
   }
 }
