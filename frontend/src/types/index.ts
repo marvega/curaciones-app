@@ -178,3 +178,90 @@ export interface ConsentSignature {
   signedAt: string;
   witnessedBy: { id: number; username: string };
 }
+
+export type CodeSystem = 'AVIS_QUILPUE' | 'AVIS_OTRA' | 'RAYEN' | 'OTRO';
+export type ProductType = 'INSUMO' | 'MEDICAMENTO' | 'ORTESIS' | 'OTRO';
+export type LotMovementType = 'RECEPTION' | 'COUNT' | 'ADJUSTMENT';
+export type StockCountStatus = 'DRAFT' | 'CLOSED';
+export type CanastaSection = 'INSUMOS' | 'AYUDAS_TECNICAS';
+
+export interface ProductCode {
+  id: number;
+  productId: number;
+  codeSystem: CodeSystem;
+  code: string;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  type: ProductType;
+  packaging: string;
+  tracksExpiration: boolean;
+  codes: ProductCode[];
+  createdAt: string;
+}
+
+export interface Lot {
+  id: number;
+  productId: number;
+  establishmentId: number;
+  lotCode: string | null;
+  expiresAt: string | null;
+  receivedAt: string;
+  createdAt: string;
+  product?: Product;
+  currentStock?: number;
+  daysToExpiry?: number;
+}
+
+export interface LotMovement {
+  id: number;
+  lotId: number;
+  type: LotMovementType;
+  delta: number | null;
+  absoluteValue: number | null;
+  stockCountId: number | null;
+  notes: string | null;
+  performedById: number;
+  createdAt: string;
+}
+
+export interface StockCount {
+  id: number;
+  establishmentId: number;
+  countDate: string;
+  status: StockCountStatus;
+  closedAt: string | null;
+  performedById: number;
+  createdAt: string;
+}
+
+export interface CanastaCategory {
+  id: number;
+  name: string;
+  section: CanastaSection;
+  displayOrder: number;
+  isOptional: boolean;
+  notes: string | null;
+  products: Product[];
+}
+
+export interface Establishment {
+  id: number;
+  name: string;
+  comuna: string;
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  errors: Array<{ row: number; reason: string }>;
+}
+
+export interface ExpiringResponse {
+  lots: Lot[];
+  total: number;
+}

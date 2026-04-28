@@ -28,6 +28,21 @@ import { WoundNote } from './wound-notes/wound-note.entity';
 import { WoundNotesModule } from './wound-notes/wound-notes.module';
 import { ConsentSignature } from './consent/consent-signature.entity';
 import { ConsentModule } from './consent/consent.module';
+import { Establishment } from './establishments/establishment.entity';
+import { EstablishmentsModule } from './establishments/establishments.module';
+import { Product } from './inventory/products/product.entity';
+import { ProductCode } from './inventory/products/product-code.entity';
+import { ProductsModule } from './inventory/products/products.module';
+import { Lot } from './inventory/lots/lot.entity';
+import { LotMovement } from './inventory/movements/lot-movement.entity';
+import { StockCount } from './inventory/stock-counts/stock-count.entity';
+import { CanastaCategory } from './inventory/canasta/canasta-category.entity';
+import { CanastaCategoryProduct } from './inventory/canasta/canasta-category-product.entity';
+import { LotsModule } from './inventory/lots/lots.module';
+import { MovementsModule } from './inventory/movements/movements.module';
+import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
+import { CanastaModule } from './inventory/canasta/canasta.module';
+import { AuditExportModule } from './inventory/audit-export/audit-export.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -46,7 +61,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       extra: {
@@ -66,6 +81,13 @@ import { BootstrapService } from './bootstrap.service';
     WoundPhotosModule,
     WoundNotesModule,
     ConsentModule,
+    EstablishmentsModule,
+    ProductsModule,
+    LotsModule,
+    MovementsModule,
+    StockCountsModule,
+    CanastaModule,
+    AuditExportModule,
   ],
   controllers: [HealthController],
   providers: [
