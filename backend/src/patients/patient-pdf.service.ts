@@ -1,5 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type {
+  TCreatedPdf,
+  TDocumentDefinitions,
+  TFontDictionary,
+} from 'pdfmake/interfaces';
+
+interface PdfMakeServer {
+  setFonts(fonts: TFontDictionary): void;
+  setUrlAccessPolicy?(cb: (url: string) => boolean): void;
+  createPdf(docDef: TDocumentDefinitions): TCreatedPdf;
+}
+
+// pdfmake's CJS entry exports a class instance; @types declares only named
+// exports, which `import *` cannot bind to prototype methods correctly.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfmake = require('pdfmake') as PdfMakeServer;
 import { Repository } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
@@ -10,7 +26,7 @@ import {
   PatientStatusChangeType,
 } from './patient-status-change.entity';
 import {
-  renderFichaHtml,
+  buildFichaDocDef,
   FichaData,
   FichaCuracion,
   FichaCita,
@@ -32,6 +48,19 @@ const STATUS_CHANGE_LABELS: Record<PatientStatusChangeType, string> = {
   [PatientStatusChangeType.DISCHARGE]: 'Alta del programa de curaciones',
   [PatientStatusChangeType.READMISSION]: 'Reingreso al programa',
 };
+
+const FONTS: TFontDictionary = {
+  Helvetica: {
+    normal: 'Helvetica',
+    bold: 'Helvetica-Bold',
+    italics: 'Helvetica-Oblique',
+    bolditalics: 'Helvetica-BoldOblique',
+  },
+};
+
+pdfmake.setFonts(FONTS);
+// Block external URL fetches; templates only use built-in fonts and no images.
+pdfmake.setUrlAccessPolicy?.(() => false);
 
 const formatDateCL = (isoDate: string): string => {
   const d = new Date(isoDate + 'T00:00:00');
@@ -110,8 +139,7 @@ export class PatientPdfService {
       appointments,
       statusChanges,
     );
-    const html = renderFichaHtml(data);
-    return this.htmlToPdfBuffer(html);
+    return this.renderPdf(buildFichaDocDef(data));
   }
 
   private buildFichaData(
@@ -155,38 +183,7 @@ export class PatientPdfService {
     };
   }
 
-  private async htmlToPdfBuffer(html: string): Promise<Buffer> {
-    const browser = await this.launchBrowser();
-    try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      const pdf = await page.pdf({
-        format: 'Letter',
-        printBackground: true,
-        preferCSSPageSize: true,
-      });
-      return Buffer.from(pdf);
-    } finally {
-      await browser.close();
-    }
-  }
-
-  private async launchBrowser() {
-    const { default: puppeteer } = await import('puppeteer-core');
-    if (process.platform === 'linux') {
-      const { default: chromium } = await import('@sparticuz/chromium');
-      return puppeteer.launch({
-        args: chromium.args,
-        executablePath: await chromium.executablePath(),
-        headless: true,
-      });
-    }
-    return puppeteer.launch({
-      headless: true,
-      executablePath:
-        process.env.PUPPETEER_EXECUTABLE_PATH ??
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+  private renderPdf(docDef: TDocumentDefinitions): Promise<Buffer> {
+    return pdfmake.createPdf(docDef).getBuffer();
   }
 }
