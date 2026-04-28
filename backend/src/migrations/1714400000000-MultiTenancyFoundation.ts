@@ -125,6 +125,53 @@ export class MultiTenancyFoundation1714400000000 implements MigrationInterface {
       )
     `);
     await queryRunner.query(`CREATE INDEX "IDX_pwd_reset_user_used" ON "password_reset_tokens"("userId", "usedAt")`);
+
+    await queryRunner.query(`ALTER TABLE "establishments"           ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "patients"                 ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "patients"                 ADD COLUMN "rutHash" char(64)`);
+    await queryRunner.query(`ALTER TABLE "patient_status_changes"   ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "curaciones"               ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "curacion_edits"           ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "appointments"             ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "wound_photos"             ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "wound_notes"              ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "consent_signatures"       ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "products"                 ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "canasta_categories"       ADD COLUMN "organizationId" bigint`);
+    await queryRunner.query(`ALTER TABLE "monthly_cycles"           ADD COLUMN "organizationId" bigint`);
+
+    // Drop old appointment uniqueness; will re-add scoped after backfill
+    await queryRunner.query(`ALTER TABLE "appointments" DROP CONSTRAINT IF EXISTS "UQ_appointments_date_time"`);
+
+    // Drop old monthly_cycles uniqueness; will re-add scoped after backfill
+    await queryRunner.query(`ALTER TABLE "monthly_cycles" DROP CONSTRAINT IF EXISTS "UQ_monthly_cycles_year_month"`);
+
+    // AuditLog extensions
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "organizationId"  bigint`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "establishmentId" bigint`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "beforeJson"      jsonb`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "afterJson"       jsonb`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "userAgent"       text`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "requestId"       uuid`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "payloadHash"     char(64)`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "prevHash"        char(64)`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD COLUMN "chainHash"       char(64)`);
+
+    // User extensions
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN "email"             jsonb`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN "emailHash"         char(64)`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN "emailVerifiedAt"   timestamptz`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN "passwordChangedAt" timestamptz`);
+
+    // Patient sensitive columns: convert text -> jsonb (encryption pending; backfill script
+    // converts plaintext -> EncryptedField json). For now, copy-and-rename pattern.
+    await queryRunner.query(`ALTER TABLE "patients" ALTER COLUMN "rut" TYPE jsonb USING jsonb_build_object('plaintext', "rut"::text)`);
+    await queryRunner.query(`ALTER TABLE "patients" ALTER COLUMN "phone" TYPE jsonb USING (CASE WHEN "phone" IS NULL THEN NULL ELSE jsonb_build_object('plaintext', "phone"::text) END)`);
+    await queryRunner.query(`ALTER TABLE "patients" ALTER COLUMN "address" TYPE jsonb USING (CASE WHEN "address" IS NULL THEN NULL ELSE jsonb_build_object('plaintext', "address"::text) END)`);
+    await queryRunner.query(`ALTER TABLE "patients" DROP CONSTRAINT IF EXISTS "UQ_patients_rut"`);
+
+    await queryRunner.query(`ALTER TABLE "curaciones" ALTER COLUMN "observations" TYPE jsonb USING (CASE WHEN "observations" IS NULL THEN NULL ELSE jsonb_build_object('plaintext', "observations"::text) END)`);
+    await queryRunner.query(`ALTER TABLE "wound_notes" ALTER COLUMN "notes" TYPE jsonb USING (CASE WHEN "notes" IS NULL THEN NULL ELSE jsonb_build_object('plaintext', "notes"::text) END)`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
