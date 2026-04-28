@@ -5,9 +5,13 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Curacion } from '../curaciones/curacion.entity';
 import { User } from '../users/user.entity';
+import { Organization } from '../organizations/organization.entity';
+import type { EncryptedField } from '../kms/encrypted-column.transformer';
+import { encryptedColumnTransformer } from '../kms/encrypted-column.transformer';
 
 export enum WoundColor {
   RED = 'red',
@@ -32,9 +36,13 @@ export enum HealingStage {
 }
 
 @Entity('wound_notes')
+@Index('IDX_wound_note_org', ['organizationId'])
 export class WoundNote {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'bigint' })
+  organizationId: string;
 
   @Column()
   curacionId: number;
@@ -60,11 +68,19 @@ export class WoundNote {
   @Column({ type: 'varchar', nullable: true })
   healingStage: HealingStage | null;
 
-  @Column({ type: 'text', nullable: true })
-  notes: string | null;
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    transformer: encryptedColumnTransformer('WoundNote.notes'),
+  })
+  notes: EncryptedField | null;
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @ManyToOne(() => Curacion, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'curacionId' })
