@@ -8,10 +8,10 @@ describe('AppointmentsService', () => {
   let service: AppointmentsService;
   const mockRepo = {
     create: jest.fn((dto) => dto),
-    save: jest.fn((entity) => Promise.resolve({ id: 1, ...entity })),
-    findOne: jest.fn(() => Promise.resolve(null)),
-    find: jest.fn(() => Promise.resolve([])),
-    remove: jest.fn(() => Promise.resolve()),
+    save: jest.fn((entity: any) => Promise.resolve({ id: 1, ...entity })),
+    findOne: jest.fn(() => Promise.resolve(null)) as jest.Mock<Promise<any>>,
+    find: jest.fn(() => Promise.resolve([])) as jest.Mock<Promise<any[]>>,
+    remove: jest.fn(() => Promise.resolve()) as jest.Mock<Promise<void>>,
   };
 
   beforeEach(async () => {
