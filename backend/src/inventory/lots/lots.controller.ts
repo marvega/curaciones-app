@@ -36,6 +36,15 @@ export class LotsController {
     return this.lots.createReception(dto, req.user.id);
   }
 
+  @Post('lots/:id/adjustments')
+  adjust(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { delta: number; notes?: string },
+    @Req() req: any,
+  ) {
+    return this.lots.createAdjustment(id, dto, req.user.id);
+  }
+
   @Get('expiring')
   expiring(@Query('days') days?: string, @Query('establishmentId') establishmentId?: string) {
     return this.lots.getExpiring(
