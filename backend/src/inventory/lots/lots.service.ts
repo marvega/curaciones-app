@@ -114,6 +114,19 @@ export class LotsService {
     return out;
   }
 
+  async createAdjustment(lotId: number, dto: { delta: number; notes?: string }, performedById: number) {
+    await this.findById(lotId);
+    return this.movRepo.save(
+      this.movRepo.create({
+        lotId,
+        type: LotMovementType.ADJUSTMENT,
+        delta: dto.delta,
+        notes: dto.notes ?? null,
+        performedById,
+      }),
+    );
+  }
+
   async getStockSnapshot(establishmentId: number | undefined, atDate?: Date): Promise<Array<{ lotId: number; productId: number; stock: number }>> {
     const where: any = {};
     if (establishmentId) where.establishmentId = establishmentId;
