@@ -88,10 +88,9 @@ export class CanastaImportService {
       const colA = String(row[0] ?? '').trim();
       if (!colA) continue;
 
-      // Skip column-header rows (cols B/C/D contain literal Si/Sí/No/Observaciones)
-      if (isColumnHeaderRow(row)) continue;
-
-      // Section detection
+      // Section detection FIRST — section divider rows like "Ayudas Técnicas..." carry
+      // Si/No/Observaciones column headers in adjacent cells, so they would otherwise
+      // be skipped by isColumnHeaderRow before the section is set.
       if (SECTION_HEADER_AYUDAS.test(colA)) {
         currentSection = CanastaSection.AYUDAS_TECNICAS;
         continue;
@@ -100,6 +99,10 @@ export class CanastaImportService {
         currentSection = CanastaSection.INSUMOS;
         continue;
       }
+
+      // Skip pure column-header rows (cols B/C/D contain literal Si/Sí/No/Observaciones).
+      // Runs after section detection so we don't drop section dividers.
+      if (isColumnHeaderRow(row)) continue;
 
       // Skip header-like rows that look like ANEXO titles or column headers
       if (/anexo|categoría|item|cantidad|s[ií]\b/i.test(colA) && colA.length < 50 && !/^[A-Za-zÁÉÍÓÚÑáéíóúñ]+\s+(de|para|con)/i.test(colA)) {

@@ -50,7 +50,17 @@ function buildFixtureBuffer(): Buffer {
     ['Suero fisiológico', null, null, 'Suero fisiológico 0.9%.', null, null],
     ['Guantes de procedimiento', null, null, 'Guantes nitrilo o látex.', null, null],
     ['Mascarilla quirúrgica (opcional)', null, null, 'Mascarilla desechable.', null, null],
-    ['ANEXO 6. AYUDAS TÉCNICAS PARA CURACIÓN AVANZADA', null, null, null, null, null],
+    // Section divider: real CURACIONES.xlsx carries Si/No/Observaciones headers in
+    // adjacent cells alongside the section title. The parser must detect the section
+    // BEFORE the column-header skip kicks in.
+    [
+      'Ayudas Técnicas garantizadas para apoyo en CAPD, según decreto GES 2022-2025',
+      'Si ',
+      'No',
+      'Observaciones ',
+      null,
+      null,
+    ],
     ['Cojín antiescaras', null, null, 'Cojín de aire o viscoelástico.', null, null],
     ['Colchón antiescaras', null, null, 'Colchón de aire alternante.', null, null],
     ['Silla de ruedas', null, null, 'Silla estándar.', null, null],
