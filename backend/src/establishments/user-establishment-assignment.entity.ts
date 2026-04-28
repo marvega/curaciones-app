@@ -1,7 +1,6 @@
 import {
   Entity,
   PrimaryColumn,
-  Column,
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -14,8 +13,8 @@ export class UserEstablishmentAssignment {
   @PrimaryColumn({ type: 'int' })
   userId: number;
 
-  @PrimaryColumn({ type: 'bigint' })
-  establishmentId: string;
+  @PrimaryColumn({ type: 'int' })
+  establishmentId: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

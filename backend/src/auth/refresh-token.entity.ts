@@ -1,9 +1,4 @@
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryColumn, Column, Index } from 'typeorm';
 
 @Entity('refresh_tokens')
 @Index('IDX_refresh_user_revoked', ['userId', 'revokedAt'])

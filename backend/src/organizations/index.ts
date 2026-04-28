@@ -1,4 +1,8 @@
-export { Organization, OrganizationStatus, OrganizationTier } from './organization.entity';
+export {
+  Organization,
+  OrganizationStatus,
+  OrganizationTier,
+} from './organization.entity';
 export {
   OrganizationMembership,
   OrgRole,
