@@ -38,6 +38,7 @@ import { LotMovement } from './inventory/movements/lot-movement.entity';
 import { StockCount } from './inventory/stock-counts/stock-count.entity';
 import { LotsModule } from './inventory/lots/lots.module';
 import { MovementsModule } from './inventory/movements/movements.module';
+import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -80,6 +81,7 @@ import { BootstrapService } from './bootstrap.service';
     ProductsModule,
     LotsModule,
     MovementsModule,
+    StockCountsModule,
   ],
   controllers: [HealthController],
   providers: [
