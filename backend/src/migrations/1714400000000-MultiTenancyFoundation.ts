@@ -234,6 +234,51 @@ export class MultiTenancyFoundation1714400000000 implements MigrationInterface {
 
     // ---- Drop old role column on users ----
     await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "role"`);
+
+    // ---- SET NOT NULL on organizationId ----
+    const tablesNotNull = [
+      'establishments', 'patients', 'patient_status_changes', 'curaciones',
+      'curacion_edits', 'appointments', 'wound_photos', 'wound_notes',
+      'consent_signatures', 'products', 'canasta_categories', 'monthly_cycles',
+    ];
+    for (const t of tablesNotNull) {
+      await queryRunner.query(`ALTER TABLE "${t}" ALTER COLUMN "organizationId" SET NOT NULL`);
+    }
+
+    // ---- Add FKs to organizations ----
+    for (const t of tablesNotNull) {
+      await queryRunner.query(`
+        ALTER TABLE "${t}"
+        ADD CONSTRAINT "FK_${t}_org"
+        FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
+      `);
+    }
+
+    // ---- Indexes ----
+    await queryRunner.query(`CREATE INDEX "IDX_establishment_org"  ON "establishments"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_patient_org"        ON "patients"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_patient_org_status" ON "patients"("organizationId", "status")`);
+    await queryRunner.query(`CREATE INDEX "IDX_patient_rut_hash"   ON "patients"("rutHash")`);
+    await queryRunner.query(`CREATE INDEX "IDX_psc_org"            ON "patient_status_changes"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_curacion_org"       ON "curaciones"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_curacion_org_date"  ON "curaciones"("organizationId", "date")`);
+    await queryRunner.query(`CREATE INDEX "IDX_curacion_edit_org"  ON "curacion_edits"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_appointment_org"    ON "appointments"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_appointment_org_date" ON "appointments"("organizationId", "date")`);
+    await queryRunner.query(`CREATE INDEX "IDX_wound_photo_org"    ON "wound_photos"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_wound_note_org"     ON "wound_notes"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_consent_org"        ON "consent_signatures"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_product_org"        ON "products"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_canasta_category_org" ON "canasta_categories"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_monthly_cycle_org"  ON "monthly_cycles"("organizationId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_audit_org_id"       ON "audit_logs"("organizationId", "id")`);
+    await queryRunner.query(`CREATE INDEX "IDX_audit_entity"       ON "audit_logs"("entity", "entityId")`);
+    await queryRunner.query(`CREATE UNIQUE INDEX "UQ_users_email_hash" ON "users"("emailHash")`);
+    await queryRunner.query(`CREATE INDEX "IDX_users_email_hash"   ON "users"("emailHash")`);
+
+    // ---- Re-add scoped uniqueness ----
+    await queryRunner.query(`ALTER TABLE "appointments" ADD CONSTRAINT "UQ_appointments_org_date_time" UNIQUE ("organizationId", "date", "time")`);
+    await queryRunner.query(`ALTER TABLE "monthly_cycles" ADD CONSTRAINT "UQ_monthly_cycles_org_year_month" UNIQUE ("organizationId", "year", "month")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
