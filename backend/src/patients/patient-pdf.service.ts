@@ -92,38 +92,46 @@ export class PatientPdfService {
 
       // Curaciones
       doc
-        .fontSize(14)
+        .fillColor(COLORS.primary)
         .font('Helvetica-Bold')
-        .text(`Curaciones (${curaciones.length})`);
+        .fontSize(12)
+        .text(`CURACIONES (${curaciones.length})`, PAGE.margin, doc.y);
       doc.moveDown(0.3);
+
       if (curaciones.length === 0) {
         doc
+          .fillColor(COLORS.textMuted)
+          .font('Helvetica-Oblique')
           .fontSize(10)
-          .font('Helvetica')
-          .text('Sin curaciones registradas.');
+          .text('Sin curaciones registradas.', PAGE.margin, doc.y, {
+            width: PAGE.contentWidth,
+            align: 'center',
+          });
+        doc.fillColor(COLORS.textDark);
+        doc.moveDown(1);
       } else {
         const typeLabels: Record<string, string> = {
           avanzada: 'Avanzada',
           pie_diabetico: 'Pie Diabético',
           ulcera_venosa: 'Úlcera Venosa',
         };
-        for (const c of curaciones) {
-          doc
-            .fontSize(10)
-            .font('Helvetica-Bold')
-            .text(
-              `${new Date(c.date + 'T00:00:00').toLocaleDateString('es-CL')} — ${typeLabels[c.type] || c.type}`,
-            );
-          if (c.observations) {
-            doc
-              .font('Helvetica')
-              .text(`  Observaciones: ${c.observations}`);
-          }
-          doc.font('Helvetica').text(`  Cantidad: ${c.quantity || 1}`);
-          doc.moveDown(0.2);
-        }
+        const rows = curaciones.map((c) => [
+          new Date(c.date + 'T00:00:00').toLocaleDateString('es-CL'),
+          typeLabels[c.type] || c.type,
+          String(c.quantity || 1),
+          c.observations || '',
+        ]);
+        this.drawTable(
+          doc,
+          [
+            { header: 'FECHA', width: 70 },
+            { header: 'TIPO', width: 130 },
+            { header: 'CANT.', width: 50, align: 'center' },
+            { header: 'OBSERVACIONES', width: 262 },
+          ],
+          rows,
+        );
       }
-      doc.moveDown(0.5);
 
       // Appointments
       doc
