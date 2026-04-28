@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable, Index } from 'typeorm';
 import { Product } from '../products/product.entity';
 
 export enum CanastaSection {
@@ -11,9 +11,13 @@ export class CanastaCategory {
   @PrimaryGeneratedColumn() id: number;
   @Column() name: string;
   @Column({ type: 'varchar' }) section: CanastaSection;
-  @Column() displayOrder: number;
+  @Column({ name: 'displayOrder' }) displayOrder: number;
   @Column({ type: 'boolean', default: false }) isOptional: boolean;
   @Column({ type: 'text', nullable: true }) notes: string | null;
+  @Column({ type: 'boolean', default: false }) archived: boolean;
+  @Index()
+  @Column({ name: 'source_key', type: 'varchar', length: 120, nullable: true })
+  sourceKey: string | null;
 
   @ManyToMany(() => Product)
   @JoinTable({
