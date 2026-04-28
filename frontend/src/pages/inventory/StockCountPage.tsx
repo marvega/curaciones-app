@@ -7,6 +7,7 @@ import {
   Card,
   CodePill,
   DataTable,
+  Input,
   PageHeader,
   Tag,
 } from '../../components/ui';
@@ -27,18 +28,20 @@ interface ObservedInputProps {
 
 function ObservedInput({ value, saving, disabled, onChange }: ObservedInputProps) {
   return (
-    <span className="inline-flex items-center gap-2 justify-end">
-      <input
-        type="number"
-        min={0}
-        disabled={disabled}
-        value={value}
-        onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
-        aria-label="Cantidad observada"
-        className="w-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:opacity-50"
-      />
+    <div className="inline-flex items-center gap-2 justify-end">
+      <div className="w-24">
+        <Input
+          type="number"
+          min={0}
+          disabled={disabled}
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+          aria-label="Cantidad observada"
+          className="text-right py-1.5 px-2"
+        />
+      </div>
       {saving && <span className="text-xs text-slate-500">guardando…</span>}
-    </span>
+    </div>
   );
 }
 
