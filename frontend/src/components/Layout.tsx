@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   Moon,
   Sun,
+  Package,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +25,10 @@ const navItems = [
   { to: '/agenda', label: 'Agenda', icon: Calendar },
   { to: '/reportes/mensual', label: 'Reporte Mensual', icon: FileBarChart },
   { to: '/reportes/detallado', label: 'Reporte Pie Diabético', icon: PieChart },
+  { to: '/inventory', label: 'Inventario', icon: Package },
+  { to: '/inventory/reception', label: 'Recepción', icon: Package },
+  { to: '/inventory/count', label: 'Conteo', icon: Package },
+  { to: '/inventory/audit-export', label: 'Auditoría Canasta', icon: Package },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -35,6 +40,12 @@ const PAGE_TITLES: Record<string, string> = {
   '/reportes/detallado': 'Reporte Pie Diabético',
   '/usuarios': 'Usuarios',
   '/audit-log': 'Auditoría',
+  '/inventory': 'Inventario',
+  '/inventory/reception': 'Recepción de Insumos',
+  '/inventory/count': 'Conteo Semanal',
+  '/inventory/audit-export': 'Exportar Auditoría Canasta',
+  '/inventory/admin/catalog': 'Catálogo de Productos',
+  '/inventory/admin/canasta': 'Canasta CAPD',
 };
 
 export default function Layout() {
@@ -131,6 +142,38 @@ export default function Layout() {
             >
               <ClipboardList className="w-5 h-5 shrink-0" />
               {(!collapsed || mobile) && 'Auditoría'}
+            </NavLink>
+            <NavLink
+              to="/inventory/admin/catalog"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Catálogo Admin' : undefined}
+            >
+              <Package className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Catálogo Admin'}
+            </NavLink>
+            <NavLink
+              to="/inventory/admin/canasta"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Canasta Admin' : undefined}
+            >
+              <Package className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Canasta Admin'}
             </NavLink>
           </>
         )}
