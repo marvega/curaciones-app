@@ -13,6 +13,7 @@ const SKIP_PATHS = [
   '/api/health',
   '/api/users/seed',
   '/api/patients/seed',
+  '/api/inventory/products/import',
 ];
 
 // Paths with their own audit trail: [pattern, method]
