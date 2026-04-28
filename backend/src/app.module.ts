@@ -35,6 +35,8 @@ import { ProductCode } from './inventory/products/product-code.entity';
 import { ProductsModule } from './inventory/products/products.module';
 import { Lot } from './inventory/lots/lot.entity';
 import { LotMovement } from './inventory/movements/lot-movement.entity';
+import { LotsModule } from './inventory/lots/lots.module';
+import { MovementsModule } from './inventory/movements/movements.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -75,6 +77,8 @@ import { BootstrapService } from './bootstrap.service';
     ConsentModule,
     EstablishmentsModule,
     ProductsModule,
+    LotsModule,
+    MovementsModule,
   ],
   controllers: [HealthController],
   providers: [
