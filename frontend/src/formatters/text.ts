@@ -18,72 +18,79 @@ const ACCENT_RECOVERY = new Map<string, string>([
   ['topico', 'tópico'],
   ['solucion', 'solución'],
   ['inyeccion', 'inyección'],
-  ['inyectable', 'inyectable'],
   ['acetilsalicilico', 'acetilsalicílico'],
   ['folico', 'fólico'],
   ['folica', 'fólica'],
   ['lamina', 'lámina'],
   ['laminas', 'láminas'],
-  ['polietilenglicol', 'polietilenglicol'],
-  ['polihexanida', 'polihexanida'],
   ['hidrofila', 'hidrófila'],
-  ['hidrogel', 'hidrogel'],
-  ['carboximetilcelulosa', 'carboximetilcelulosa'],
-  ['proteasa', 'proteasa'],
-  ['metaloproteasa', 'metaloproteasa'],
-  ['nylon', 'nylon'],
 ]);
 
-const TOKEN_RE = /([0-9]+(?:[.,][0-9]+)?|[a-záéíóúñü]+|%|\/|×|x(?=\d)|[^\sa-z0-9])/giu;
+interface CaseState {
+  firstCapitalized: boolean;
+}
+
+function processToken(token: string, state: CaseState): string {
+  // Sub-split: tight digit+letters (e.g., '500MG' -> '500 MG')
+  const tightMatch = token.match(/^(\d+(?:[.,]\d+)?)([A-Za-z]+)$/);
+  if (tightMatch) {
+    const numPart = tightMatch[1];
+    const letterPart = processToken(tightMatch[2], state);
+    return `${numPart} ${letterPart}`;
+  }
+
+  // Sub-split: letter/letter via slash (e.g., 'MG/ML' -> 'mg/ml')
+  if (/^[A-Za-z]+(\/[A-Za-z]+)+$/.test(token)) {
+    return token.split('/').map((s) => processToken(s, state)).join('/');
+  }
+
+  const upper = token.toUpperCase();
+  const lower = token.toLowerCase();
+
+  if (PRESERVE_UPPER.has(upper)) {
+    state.firstCapitalized = true; // I-5: acronym counts as first capitalization
+    return upper;
+  }
+
+  if (PRESERVE_LOWER.has(lower)) {
+    return lower;
+  }
+
+  if (ACCENT_RECOVERY.has(lower)) {
+    const recovered = ACCENT_RECOVERY.get(lower)!;
+    if (!state.firstCapitalized) {
+      state.firstCapitalized = true;
+      return recovered.charAt(0).toUpperCase() + recovered.slice(1);
+    }
+    return recovered;
+  }
+
+  if (/^[0-9]/.test(token) || /^[%/×]/.test(token)) {
+    return token;
+  }
+
+  if (!state.firstCapitalized) {
+    state.firstCapitalized = true;
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }
+  return lower;
+}
 
 export function toSentenceCase(input: string): string {
   if (!input) return '';
   const trimmed = input.trim();
   if (!trimmed) return '';
 
-  const tokens: string[] = [];
-  let firstWordCapitalized = false;
+  // Pre-process whole input: collapse '\d X \d', '\dX\d', '\d  X  \d' into '\d×\d'
+  const xReplaced = trimmed.replace(/(\d)\s*[xX]\s*(\d)/g, '$1×$2');
 
-  // Split preserving whitespace as single spaces
-  const parts = trimmed.split(/(\s+)/);
+  const state: CaseState = { firstCapitalized: false };
+  const parts = xReplaced.split(/(\s+)/);
 
-  for (const part of parts) {
-    if (/^\s+$/.test(part)) {
-      tokens.push(' ');
-      continue;
-    }
-
-    // Replace digits×digits (case insensitive) — handle 10X10, 5x5
-    const xReplaced = part.replace(/(\d)[xX](\d)/g, '$1×$2');
-
-    // Sub-token logic for things like "5%" or "10×10"
-    const upper = xReplaced.toUpperCase();
-    const lower = xReplaced.toLowerCase();
-
-    if (PRESERVE_UPPER.has(upper)) {
-      tokens.push(upper);
-    } else if (PRESERVE_LOWER.has(lower)) {
-      tokens.push(lower);
-    } else if (ACCENT_RECOVERY.has(lower)) {
-      const recovered = ACCENT_RECOVERY.get(lower)!;
-      if (!firstWordCapitalized) {
-        tokens.push(recovered.charAt(0).toUpperCase() + recovered.slice(1));
-        firstWordCapitalized = true;
-      } else {
-        tokens.push(recovered);
-      }
-    } else if (/^[0-9]/.test(xReplaced) || /^[%\/×]/.test(xReplaced)) {
-      tokens.push(xReplaced);
-    } else {
-      const cased = !firstWordCapitalized
-        ? lower.charAt(0).toUpperCase() + lower.slice(1)
-        : lower;
-      if (/[a-záéíóúñü]/.test(cased)) firstWordCapitalized = true;
-      tokens.push(cased);
-    }
-  }
-
-  return tokens.join('').replace(/\s+/g, ' ');
+  return parts
+    .map((part) => (/^\s+$/.test(part) ? ' ' : processToken(part, state)))
+    .join('')
+    .replace(/\s+/g, ' ');
 }
 
 export function formatCode(code: string): string {
@@ -91,6 +98,3 @@ export function formatCode(code: string): string {
   const colonIdx = code.indexOf(':');
   return colonIdx >= 0 ? code.substring(colonIdx + 1) : code;
 }
-
-// Note: TOKEN_RE is reserved for future granular tokenization needs.
-void TOKEN_RE;
