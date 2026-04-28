@@ -51,6 +51,16 @@ export class PatientPdfService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
+      let pageNumber = 1;
+      this.drawFooter(doc, pageNumber);
+      doc.on('pageAdded', () => {
+        pageNumber += 1;
+        this.drawFooter(doc, pageNumber);
+        // Reset cursor para que el contenido empiece bajo los márgenes
+        doc.x = PAGE.margin;
+        doc.y = PAGE.margin;
+      });
+
       this.drawHeader(doc);
 
       // Título y folio
@@ -441,5 +451,36 @@ export class PatientPdfService {
     doc.fillColor(COLORS.textDark);
     doc.x = margin;
     doc.y = y + 10;
+  }
+
+  private drawFooter(doc: PDFKit.PDFDocument, pageNumber: number): void {
+    const margin = PAGE.margin;
+    const footerY = PAGE.height - margin + 6;
+
+    doc.save();
+    doc
+      .strokeColor(COLORS.border)
+      .lineWidth(0.5)
+      .moveTo(margin, footerY - 4)
+      .lineTo(margin + PAGE.contentWidth, footerY - 4)
+      .stroke();
+
+    doc
+      .fillColor(COLORS.textMuted)
+      .font('Helvetica')
+      .fontSize(8)
+      .text(
+        `${INSTITUTIONAL_INFO.name} · ${INSTITUTIONAL_INFO.address}`,
+        margin,
+        footerY,
+        { width: PAGE.contentWidth / 2, align: 'left', lineBreak: false },
+      );
+
+    doc.text(`Pág. ${pageNumber}`, margin + PAGE.contentWidth / 2, footerY, {
+      width: PAGE.contentWidth / 2,
+      align: 'right',
+      lineBreak: false,
+    });
+    doc.restore();
   }
 }
