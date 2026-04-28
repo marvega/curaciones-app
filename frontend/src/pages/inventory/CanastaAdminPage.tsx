@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { listCanasta, replaceCanastaProducts, seedCanastaDefaults, listProducts } from '../../services/api';
 import type { CanastaCategory, Product } from '../../types';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 export default function CanastaAdminPage() {
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<CanastaCategory[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<number | null>(null);
@@ -27,7 +29,13 @@ export default function CanastaAdminPage() {
   }
 
   async function applyDefaults() {
-    if (!confirm('Aplicar mapeo sugerido a todas las categorías? Esto reemplazará asociaciones existentes.')) return;
+    const ok = await confirm({
+      title: 'Aplicar mapeo sugerido',
+      message: 'Esto reemplazará las asociaciones existentes en todas las categorías de la canasta.',
+      confirmText: 'Aplicar mapeo',
+      variant: 'warning',
+    });
+    if (!ok) return;
     await seedCanastaDefaults();
     const refreshed = await listCanasta();
     setCategories(refreshed);

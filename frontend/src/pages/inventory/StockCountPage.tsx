@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { listLots, openStockCount, patchStockCountEntry, closeStockCount } from '../../services/api';
 import type { Lot, StockCount } from '../../types';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 export default function StockCountPage() {
+  const confirm = useConfirm();
   const [count, setCount] = useState<StockCount | null>(null);
   const [lots, setLots] = useState<Lot[]>([]);
   const [values, setValues] = useState<Record<number, number>>({});
@@ -41,7 +43,13 @@ export default function StockCountPage() {
 
   async function onClose() {
     if (!count) return;
-    if (!confirm(`Cerrar conteo del ${count.countDate}? No podrás editar después.`)) return;
+    const ok = await confirm({
+      title: 'Cerrar conteo',
+      message: `Vas a cerrar el conteo del ${count.countDate}. Después no podrás editar las cantidades.`,
+      confirmText: 'Cerrar conteo',
+      variant: 'warning',
+    });
+    if (!ok) return;
     const updated = await closeStockCount(count.id);
     setCount(updated);
   }
