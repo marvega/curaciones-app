@@ -331,4 +331,90 @@ export class PatientPdfService {
     doc.x = margin;
     doc.y = cardTopY + cardHeight + 16;
   }
+
+  private drawTable(
+    doc: PDFKit.PDFDocument,
+    columns: { header: string; width: number; align?: 'left' | 'center' | 'right' }[],
+    rows: string[][],
+  ): void {
+    const margin = PAGE.margin;
+    const cellPadX = 6;
+    const cellPadY = 5;
+    const headerHeight = 22;
+    const minRowHeight = 20;
+
+    const drawHeaderRow = (yPos: number) => {
+      // Fondo teal del header
+      doc
+        .rect(margin, yPos, PAGE.contentWidth, headerHeight)
+        .fill(COLORS.primary);
+      let x = margin;
+      doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
+      for (const col of columns) {
+        doc.text(col.header, x + cellPadX, yPos + cellPadY, {
+          width: col.width - cellPadX * 2,
+          align: col.align ?? 'left',
+        });
+        x += col.width;
+      }
+    };
+
+    let y = doc.y;
+    drawHeaderRow(y);
+    y += headerHeight;
+
+    rows.forEach((row, idx) => {
+      // Calcular altura de la fila según el contenido más largo
+      doc.font('Helvetica').fontSize(9);
+      let rowHeight = minRowHeight;
+      row.forEach((cell, i) => {
+        const colWidth = columns[i].width - cellPadX * 2;
+        const h = doc.heightOfString(cell || '—', { width: colWidth });
+        if (h + cellPadY * 2 > rowHeight) {
+          rowHeight = h + cellPadY * 2;
+        }
+      });
+
+      // Saltar de página si no entra
+      if (y + rowHeight > PAGE.height - PAGE.margin - 30) {
+        doc.addPage();
+        y = doc.y;
+        drawHeaderRow(y);
+        y += headerHeight;
+      }
+
+      // Fondo alternado
+      if (idx % 2 === 1) {
+        doc
+          .rect(margin, y, PAGE.contentWidth, rowHeight)
+          .fill(COLORS.rowAlt);
+      }
+
+      // Texto de la fila
+      let x = margin;
+      doc.fillColor(COLORS.textDark).font('Helvetica').fontSize(9);
+      for (let i = 0; i < row.length; i++) {
+        const col = columns[i];
+        doc.text(row[i] || '—', x + cellPadX, y + cellPadY, {
+          width: col.width - cellPadX * 2,
+          align: col.align ?? 'left',
+        });
+        x += col.width;
+      }
+
+      // Línea inferior fina
+      doc
+        .strokeColor(COLORS.border)
+        .lineWidth(0.5)
+        .moveTo(margin, y + rowHeight)
+        .lineTo(margin + PAGE.contentWidth, y + rowHeight)
+        .stroke();
+
+      y += rowHeight;
+    });
+
+    doc.fillColor(COLORS.textDark);
+    doc.x = margin;
+    doc.y = y + 10;
+  }
 }
