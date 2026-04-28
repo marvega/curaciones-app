@@ -41,6 +41,25 @@ describe('toSentenceCase', () => {
   it('handles already-cased input', () => {
     expect(toSentenceCase('Hello world')).toBe('Hello world');
   });
+
+  it('normalizes tight digit+unit tokens (no space between)', () => {
+    expect(toSentenceCase('PARACETAMOL 500MG COMPRIMIDO')).toBe('Paracetamol 500 mg comprimido');
+    expect(toSentenceCase('IBUPROFENO 200ML')).toBe('Ibuprofeno 200 ml');
+  });
+
+  it('normalizes digit×digit with surrounding whitespace', () => {
+    expect(toSentenceCase('GASA 2 X 4 CM')).toBe('Gasa 2×4 cm');
+    expect(toSentenceCase('GASA 5  X  5')).toBe('Gasa 5×5');
+  });
+
+  it('preserves units around slash separator', () => {
+    expect(toSentenceCase('JARABE 500 MG/ML')).toBe('Jarabe 500 mg/ml');
+  });
+
+  it('treats acronym as first capitalization (rest lowercase)', () => {
+    expect(toSentenceCase('AVIS APOSITO')).toBe('AVIS apósito');
+    expect(toSentenceCase('PHMB SOLUCION')).toBe('PHMB solución');
+  });
 });
 
 describe('formatCode', () => {
