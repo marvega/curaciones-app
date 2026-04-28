@@ -1,5 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToMany,
+  JoinTable,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Product } from '../products/product.entity';
+import { Organization } from '../../organizations/organization.entity';
 
 export enum CanastaSection {
   INSUMOS = 'INSUMOS',
@@ -7,8 +17,13 @@ export enum CanastaSection {
 }
 
 @Entity('canasta_categories')
+@Index('IDX_canasta_category_org', ['organizationId'])
 export class CanastaCategory {
   @PrimaryGeneratedColumn() id: number;
+
+  @Column({ type: 'bigint' })
+  organizationId: string;
+
   @Column() name: string;
   @Column({ type: 'varchar' }) section: CanastaSection;
   @Column({ name: 'displayOrder' }) displayOrder: number;
@@ -18,6 +33,10 @@ export class CanastaCategory {
   @Index()
   @Column({ name: 'source_key', type: 'varchar', length: 120, nullable: true })
   sourceKey: string | null;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @ManyToMany(() => Product)
   @JoinTable({
