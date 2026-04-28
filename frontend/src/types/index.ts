@@ -244,7 +244,18 @@ export interface CanastaCategory {
   displayOrder: number;
   isOptional: boolean;
   notes: string | null;
+  archived: boolean;
+  sourceKey: string | null;
   products: Product[];
+}
+
+export interface CanastaImportResult {
+  categoriesCreated: number;
+  categoriesUpdated: number;
+  categoriesArchived: number;
+  productsAutoMatched: number;
+  productsManualPreserved: number;
+  errors: { row: number; reason: string }[];
 }
 
 export interface Establishment {
