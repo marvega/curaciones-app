@@ -13,7 +13,9 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { Settings, Download, Check, Loader2, Info } from 'lucide-react';
+import { Settings, Download, Check, Info } from 'lucide-react';
+import { Button, Input, Select, Card, DataTable } from '../components/ui';
+import type { ColumnDef } from '../components/ui';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -26,6 +28,11 @@ function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-');
   return `${d}/${m}/${y}`;
+}
+
+interface CycleRow {
+  month: number;
+  monthName: string;
 }
 
 export default function MonthlyReportPage() {
@@ -246,24 +253,77 @@ export default function MonthlyReportPage() {
 
   const currentCycle = cycles.find((c) => c.month === month);
 
+  const cycleRows: CycleRow[] = MONTHS.map((monthName, i) => ({
+    month: i + 1,
+    monthName,
+  }));
+
+  const cycleColumns: ColumnDef<CycleRow>[] = [
+    {
+      key: 'monthName',
+      label: 'Mes',
+      width: 128,
+      render: (row) => <span className="font-medium text-slate-700">{row.monthName}</span>,
+    },
+    {
+      key: 'startDate',
+      label: 'Fecha Inicio',
+      render: (row) => (
+        <input
+          type="date"
+          value={cycleEdits[row.month]?.startDate || ''}
+          min={getMinStartDate(row.month)}
+          onChange={(e) => handleCycleChange(row.month, 'startDate', e.target.value)}
+          className="form-control text-sm w-full"
+        />
+      ),
+    },
+    {
+      key: 'endDate',
+      label: 'Fecha Fin',
+      render: (row) => (
+        <input
+          type="date"
+          value={cycleEdits[row.month]?.endDate || ''}
+          min={getMinEndDate(row.month)}
+          max={getMaxEndDate(row.month)}
+          onChange={(e) => handleCycleChange(row.month, 'endDate', e.target.value)}
+          className="form-control text-sm w-full"
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Estado',
+      width: 160,
+      render: (row) => {
+        const saved = cycles.find((c) => c.month === row.month);
+        return saved ? (
+          <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium">
+            <Check className="w-3.5 h-3.5" />
+            Configurado
+          </span>
+        ) : (
+          <span className="text-slate-400 text-xs">Mes calendario</span>
+        );
+      },
+    },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="card p-5 sm:p-6">
+      <Card padding="md" className="sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-slate-800">
             Reporte Mensual
           </h2>
-          <button
+          <Button
+            variant="secondary"
             onClick={() => setShowCycleConfig(!showCycleConfig)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-sm cursor-pointer ${
-              showCycleConfig
-                ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
+            leftIcon={<Settings className="w-4 h-4" />}
           >
-            <Settings className="w-4 h-4" />
             Configurar Ciclos
-          </button>
+          </Button>
         </div>
 
         {/* Cycle config panel */}
@@ -278,96 +338,40 @@ export default function MonthlyReportPage() {
                   Define las fechas de inicio y fin de cada ciclo. Si un mes no tiene ciclo configurado, se usará el mes calendario completo.
                 </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Año
-                </label>
-                <input
+              <div className="w-24">
+                <Input
+                  label="Año"
                   type="number"
                   value={year}
                   onChange={(e) => setYear(parseInt(e.target.value))}
                   min={2020}
                   max={2030}
-                  className="form-control w-24 text-sm"
+                  className="text-sm"
                 />
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-2 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider w-32">Mes</th>
-                    <th className="text-left py-2 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha Inicio</th>
-                    <th className="text-left py-2 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha Fin</th>
-                    <th className="text-left py-2 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider w-40">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MONTHS.map((monthName, i) => {
-                    const m = i + 1;
-                    const edit = cycleEdits[m];
-                    const saved = cycles.find((c) => c.month === m);
-                    return (
-                      <tr key={m} className="border-b border-slate-100 hover:bg-white transition-colors">
-                        <td className="py-2 px-3 font-medium text-slate-700">{monthName}</td>
-                        <td className="py-2 px-3">
-                          <input
-                            type="date"
-                            value={edit?.startDate || ''}
-                            min={getMinStartDate(m)}
-                            onChange={(e) => handleCycleChange(m, 'startDate', e.target.value)}
-                            className="form-control text-sm w-full"
-                          />
-                        </td>
-                        <td className="py-2 px-3">
-                          <input
-                            type="date"
-                            value={edit?.endDate || ''}
-                            min={getMinEndDate(m)}
-                            max={getMaxEndDate(m)}
-                            onChange={(e) => handleCycleChange(m, 'endDate', e.target.value)}
-                            className="form-control text-sm w-full"
-                          />
-                        </td>
-                        <td className="py-2 px-3">
-                          {saved ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium">
-                              <Check className="w-3.5 h-3.5" />
-                              Configurado
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Mes calendario</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={cycleColumns}
+              data={cycleRows}
+              keyExtractor={(row) => row.month}
+            />
 
             <div className="flex items-center gap-3 mt-4">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={handleAutoFillStartDates}
-                className="btn-secondary text-sm cursor-pointer"
               >
                 Auto-completar fechas de inicio
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
                 onClick={handleSaveCycles}
-                disabled={savingCycles}
-                className="btn-primary text-sm flex items-center gap-2"
+                loading={savingCycles}
               >
-                {savingCycles ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  'Guardar Ciclos'
-                )}
-              </button>
+                {savingCycles ? 'Guardando...' : 'Guardar Ciclos'}
+              </Button>
               {cycleMessage && (
                 <span className={`text-sm ${cycleMessage.includes('Error') ? 'text-rose-600' : 'text-emerald-600'}`}>
                   {cycleMessage}
@@ -385,57 +389,35 @@ export default function MonthlyReportPage() {
         )}
 
         <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end mb-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Año
-            </label>
-            <input
+          <div className="w-28">
+            <Input
+              label="Año"
               type="number"
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
               min={2020}
               max={2030}
-              className="form-control w-28"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Mes
-            </label>
-            <select
-              value={month}
-              onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="form-control w-28"
-            >
-              {MONTHS.map((m, i) => (
-                <option key={i} value={i + 1}>
-                  {m}
-                </option>
-              ))}
-            </select>
+          <div className="w-28">
+            <Select
+              label="Mes"
+              value={String(month)}
+              onChange={(v) => setMonth(parseInt(v))}
+              options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
+            />
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generando...
-              </>
-            ) : (
-              'Generar Reporte'
-            )}
-          </button>
+          <Button onClick={handleGenerate} loading={loading}>
+            {loading ? 'Generando...' : 'Generar Reporte'}
+          </Button>
           {report && (
-            <button
+            <Button
+              variant="success"
               onClick={handleDownloadExcel}
-              className="btn-success inline-flex items-center gap-2"
+              leftIcon={<Download className="w-4 h-4" />}
             >
-              <Download className="w-4 h-4" />
               Descargar Excel
-            </button>
+            </Button>
           )}
         </div>
 
@@ -517,7 +499,7 @@ export default function MonthlyReportPage() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
