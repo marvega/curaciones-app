@@ -43,6 +43,7 @@ import { MovementsModule } from './inventory/movements/movements.module';
 import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
 import { CanastaModule } from './inventory/canasta/canasta.module';
 import { AuditExportModule } from './inventory/audit-export/audit-export.module';
+import { KmsModule } from './kms/kms.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -58,6 +59,7 @@ import { BootstrapService } from './bootstrap.service';
         };
       },
     }),
+    KmsModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
