@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAuditLogs } from '../services/api';
 import { Navigate } from 'react-router-dom';
-import { Loader2, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
+import { Button, Select, Card, Tag, DataTable, Modal } from '../components/ui';
+import type { ColumnDef } from '../components/ui';
 
 interface AuditLogEntry {
   id: number;
@@ -29,10 +31,10 @@ const ACTION_LABELS: Record<string, string> = {
   DELETE: 'Eliminar',
 };
 
-const ACTION_COLORS: Record<string, string> = {
-  CREATE: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  UPDATE: 'bg-blue-50 text-blue-700 border border-blue-200',
-  DELETE: 'bg-rose-50 text-rose-700 border border-rose-200',
+const ACTION_VARIANTS: Record<string, 'green' | 'blue' | 'red'> = {
+  CREATE: 'green',
+  UPDATE: 'blue',
+  DELETE: 'red',
 };
 
 const ENTITY_OPTIONS = [
@@ -51,7 +53,7 @@ export default function AuditLogPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
 
   // Filter state
   const [entity, setEntity] = useState('');
@@ -85,41 +87,95 @@ export default function AuditLogPage() {
   }, [isAdmin, fetchLogs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFilter = () => {
-    setExpandedId(null);
+    setSelectedLog(null);
     fetchLogs(1, { entity, from, to });
   };
 
   const handlePageChange = (newPage: number) => {
-    setExpandedId(null);
+    setSelectedLog(null);
     fetchLogs(newPage, { entity, from, to });
   };
 
   if (!user) return null;
   if (!isAdmin) return <Navigate to="/" replace />;
 
+  const columns: ColumnDef<AuditLogEntry>[] = [
+    {
+      key: 'createdAt',
+      label: 'Fecha',
+      render: (log) => (
+        <span className="text-slate-600 whitespace-nowrap">
+          {new Date(log.createdAt).toLocaleString('es-CL')}
+        </span>
+      ),
+    },
+    {
+      key: 'username',
+      label: 'Usuario',
+      render: (log) => <span className="font-medium text-slate-800">{log.username}</span>,
+    },
+    {
+      key: 'action',
+      label: 'Acción',
+      render: (log) => (
+        <Tag variant={ACTION_VARIANTS[log.action] || 'gray'}>
+          {ACTION_LABELS[log.action] || log.action}
+        </Tag>
+      ),
+    },
+    {
+      key: 'entity',
+      label: 'Entidad',
+      render: (log) => <span className="text-slate-600">{log.entity}</span>,
+    },
+    {
+      key: 'entityId',
+      label: 'ID Entidad',
+      render: (log) => <span className="text-slate-600">{log.entityId}</span>,
+    },
+    {
+      key: 'ipAddress',
+      label: 'IP',
+      render: (log) => <span className="text-slate-500 text-xs">{log.ipAddress || '-'}</span>,
+    },
+    {
+      key: 'actions',
+      label: '',
+      render: (log) =>
+        log.payload ? (
+          <Button
+            variant="link"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedLog(log);
+            }}
+          >
+            Ver detalle
+          </Button>
+        ) : null,
+    },
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="card p-5 sm:p-6">
+      <Card padding="md" className="sm:p-6">
         <h2 className="text-2xl font-bold text-slate-800 mb-6">
           Registro de Auditoría
         </h2>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Entidad</label>
-            <select
+          <div className="sm:w-40">
+            <Select
+              label="Entidad"
               value={entity}
-              onChange={(e) => setEntity(e.target.value)}
-              className="form-control w-full sm:w-40"
-            >
-              {ENTITY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              onChange={setEntity}
+              options={ENTITY_OPTIONS}
+            />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Desde</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Desde</label>
             <input
               type="date"
               value={from}
@@ -128,7 +184,7 @@ export default function AuditLogPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Hasta</label>
             <input
               type="date"
               value={to}
@@ -137,13 +193,9 @@ export default function AuditLogPage() {
             />
           </div>
           <div className="flex items-end">
-            <button
-              onClick={handleFilter}
-              className="btn-primary inline-flex items-center gap-2"
-            >
-              <Search className="w-4 h-4" />
+            <Button onClick={handleFilter} leftIcon={<Search className="w-4 h-4" />}>
               Filtrar
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -158,60 +210,11 @@ export default function AuditLogPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="w-8"></th>
-                    <th className="text-left py-3 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
-                    <th className="text-left py-3 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">Usuario</th>
-                    <th className="text-left py-3 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">Acción</th>
-                    <th className="text-left py-3 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">Entidad</th>
-                    <th className="text-left py-3 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">ID Entidad</th>
-                    <th className="text-left py-3 px-3 font-medium text-slate-500 text-xs uppercase tracking-wider">IP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log) => (
-                    <Fragment key={log.id}>
-                      <tr
-                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
-                        onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                      >
-                        <td className="py-3 px-2 text-slate-400">
-                          {log.payload ? (
-                            expandedId === log.id
-                              ? <ChevronDown className="w-4 h-4" />
-                              : <ChevronRight className="w-4 h-4" />
-                          ) : null}
-                        </td>
-                        <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
-                          {new Date(log.createdAt).toLocaleString('es-CL')}
-                        </td>
-                        <td className="py-3 px-3 font-medium text-slate-800">{log.username}</td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${ACTION_COLORS[log.action] || ''}`}>
-                            {ACTION_LABELS[log.action] || log.action}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-600">{log.entity}</td>
-                        <td className="py-3 px-3 text-slate-600">{log.entityId}</td>
-                        <td className="py-3 px-3 text-slate-500 text-xs">{log.ipAddress || '-'}</td>
-                      </tr>
-                      {expandedId === log.id && log.payload && (
-                        <tr className="border-b border-slate-100">
-                          <td colSpan={7} className="px-6 py-4 bg-slate-50">
-                            <pre className="text-xs text-slate-700 overflow-x-auto whitespace-pre-wrap max-h-64 overflow-y-auto">
-                              {JSON.stringify(log.payload, null, 2)}
-                            </pre>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={columns}
+              data={logs}
+              keyExtractor={(log) => log.id}
+            />
 
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-200">
@@ -219,25 +222,45 @@ export default function AuditLogPage() {
                 Mostrando página {page} de {totalPages} ({total} registros)
               </p>
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page <= 1}
-                  className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   Anterior
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= totalPages}
-                  className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   Siguiente
-                </button>
+                </Button>
               </div>
             </div>
           </>
         )}
-      </div>
+      </Card>
+
+      <Modal
+        open={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        title="Detalle del registro"
+        subtitle={
+          selectedLog
+            ? `${ACTION_LABELS[selectedLog.action] || selectedLog.action} - ${selectedLog.entity} #${selectedLog.entityId}`
+            : undefined
+        }
+        size="xl"
+      >
+        {selectedLog?.payload && (
+          <pre className="text-xs text-slate-700 dark:text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+            {JSON.stringify(selectedLog.payload, null, 2)}
+          </pre>
+        )}
+      </Modal>
     </div>
   );
 }
