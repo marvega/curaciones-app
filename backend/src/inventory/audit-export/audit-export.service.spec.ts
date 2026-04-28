@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import * as XLSX from 'xlsx';
 import { AuditExportService } from './audit-export.service';
 import { CanastaService } from '../canasta/canasta.service';
 import { LotsService } from '../lots/lots.service';
@@ -83,5 +84,39 @@ describe('AuditExportService', () => {
     const report = await service.computeReport(1, new Date('2026-04-27'));
     expect(report.rows[0].available).toBeNull();
     expect(report.rows[0].notes).toContain('kinesiología');
+  });
+});
+
+describe('generateExcel', () => {
+  // Reuse the same module setup if possible. Re-declare a service instance:
+  let service: AuditExportService;
+  beforeEach(async () => {
+    const m = await Test.createTestingModule({
+      providers: [
+        AuditExportService,
+        { provide: CanastaService, useValue: { list: jest.fn() } },
+        { provide: LotsService, useValue: { getCurrentStock: jest.fn() } },
+        { provide: getRepositoryToken(Lot), useValue: { find: jest.fn() } },
+      ],
+    }).compile();
+    service = m.get(AuditExportService);
+  });
+
+  it('produces a parseable .xlsx with INSUMOS and AYUDAS_TECNICAS sections', async () => {
+    const report = {
+      snapshotDate: '2026-04-27',
+      establishmentId: 1,
+      rows: [
+        { displayOrder: 1, name: 'Bacteriostáticos', section: CanastaSection.INSUMOS, isOptional: false, notes: 'x', available: true },
+        { displayOrder: 12, name: 'Botín antepié', section: CanastaSection.AYUDAS_TECNICAS, isOptional: false, notes: 'Gestión externa', available: null },
+      ],
+    };
+    const buf = await service.generateExcel(report);
+    const wb = XLSX.read(buf, { type: 'buffer' });
+    expect(wb.SheetNames.length).toBeGreaterThan(0);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: null });
+    expect(rows.find((r) => r[0] === 'Bacteriostáticos')).toBeTruthy();
+    expect(rows.find((r) => r[0] === 'Botín antepié')).toBeTruthy();
   });
 });
