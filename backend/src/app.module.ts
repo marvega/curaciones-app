@@ -42,6 +42,7 @@ import { LotsModule } from './inventory/lots/lots.module';
 import { MovementsModule } from './inventory/movements/movements.module';
 import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
 import { CanastaModule } from './inventory/canasta/canasta.module';
+import { AuditExportModule } from './inventory/audit-export/audit-export.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -86,6 +87,7 @@ import { BootstrapService } from './bootstrap.service';
     MovementsModule,
     StockCountsModule,
     CanastaModule,
+    AuditExportModule,
   ],
   controllers: [HealthController],
   providers: [
