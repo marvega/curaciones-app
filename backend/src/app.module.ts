@@ -41,6 +41,7 @@ import { CanastaCategoryProduct } from './inventory/canasta/canasta-category-pro
 import { LotsModule } from './inventory/lots/lots.module';
 import { MovementsModule } from './inventory/movements/movements.module';
 import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
+import { CanastaModule } from './inventory/canasta/canasta.module';
 import { BootstrapService } from './bootstrap.service';
 
 @Module({
@@ -84,6 +85,7 @@ import { BootstrapService } from './bootstrap.service';
     LotsModule,
     MovementsModule,
     StockCountsModule,
+    CanastaModule,
   ],
   controllers: [HealthController],
   providers: [
