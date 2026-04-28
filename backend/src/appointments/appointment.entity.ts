@@ -7,15 +7,22 @@ import {
   OneToOne,
   JoinColumn,
   Unique,
+  Index,
 } from 'typeorm';
 import { Patient } from '../patients/patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
+import { Organization } from '../organizations/organization.entity';
 
 @Entity('appointments')
-@Unique(['date', 'time'])
+@Unique(['organizationId', 'date', 'time'])
+@Index('IDX_appointment_org', ['organizationId'])
+@Index('IDX_appointment_org_date', ['organizationId', 'date'])
 export class Appointment {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'bigint' })
+  organizationId: string;
 
   @Column()
   patientId: number;
@@ -32,16 +39,15 @@ export class Appointment {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => Patient, (patient) => patient.appointments, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
+
+  @ManyToOne(() => Patient, (patient) => patient.appointments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'patientId' })
   patient: Patient;
 
-  @OneToOne(() => Curacion, (curacion) => curacion.appointment, {
-    onDelete: 'CASCADE',
-    nullable: true,
-  })
+  @OneToOne(() => Curacion, (curacion) => curacion.appointment, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'curacionId' })
   curacion: Curacion;
 }
