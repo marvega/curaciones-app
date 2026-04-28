@@ -133,25 +133,39 @@ export class PatientPdfService {
         );
       }
 
-      // Appointments
+      // Citas
       doc
-        .fontSize(14)
+        .fillColor(COLORS.primary)
         .font('Helvetica-Bold')
-        .text(`Citas (${appointments.length})`);
+        .fontSize(12)
+        .text(`CITAS (${appointments.length})`, PAGE.margin, doc.y);
       doc.moveDown(0.3);
+
       if (appointments.length === 0) {
-        doc.fontSize(10).font('Helvetica').text('Sin citas registradas.');
+        doc
+          .fillColor(COLORS.textMuted)
+          .font('Helvetica-Oblique')
+          .fontSize(10)
+          .text('Sin citas registradas.', PAGE.margin, doc.y, {
+            width: PAGE.contentWidth,
+            align: 'center',
+          });
+        doc.fillColor(COLORS.textDark);
+        doc.moveDown(1);
       } else {
-        for (const a of appointments) {
-          doc
-            .fontSize(10)
-            .font('Helvetica')
-            .text(
-              `${new Date(a.date + 'T00:00:00').toLocaleDateString('es-CL')} a las ${a.time}`,
-            );
-        }
+        const rows = appointments.map((a) => [
+          new Date(a.date + 'T00:00:00').toLocaleDateString('es-CL'),
+          a.time,
+        ]);
+        this.drawTable(
+          doc,
+          [
+            { header: 'FECHA', width: 256 },
+            { header: 'HORA', width: 256, align: 'center' },
+          ],
+          rows,
+        );
       }
-      doc.moveDown(0.5);
 
       // Status changes
       if (statusChanges.length > 0) {
