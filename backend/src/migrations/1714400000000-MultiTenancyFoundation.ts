@@ -172,11 +172,78 @@ export class MultiTenancyFoundation1714400000000 implements MigrationInterface {
 
     await queryRunner.query(`ALTER TABLE "curaciones" ALTER COLUMN "observations" TYPE jsonb USING (CASE WHEN "observations" IS NULL THEN NULL ELSE jsonb_build_object('plaintext', "observations"::text) END)`);
     await queryRunner.query(`ALTER TABLE "wound_notes" ALTER COLUMN "notes" TYPE jsonb USING (CASE WHEN "notes" IS NULL THEN NULL ELSE jsonb_build_object('plaintext', "notes"::text) END)`);
+
+    // ---- Default org ----
+    const ownerEmail = process.env.OWNER_EMAIL || 'me@marcelovega.com';
+    const ownerEmailHash = await this.sha256Lower(ownerEmail);
+
+    await queryRunner.query(`
+      INSERT INTO "organizations"("id", "name", "tier", "status")
+      VALUES (1, 'Curaciones Demo', 'pilot', 'active')
+      ON CONFLICT DO NOTHING
+    `);
+    await queryRunner.query(`SELECT setval(pg_get_serial_sequence('organizations','id'), GREATEST(1, (SELECT MAX(id) FROM organizations)))`);
+
+    // ---- Establishment backfill ----
+    const existing = await queryRunner.query(`SELECT COUNT(*)::int AS c FROM "establishments"`);
+    if (existing[0].c === 0) {
+      await queryRunner.query(`
+        INSERT INTO "establishments"("name", "comuna", "organizationId")
+        VALUES ('Sede principal', 'Quilpué', 1)
+      `);
+    } else {
+      await queryRunner.query(`UPDATE "establishments" SET "organizationId" = 1 WHERE "organizationId" IS NULL`);
+    }
+
+    // ---- Tenanted entities backfill ----
+    const tables = [
+      'patients', 'patient_status_changes', 'curaciones', 'curacion_edits',
+      'appointments', 'wound_photos', 'wound_notes', 'consent_signatures',
+      'products', 'canasta_categories', 'monthly_cycles',
+    ];
+    for (const t of tables) {
+      await queryRunner.query(`UPDATE "${t}" SET "organizationId" = 1 WHERE "organizationId" IS NULL`);
+    }
+
+    // ---- AuditLog backfill (organizationId only — chain rebuilt below) ----
+    await queryRunner.query(`UPDATE "audit_logs" SET "organizationId" = 1 WHERE "organizationId" IS NULL`);
+
+    // ---- Owner user backfill ----
+    await queryRunner.query(`
+      UPDATE "users"
+         SET "email" = jsonb_build_object('plaintext', $1::text),
+             "emailHash" = $2,
+             "emailVerifiedAt" = now(),
+             "passwordChangedAt" = now()
+       WHERE "id" = (SELECT MIN(id) FROM "users")
+    `, [ownerEmail, ownerEmailHash]);
+
+    // ---- OrganizationMembership for owner ----
+    await queryRunner.query(`
+      INSERT INTO "organization_memberships"("userId", "organizationId", "role", "status", "acceptedAt")
+      SELECT id, 1, 'owner', 'active', now() FROM "users"
+      ON CONFLICT ON CONSTRAINT "UQ_membership_user_org" DO NOTHING
+    `);
+
+    // ---- UserEstablishmentAssignment for owner (all establishments) ----
+    await queryRunner.query(`
+      INSERT INTO "user_establishment_assignments"("userId", "establishmentId")
+      SELECT u.id, e.id FROM "users" u, "establishments" e
+      ON CONFLICT DO NOTHING
+    `);
+
+    // ---- Drop old role column on users ----
+    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "role"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     throw new Error(
       'Reverting multi-tenancy migration is not supported. Restore from pg_dump backup.',
     );
+  }
+
+  private async sha256Lower(input: string): Promise<string> {
+    const { createHash } = await import('crypto');
+    return createHash('sha256').update(input.toLowerCase()).digest('hex');
   }
 }
