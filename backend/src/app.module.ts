@@ -36,6 +36,8 @@ import { ProductsModule } from './inventory/products/products.module';
 import { Lot } from './inventory/lots/lot.entity';
 import { LotMovement } from './inventory/movements/lot-movement.entity';
 import { StockCount } from './inventory/stock-counts/stock-count.entity';
+import { CanastaCategory } from './inventory/canasta/canasta-category.entity';
+import { CanastaCategoryProduct } from './inventory/canasta/canasta-category-product.entity';
 import { LotsModule } from './inventory/lots/lots.module';
 import { MovementsModule } from './inventory/movements/movements.module';
 import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
@@ -57,7 +59,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       extra: {
