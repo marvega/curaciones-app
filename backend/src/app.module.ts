@@ -36,11 +36,9 @@ import { BootstrapService } from './bootstrap.service';
       useFactory: () => {
         const isProd = process.env.NODE_ENV === 'production';
         const defaultLimit = parseInt(process.env.THROTTLE_DEFAULT_LIMIT ?? (isProd ? '200' : '10000'), 10);
-        const loginLimit = parseInt(process.env.THROTTLE_LOGIN_LIMIT ?? (isProd ? '5' : '10000'), 10);
         return {
           throttlers: [
             { name: 'default', ttl: 60000, limit: defaultLimit },
-            { name: 'login', ttl: 60000, limit: loginLimit },
           ],
         };
       },
