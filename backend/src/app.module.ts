@@ -35,6 +35,7 @@ import { ProductCode } from './inventory/products/product-code.entity';
 import { ProductsModule } from './inventory/products/products.module';
 import { Lot } from './inventory/lots/lot.entity';
 import { LotMovement } from './inventory/movements/lot-movement.entity';
+import { StockCount } from './inventory/stock-counts/stock-count.entity';
 import { LotsModule } from './inventory/lots/lots.module';
 import { MovementsModule } from './inventory/movements/movements.module';
 import { BootstrapService } from './bootstrap.service';
@@ -55,7 +56,7 @@ import { BootstrapService } from './bootstrap.service';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount],
       synchronize: process.env.NODE_ENV !== 'production',
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       extra: {
