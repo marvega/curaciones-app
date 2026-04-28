@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -21,5 +21,11 @@ export class CanastaController {
   @Roles('admin')
   replace(@Param('id', ParseIntPipe) id: number, @Body() dto: { productIds: number[] }) {
     return this.canasta.replaceProducts(id, dto.productIds);
+  }
+
+  @Post('seed-defaults')
+  @Roles('admin')
+  seedDefaults() {
+    return this.canasta.applyDefaultMappings();
   }
 }
