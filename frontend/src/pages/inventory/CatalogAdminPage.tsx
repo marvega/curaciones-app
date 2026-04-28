@@ -1,84 +1,117 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Package } from 'lucide-react';
 import { listProducts, importProductsExcel } from '../../services/api';
 import type { Product, ImportResult } from '../../types';
+import {
+  Card,
+  CodePill,
+  DataTable,
+  EmptyState,
+  FileUpload,
+  PageHeader,
+  SearchInput,
+  Tag,
+} from '../../components/ui';
+import { formatCode, toSentenceCase } from '../../formatters/text';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+
+function primaryCode(p: Product): string {
+  if (!p.codes || p.codes.length === 0) return '—';
+  return formatCode(p.codes[0].code);
+}
 
 export default function CatalogAdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState<number>(0);
   const [search, setSearch] = useState('');
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   useEffect(() => {
-    listProducts({ search, limit: 100 }).then((r) => setProducts(r.data));
-  }, [search]);
+    setLoading(true);
+    listProducts({ search: debouncedSearch, limit: 100 })
+      .then((r) => {
+        setProducts(r.data);
+        setTotal(r.total);
+      })
+      .finally(() => setLoading(false));
+  }, [debouncedSearch]);
 
   async function onImport(file: File) {
-    setImporting(true);
-    try {
-      const r = await importProductsExcel(file, 'PRODUCTOS AVIS');
-      setImportResult(r);
-      const refreshed = await listProducts({ limit: 100 });
-      setProducts(refreshed.data);
-    } finally {
-      setImporting(false);
-    }
+    const r = await importProductsExcel(file, 'PRODUCTOS AVIS');
+    setImportResult(r);
+    const refreshed = await listProducts({ limit: 100 });
+    setProducts(refreshed.data);
+    setTotal(refreshed.total);
   }
 
+  const subtitle = useMemo(
+    () => (total > 0 ? `${total} producto${total === 1 ? '' : 's'}` : 'Sin productos'),
+    [total],
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="bg-white dark:bg-slate-900 rounded shadow p-4">
-        <h2 className="font-semibold mb-2">Importar catálogo AVIS</h2>
-        <input
-          type="file"
+    <div className="space-y-6">
+      <PageHeader title="Catálogo de productos" subtitle={subtitle} />
+
+      <Card>
+        <FileUpload
           accept=".xlsx"
-          disabled={importing}
-          onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])}
+          label="Importar catálogo AVIS"
+          helperText='Excel .xlsx, hoja "PRODUCTOS AVIS"'
+          onUpload={onImport}
+          result={importResult ?? undefined}
         />
-        {importing && <p className="text-sm text-slate-500 mt-2">Importando...</p>}
-        {importResult && (
-          <div className="mt-3 text-sm">
-            <p>Creados: {importResult.created} · Actualizados: {importResult.updated} · Sin cambios: {importResult.unchanged} · Saltados: {importResult.skipped}</p>
-            {importResult.errors.length > 0 && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-red-600">{importResult.errors.length} errores</summary>
-                <ul className="text-xs mt-1">
-                  {importResult.errors.slice(0, 50).map((e, i) => <li key={i}>Fila {e.row}: {e.reason}</li>)}
-                </ul>
-              </details>
-            )}
-          </div>
-        )}
-      </div>
+      </Card>
 
-      <input
-        className="border rounded px-3 py-2 w-full max-w-md dark:bg-slate-800 dark:border-slate-700"
-        placeholder="Buscar producto..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      <div className="bg-white dark:bg-slate-900 rounded shadow overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-800">
-            <tr>
-              <th className="text-left p-3">Nombre</th>
-              <th className="text-left p-3">Tipo</th>
-              <th className="text-left p-3">Empaque</th>
-              <th className="text-left p-3">Códigos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="border-t dark:border-slate-700">
-                <td className="p-3">{p.name}</td>
-                <td className="p-3">{p.type}</td>
-                <td className="p-3">{p.packaging}</td>
-                <td className="p-3 text-xs">{p.codes.map((c) => `${c.codeSystem}:${c.code}`).join(' · ')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card padding="none">
+        <div className="p-5 pb-3">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar producto por nombre o código…"
+            aria-label="Buscar producto"
+          />
+        </div>
+        <DataTable<Product>
+          columns={[
+            {
+              key: 'code',
+              label: 'Código',
+              width: 100,
+              render: (p) => <CodePill>{primaryCode(p)}</CodePill>,
+            },
+            {
+              key: 'name',
+              label: 'Nombre',
+              render: (p) => toSentenceCase(p.name),
+            },
+            {
+              key: 'type',
+              label: 'Tipo',
+              width: 140,
+              render: (p) => <Tag>{toSentenceCase(p.type)}</Tag>,
+            },
+            {
+              key: 'packaging',
+              label: 'Empaque',
+              width: 120,
+              render: (p) => <Tag>{toSentenceCase(p.packaging)}</Tag>,
+            },
+          ]}
+          data={products}
+          loading={loading}
+          emptyState={
+            <EmptyState
+              icon={Package}
+              title="Sin productos"
+              description="Sube el catálogo AVIS para empezar"
+            />
+          }
+          keyExtractor={(p) => p.id}
+        />
+      </Card>
     </div>
   );
 }
