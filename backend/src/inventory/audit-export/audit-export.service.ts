@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { CanastaService } from '../canasta/canasta.service';
 import { LotsService } from '../lots/lots.service';
 import { CanastaSection } from '../canasta/canasta-category.entity';
@@ -78,7 +79,6 @@ export class AuditExportService {
   }
 
   async generateExcel(report: AuditReport): Promise<Buffer> {
-    const XLSX = await import('xlsx');
     const aoa: any[][] = [];
 
     aoa.push([

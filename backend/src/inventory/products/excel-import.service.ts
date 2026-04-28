@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as XLSX from 'xlsx';
 import { ProductsService } from './products.service';
 import { ProductType } from './product.entity';
 import { CodeSystem } from './product-code.entity';
@@ -22,7 +23,6 @@ export class ExcelImportService {
   constructor(private readonly products: ProductsService) {}
 
   async import(buffer: Buffer, sheetName = 'PRODUCTOS AVIS'): Promise<ImportResult> {
-    const XLSX = await import('xlsx');
     const wb = XLSX.read(buffer, { type: 'buffer' });
     const ws = wb.Sheets[sheetName];
     if (!ws) throw new Error(`Sheet "${sheetName}" not found`);
