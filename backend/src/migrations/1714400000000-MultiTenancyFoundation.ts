@@ -279,6 +279,52 @@ export class MultiTenancyFoundation1714400000000 implements MigrationInterface {
     // ---- Re-add scoped uniqueness ----
     await queryRunner.query(`ALTER TABLE "appointments" ADD CONSTRAINT "UQ_appointments_org_date_time" UNIQUE ("organizationId", "date", "time")`);
     await queryRunner.query(`ALTER TABLE "monthly_cycles" ADD CONSTRAINT "UQ_monthly_cycles_org_year_month" UNIQUE ("organizationId", "year", "month")`);
+
+    // ---- Audit log hash chain rebuild ----
+    // Computes payloadHash + chainHash for every existing row, ordered by (orgId, id ASC).
+    const { createHash } = await import('crypto');
+    const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
+    const compute = (row: any, prevHash: string | null) => {
+      const payload = JSON.stringify({
+        userId: row.userId,
+        organizationId: row.organizationId,
+        action: row.action,
+        entity: row.entity,
+        entityId: row.entityId,
+        beforeJson: row.beforeJson ?? null,
+        afterJson: row.afterJson ?? null,
+        createdAt: new Date(row.createdAt).toISOString(),
+        requestId: row.requestId ?? null,
+      });
+      const payloadHash = sha256(payload);
+      const chainHash = sha256((prevHash ?? 'GENESIS') + payloadHash);
+      return { payloadHash, chainHash };
+    };
+
+    const orgs = await queryRunner.query(`SELECT DISTINCT "organizationId" AS oid FROM "audit_logs" ORDER BY oid`);
+    for (const { oid } of orgs) {
+      const rows = await queryRunner.query(
+        `SELECT id, "userId", "organizationId", action, entity, "entityId",
+                "beforeJson", "afterJson", "createdAt", "requestId"
+         FROM "audit_logs" WHERE "organizationId" = $1 ORDER BY id ASC`,
+        [oid],
+      );
+      let prev: string | null = null;
+      for (const r of rows) {
+        const { payloadHash, chainHash } = compute(r, prev);
+        await queryRunner.query(
+          `UPDATE "audit_logs" SET "payloadHash" = $1, "prevHash" = $2, "chainHash" = $3 WHERE id = $4`,
+          [payloadHash, prev, chainHash, r.id],
+        );
+        prev = chainHash;
+      }
+    }
+
+    // Set NOT NULL on hash columns now that all rows are filled.
+    await queryRunner.query(`ALTER TABLE "audit_logs" ALTER COLUMN "payloadHash" SET NOT NULL`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ALTER COLUMN "chainHash" SET NOT NULL`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ALTER COLUMN "organizationId" SET NOT NULL`);
+    await queryRunner.query(`ALTER TABLE "audit_logs" ADD CONSTRAINT "FK_audit_org" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
