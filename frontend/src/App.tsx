@@ -13,6 +13,12 @@ import DetailedReportPage from './pages/DetailedReportPage';
 import PatientsListPage from './pages/PatientsListPage';
 import UsersPage from './pages/UsersPage';
 import AuditLogPage from './pages/AuditLogPage';
+import InventoryListPage from './pages/inventory/InventoryListPage';
+import ReceptionPage from './pages/inventory/ReceptionPage';
+import StockCountPage from './pages/inventory/StockCountPage';
+import CatalogAdminPage from './pages/inventory/CatalogAdminPage';
+import CanastaAdminPage from './pages/inventory/CanastaAdminPage';
+import AuditExportPage from './pages/inventory/AuditExportPage';
 
 function App() {
   return (
@@ -32,6 +38,12 @@ function App() {
               <Route path="reportes/detallado" element={<DetailedReportPage />} />
               <Route path="usuarios" element={<UsersPage />} />
               <Route path="audit-log" element={<AuditLogPage />} />
+              <Route path="inventory" element={<InventoryListPage />} />
+              <Route path="inventory/reception" element={<ReceptionPage />} />
+              <Route path="inventory/count" element={<StockCountPage />} />
+              <Route path="inventory/audit-export" element={<AuditExportPage />} />
+              <Route path="inventory/admin/catalog" element={<CatalogAdminPage />} />
+              <Route path="inventory/admin/canasta" element={<CanastaAdminPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

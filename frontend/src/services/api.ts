@@ -18,6 +18,14 @@ import type {
   WoundNote,
   WoundEvolutionPoint,
   ConsentSignature,
+  Product,
+  Lot,
+  StockCount,
+  LotMovement,
+  CanastaCategory,
+  ImportResult,
+  ProductType,
+  CodeSystem,
 } from '../types';
 
 const api = axios.create({
@@ -389,4 +397,50 @@ export const downloadPatientPdf = async (patientId: number): Promise<void> => {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
+};
+
+// Inventory - Products
+export const listProducts = async (params: { search?: string; type?: ProductType; page?: number; limit?: number } = {}): Promise<PaginatedResponse<Product>> => {
+  const { data } = await api.get('/inventory/products', { params });
+  return data;
+};
+export const getProduct = async (id: number): Promise<Product> => (await api.get(`/inventory/products/${id}`)).data;
+export const updateProduct = async (id: number, patch: Partial<Product>): Promise<Product> => (await api.patch(`/inventory/products/${id}`, patch)).data;
+export const addProductCode = async (id: number, dto: { codeSystem: CodeSystem; code: string }) => (await api.post(`/inventory/products/${id}/codes`, dto)).data;
+export const removeProductCode = async (codeId: number) => (await api.delete(`/inventory/products/codes/${codeId}`)).data;
+export const importProductsExcel = async (file: File, sheet?: string): Promise<ImportResult> => {
+  const fd = new FormData();
+  fd.append('file', file);
+  const url = sheet ? `/inventory/products/import?sheet=${encodeURIComponent(sheet)}` : '/inventory/products/import';
+  const { data } = await api.post(url, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  return data;
+};
+
+// Inventory - Lots / movements
+export const listLots = async (params: { productId?: number; establishmentId?: number; expiringInDays?: number; active?: boolean } = {}): Promise<Lot[]> => (await api.get('/inventory/lots', { params })).data;
+export const getLot = async (id: number): Promise<Lot> => (await api.get(`/inventory/lots/${id}`)).data;
+export const receiveLot = async (dto: { productId: number; establishmentId: number; lotCode?: string; expiresAt?: string; receivedAt: string; quantity: number; notes?: string }): Promise<Lot> => (await api.post('/inventory/lots/reception', dto)).data;
+export const adjustLot = async (lotId: number, dto: { delta: number; notes?: string }): Promise<LotMovement> => (await api.post(`/inventory/lots/${lotId}/adjustments`, dto)).data;
+export const getExpiringLots = async (days = 30, establishmentId?: number) => {
+  const { data } = await api.get('/inventory/expiring', { params: { days, establishmentId } });
+  return data as { lots: Lot[]; total: number };
+};
+export const getStockSnapshot = async (establishmentId?: number, date?: string) => (await api.get('/inventory/stock-snapshot', { params: { establishmentId, date } })).data;
+
+// Inventory - Stock counts
+export const listStockCounts = async (params: { establishmentId?: number; status?: 'DRAFT' | 'CLOSED' } = {}): Promise<StockCount[]> => (await api.get('/inventory/stock-counts', { params })).data;
+export const getStockCount = async (id: number): Promise<StockCount> => (await api.get(`/inventory/stock-counts/${id}`)).data;
+export const openStockCount = async (dto: { establishmentId: number; countDate?: string }): Promise<StockCount> => (await api.post('/inventory/stock-counts', dto)).data;
+export const patchStockCountEntry = async (id: number, lotId: number, dto: { absoluteValue: number; notes?: string }): Promise<LotMovement> => (await api.patch(`/inventory/stock-counts/${id}/lots/${lotId}`, dto)).data;
+export const closeStockCount = async (id: number): Promise<StockCount> => (await api.post(`/inventory/stock-counts/${id}/close`)).data;
+
+// Inventory - Canasta
+export const listCanasta = async (): Promise<CanastaCategory[]> => (await api.get('/inventory/canasta')).data;
+export const replaceCanastaProducts = async (id: number, productIds: number[]) => (await api.put(`/inventory/canasta/${id}/products`, { productIds })).data;
+export const seedCanastaDefaults = async () => (await api.post('/inventory/canasta/seed-defaults')).data;
+
+// Inventory - Audit export
+export const downloadAuditExport = async (params: { mode: 'current' | 'month'; establishmentId?: number; year?: number; month?: number }): Promise<Blob> => {
+  const { data } = await api.get('/inventory/audit-export', { params, responseType: 'blob' });
+  return data;
 };
