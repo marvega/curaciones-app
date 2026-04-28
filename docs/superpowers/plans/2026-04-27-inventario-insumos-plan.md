@@ -140,12 +140,13 @@ git commit -m "chore(inventory): add xlsx dependency for Excel I/O"
 
 ---
 
-### Task 2: Roles guard and decorator
+### Task 2: Roles guard and decorator — ALREADY EXISTS
 
-**Files:**
-- Create: `backend/src/common/roles.decorator.ts`
-- Create: `backend/src/common/roles.guard.ts`
-- Test: `backend/src/common/roles.guard.spec.ts`
+**Status:** No-op. The codebase already has `RolesGuard` at `backend/src/auth/roles.guard.ts` and `@Roles` at `backend/src/auth/roles.decorator.ts`, used by `audit-log`, `curaciones`, and `users` controllers. All upcoming inventory controllers MUST import from `../../auth/roles.guard` and `../../auth/roles.decorator` instead of creating new files in `common/`.
+
+**Note:** the existing `RolesGuard` uses `getAllAndOverride([handler, class])` (slightly different from the spec in this plan, which used `get(handler)`). Both work for handler-level decorators. We adopt the existing implementation.
+
+**Files:** none (no-op)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -918,8 +919,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { RolesGuard } from '../../common/roles.guard';
-import { Roles } from '../../common/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
+import { Roles } from '../../auth/roles.decorator';
 import { ProductsService } from './products.service';
 import { CreateProductDto, ProductCodeDto } from './create-product.dto';
 import { UpdateProductDto } from './update-product.dto';
@@ -2339,8 +2340,8 @@ export class CanastaService {
 import { Body, Controller, Get, Param, ParseIntPipe, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
-import { RolesGuard } from '../../common/roles.guard';
-import { Roles } from '../../common/roles.decorator';
+import { RolesGuard } from '../../auth/roles.guard';
+import { Roles } from '../../auth/roles.decorator';
 import { CanastaService } from './canasta.service';
 
 @ApiTags('Inventory / Canasta')
