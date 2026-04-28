@@ -25,13 +25,40 @@ interface ParsedCategory {
 const SECTION_HEADER_INSUMOS = /insumos/i;
 const SECTION_HEADER_AYUDAS = /ayudas\s*t[eé]cnicas/i;
 
+const COLUMN_HEADER_TOKENS = new Set(['si', 'sí', 'no', 'observaciones', 'observacion', 'observación']);
+
+const KEYWORD_STOPWORDS = new Set([
+  'ejemplo','ejemplos','listado','referencia','indicaci','indicacion','indicación',
+  'aposito','apositos','apósito','apósitos',
+  'de','del','con','para','por','los','las','la','el','un','una','y','o','en','que',
+  'segun','según','criterios','medico','médico','administrativos',
+]);
+
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function normalizeKey(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+  return stripAccents(name.toLowerCase())
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
+}
+
+function isColumnHeaderRow(row: unknown[]): boolean {
+  for (let idx = 1; idx <= 3; idx++) {
+    const v = row[idx];
+    if (v === null || v === undefined) continue;
+    const token = String(v).trim().toLowerCase();
+    if (COLUMN_HEADER_TOKENS.has(token)) return true;
+  }
+  return false;
+}
+
+function extractKeywords(notes: string): string[] {
+  return stripAccents(notes.toLowerCase())
+    .split(/[\s;,|/.()+:]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 4 && !KEYWORD_STOPWORDS.has(s) && !/^\d+$/.test(s));
 }
 
 @Injectable()
@@ -61,12 +88,15 @@ export class CanastaImportService {
       const colA = String(row[0] ?? '').trim();
       if (!colA) continue;
 
+      // Skip column-header rows (cols B/C/D contain literal Si/Sí/No/Observaciones)
+      if (isColumnHeaderRow(row)) continue;
+
       // Section detection
       if (SECTION_HEADER_AYUDAS.test(colA)) {
         currentSection = CanastaSection.AYUDAS_TECNICAS;
         continue;
       }
-      if (SECTION_HEADER_INSUMOS.test(colA) && row.slice(1).every((v) => v === null || String(v).trim() === '')) {
+      if (SECTION_HEADER_INSUMOS.test(colA)) {
         currentSection = CanastaSection.INSUMOS;
         continue;
       }
@@ -154,12 +184,8 @@ export class CanastaImportService {
 
           // Extract AVIS code candidates from notes (digits 2-5)
           const codeMatches = (p.notes.match(/\b\d{2,5}\b/g) ?? []);
-          // Extract keywords (split by ; , | / and whitespace, normalized to lowercase, length > 3)
-          const keywords = p.notes
-            .toLowerCase()
-            .split(/[;,|/]+|\s{2,}/)
-            .map((s) => s.trim())
-            .filter((s) => s.length >= 4);
+          // Tokenize on whitespace + punctuation, drop stopwords + pure-digit tokens, strip accents
+          const keywords = extractKeywords(p.notes);
 
           for (const product of products) {
             const codes = (product.codes ?? []).map((c: { code: string }) => c.code);
@@ -167,7 +193,7 @@ export class CanastaImportService {
               matchedIds.add(product.id);
               continue;
             }
-            const productNameLower = product.name.toLowerCase();
+            const productNameLower = stripAccents(product.name.toLowerCase());
             if (keywords.some((kw) => productNameLower.includes(kw))) {
               matchedIds.add(product.id);
             }
