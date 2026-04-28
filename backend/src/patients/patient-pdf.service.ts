@@ -337,9 +337,18 @@ export class PatientPdfService {
     );
 
     // Badge de estado en columna derecha de fila 3
-    const isActive = patient.status === PatientStatus.ACTIVE;
-    const badgeText = isActive ? 'ACTIVO' : 'DADO DE ALTA';
-    const badgeColor = isActive ? COLORS.badgeActive : COLORS.badgeInactive;
+    const STATUS_BADGE: Record<PatientStatus, { text: string; color: string }> =
+      {
+        [PatientStatus.ACTIVE]: {
+          text: 'ACTIVO',
+          color: COLORS.badgeActive,
+        },
+        [PatientStatus.DISCHARGED]: {
+          text: 'DADO DE ALTA',
+          color: COLORS.badgeInactive,
+        },
+      };
+    const { text: badgeText, color: badgeColor } = STATUS_BADGE[patient.status];
     doc
       .fillColor(COLORS.textMuted)
       .font('Helvetica-Bold')
