@@ -9,7 +9,7 @@ describe('CanastaService', () => {
   let service: CanastaService;
   const repo: any = { find: jest.fn(), findOne: jest.fn(), save: jest.fn() };
   const ds: any = { query: jest.fn() };
-  const productsServiceMock: any = { list: jest.fn() };
+  const productsServiceMock: any = { list: jest.fn(), listAll: jest.fn() };
 
   beforeEach(async () => {
     const m = await Test.createTestingModule({
@@ -50,14 +50,11 @@ describe('CanastaService', () => {
       repo.find.mockResolvedValue([
         { id: 1, displayOrder: 1, name: 'Apósitos bacteriostáticos', section: 'INSUMOS' },
       ]);
-      productsServiceMock.list.mockResolvedValue({
-        data: [
-          { id: 100, name: 'APÓSITO RINGER CON PHMB 10X10 CM', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '1778' }] },
-          { id: 101, name: 'APÓSITO MIEL GEL 30 GR', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '2066' }] },
-          { id: 102, name: 'GASA 10X10', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '819' }] },
-        ],
-        total: 3, page: 1, totalPages: 1,
-      });
+      productsServiceMock.listAll.mockResolvedValue([
+        { id: 100, name: 'APÓSITO RINGER CON PHMB 10X10 CM', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '1778' }] },
+        { id: 101, name: 'APÓSITO MIEL GEL 30 GR', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '2066' }] },
+        { id: 102, name: 'GASA 10X10', codes: [{ codeSystem: 'AVIS_QUILPUE', code: '819' }] },
+      ]);
       repo.findOne.mockResolvedValue({ id: 1, products: [] });
       ds.query.mockResolvedValue(undefined);
       const result = await service.applyDefaultMappings();
