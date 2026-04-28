@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createPatient } from '../services/api';
-import { Loader2 } from 'lucide-react';
+import { Button, Card, Input, Select } from '../components/ui';
+
+const GENDER_OPTIONS = [
+  { value: 'Femenino', label: 'Femenino' },
+  { value: 'Masculino', label: 'Masculino' },
+  { value: 'Otro', label: 'Otro' },
+];
 
 export default function NewPatientPage() {
   const navigate = useNavigate();
@@ -46,10 +52,7 @@ export default function NewPatientPage() {
     return dv === expectedDv;
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target;
+  const updateField = (name: string, value: string) => {
     if (name === 'rut') {
       setForm((prev) => ({ ...prev, rut: formatRut(value) }));
     } else {
@@ -81,7 +84,7 @@ export default function NewPatientPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="card p-5 sm:p-8">
+      <Card padding="lg">
         <h2 className="text-2xl font-bold text-slate-800 mb-6">
           Nuevo Paciente
         </h2>
@@ -94,134 +97,84 @@ export default function NewPatientPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                RUT *
-              </label>
-              <input
-                type="text"
-                name="rut"
-                value={form.rut}
-                onChange={handleChange}
-                placeholder="12.345.678-9"
-                required
-                className="form-control w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Género *
-              </label>
-              <select
-                name="gender"
-                value={form.gender}
-                onChange={handleChange}
-                required
-                className="form-control w-full"
-              >
-                <option value="">Seleccionar</option>
-                <option value="Femenino">Femenino</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Otro">Otro</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Nombre *
-              </label>
-              <input
-                type="text"
-                name="firstName"
-                value={form.firstName}
-                onChange={handleChange}
-                required
-                className="form-control w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Apellido *
-              </label>
-              <input
-                type="text"
-                name="lastName"
-                value={form.lastName}
-                onChange={handleChange}
-                required
-                className="form-control w-full"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Fecha de Nacimiento *
-            </label>
-            <input
-              type="date"
-              name="birthDate"
-              value={form.birthDate}
-              onChange={handleChange}
+            <Input
+              label="RUT *"
+              name="rut"
+              value={form.rut}
+              onChange={(e) => updateField('rut', e.target.value)}
+              placeholder="12.345.678-9"
               required
-              className="form-control w-full"
+            />
+            <Select
+              label="Género *"
+              options={GENDER_OPTIONS}
+              value={form.gender}
+              onChange={(v) => updateField('gender', v)}
+              placeholder="Seleccionar"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                className="form-control w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Dirección
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                className="form-control w-full"
-              />
-            </div>
+            <Input
+              label="Nombre *"
+              name="firstName"
+              value={form.firstName}
+              onChange={(e) => updateField('firstName', e.target.value)}
+              required
+            />
+            <Input
+              label="Apellido *"
+              name="lastName"
+              value={form.lastName}
+              onChange={(e) => updateField('lastName', e.target.value)}
+              required
+            />
+          </div>
+
+          <Input
+            label="Fecha de Nacimiento *"
+            type="date"
+            name="birthDate"
+            value={form.birthDate}
+            onChange={(e) => updateField('birthDate', e.target.value)}
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Teléfono"
+              type="tel"
+              name="phone"
+              value={form.phone}
+              onChange={(e) => updateField('phone', e.target.value)}
+            />
+            <Input
+              label="Dirección"
+              name="address"
+              value={form.address}
+              onChange={(e) => updateField('address', e.target.value)}
+            />
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => navigate(-1)}
-              className="btn-secondary flex-1"
+              className="flex-1"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={loading}
-              className="btn-primary flex-1 flex items-center justify-center gap-2"
+              loading={loading}
+              className="flex-1"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                'Guardar Paciente'
-              )}
-            </button>
+              {loading ? 'Guardando...' : 'Guardar Paciente'}
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }
