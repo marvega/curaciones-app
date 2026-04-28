@@ -2,8 +2,13 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import StockCountPage from '../StockCountPage';
 import * as api from '../../../services/api';
+import { ConfirmProvider } from '../../../contexts/ConfirmContext';
 
 vi.mock('../../../services/api');
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(<ConfirmProvider>{ui}</ConfirmProvider>);
+}
 
 describe('StockCountPage', () => {
   beforeEach(() => {
@@ -39,7 +44,7 @@ describe('StockCountPage', () => {
 
   it('debounces patch on input change', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<StockCountPage />);
+    renderWithProviders(<StockCountPage />);
     await waitFor(() => screen.getByText('A'));
     const input = screen.getByDisplayValue('5') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '7' } });
