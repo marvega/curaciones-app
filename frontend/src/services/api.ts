@@ -565,3 +565,25 @@ export const downloadAuditExport = async (params: { mode: 'current' | 'month'; e
   const { data } = await api.get('/inventory/audit-export', { params, responseType: 'blob' });
   return data;
 };
+
+// Org - members
+export const listMembers = async () => (await api.get('/org/members')).data;
+export const inviteMember = async (email: string, role: string) =>
+  (await api.post('/org/invitations', { email, role })).data;
+export const updateMemberRole = async (userId: number, role: string) =>
+  (await api.patch(`/org/members/${userId}`, { role })).data;
+export const revokeMember = async (userId: number) =>
+  api.delete(`/org/members/${userId}`);
+
+// Org - invitations / establishments / settings
+export const listOrgInvitations = async () =>
+  (await api.get('/org/invitations')).data;
+export const listEstablishments = async () =>
+  (await api.get('/org/establishments')).data;
+export const createEstablishment = async (dto: { name: string; comuna: string }) =>
+  (await api.post('/org/establishments', dto)).data;
+export const getOrgSettings = async () => (await api.get('/org/settings')).data;
+export const updateOrgSettings = async (dto: { name: string; rut?: string }) =>
+  (await api.patch('/org/settings', dto)).data;
+
+export default api;
