@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { randomBytes, createHash } from 'crypto';
 import { User } from '../users/user.entity';
 import { PasswordResetToken } from './password-reset-token.entity';
-import { EMAIL_SERVICE, EmailService } from '../email/email.service';
+import { EMAIL_SERVICE, type EmailService } from '../email/email.service';
 import { PasswordResetEmail } from '../email/templates/PasswordResetEmail';
 import * as React from 'react';
 

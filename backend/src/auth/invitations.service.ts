@@ -8,7 +8,7 @@ import { Invitation } from './invitation.entity';
 import { Organization } from '../organizations/organization.entity';
 import { OrganizationMembership, OrgRole, MembershipStatus } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
-import { EMAIL_SERVICE, EmailService } from '../email/email.service';
+import { EMAIL_SERVICE, type EmailService } from '../email/email.service';
 import { InvitationEmail } from '../email/templates/InvitationEmail';
 
 @Injectable()
