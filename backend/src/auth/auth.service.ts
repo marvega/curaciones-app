@@ -129,6 +129,11 @@ export class AuthService {
     return { accessToken, refreshToken: refresh.refreshToken };
   }
 
+  async findMemberships(userId: number) {
+    return this.membershipRepo.find({ where: { userId, status: MembershipStatus.ACTIVE } });
+  }
+  async userById(id: number) { return this.userRepo.findOne({ where: { id } }); }
+
   async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
     if (newPassword.length < 12) throw new BadRequestException('Password must be at least 12 chars');
     const user = await this.userRepo.findOne({ where: { id: userId } });

@@ -178,6 +178,18 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/invitations/accept', () => {
+    it.skip('creates user, membership, returns access+refresh', async () => {
+      const token = await seedInvitation(app, { email: 'newbie@test.cl' });
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/invitations/accept')
+        .send({ token, password: 'super-strong-pwd-12', fullName: 'Newbie' })
+        .expect(201);
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())

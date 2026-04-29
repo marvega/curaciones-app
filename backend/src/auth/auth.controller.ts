@@ -17,6 +17,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { InvitationsService } from './invitations.service';
 import { InvitationPreviewDto } from './dto/invitation-preview.dto';
+import { InvitationAcceptDto } from './dto/invitation-accept.dto';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -110,5 +111,15 @@ export class AuthController {
   @Post('invitations/preview')
   async previewInvitation(@Body() dto: InvitationPreviewDto) {
     return this.invitations.preview(dto.token);
+  }
+
+  @Post('invitations/accept')
+  async acceptInvitation(@Body() dto: InvitationAcceptDto, @Req() req: Request) {
+    const user = await this.invitations.accept(dto.token, dto.password, dto.fullName);
+    const memberships = await this.authService.findMemberships(user.id);
+    const m = memberships[0];
+    const { accessToken } = await this.authService.signAccessToken(user, m.organizationId);
+    const refresh = await this.sessions.issue(user.id, m.organizationId, req.ip, req.headers['user-agent']);
+    return { accessToken, refreshToken: refresh.refreshToken };
   }
 }
