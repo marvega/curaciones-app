@@ -10,6 +10,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { SessionsService } from './sessions.service';
+import { SwitchOrgDto } from './dto/switch-org.dto';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -66,5 +67,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async revokeSession(@Param('jti') jti: string, @CurrentUser() user: any) {
     await this.sessions.revokeByJti(user.id, jti);
+  }
+
+  @Post('switch-org')
+  @UseGuards(JwtAuthGuard)
+  async switchOrg(@Body() dto: SwitchOrgDto, @CurrentUser() user: any) {
+    return this.authService.switchOrg(user.id, dto.organizationId);
   }
 }

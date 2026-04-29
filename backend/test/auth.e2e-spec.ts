@@ -120,6 +120,18 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/switch-org', () => {
+    it.skip('issues new access token for different org', async () => {
+      const a = await loginAs(app, 'switcher', { secondOrg: true });
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/switch-org')
+        .set('Authorization', `Bearer ${a.body.accessToken}`)
+        .send({ organizationId: a.body.organizations[1].id })
+        .expect(201);
+      expect(res.body.accessToken).toBeDefined();
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())
