@@ -26,7 +26,7 @@ export async function createOrgWithUser(
   const userId = userRes[0].id;
   await ds.query(
     `INSERT INTO "organization_memberships"("userId","organizationId","role","status","acceptedAt")
-     VALUES ($1,$2,'owner','active',now())`,
+     VALUES ($1,$2,'admin','active',now())`,
     [userId, orgId],
   );
   await ds.query(

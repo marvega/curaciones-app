@@ -1,16 +1,18 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": ["js", "json", "tsx", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/jest-env.ts"],
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": [
+    "^.+\\.(t|j)sx?$": [
       "ts-jest",
       {
         "tsconfig": {
           "module": "commonjs",
           "moduleResolution": "node",
-          "resolvePackageJsonExports": false
+          "resolvePackageJsonExports": false,
+          "jsx": "react"
         }
       }
     ]
