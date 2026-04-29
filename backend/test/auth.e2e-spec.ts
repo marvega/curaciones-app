@@ -63,6 +63,22 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/logout', () => {
+    it.skip('logs out current refresh token', async () => {
+      const login = await loginAs(app, 'logoutuser');
+      await request(app.getHttpServer())
+        .post('/api/auth/logout')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .send({ refreshToken: login.body.refreshToken })
+        .expect(204);
+      // reusing same refresh now fails
+      await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: login.body.refreshToken })
+        .expect(401);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())

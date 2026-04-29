@@ -1,11 +1,15 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenGuard } from './refresh-token.guard';
 import { RefreshDto } from './dto/refresh.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { CurrentUser } from './current-user.decorator';
+import { SessionsService } from './sessions.service';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -15,7 +19,11 @@ const LOGIN_LIMIT = parseInt(
 @ApiTags('Auth')
 @Controller('api/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly jwt: JwtService,
+    private readonly sessions: SessionsService,
+  ) {}
 
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: LOGIN_LIMIT } })
@@ -27,5 +35,16 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   async refresh(@Body() dto: RefreshDto, @Req() req: any) {
     return this.authService.refresh(dto.refreshToken, req.refreshPayload, req.ip, req.headers['user-agent']);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  async logout(@Body() dto: RefreshDto, @CurrentUser() user: any) {
+    // best-effort: decode to find jti
+    const payload = this.jwt.decode(dto.refreshToken) as any;
+    if (payload?.jti) {
+      await this.sessions.revokeByJti(user.id, payload.jti);
+    }
   }
 }
