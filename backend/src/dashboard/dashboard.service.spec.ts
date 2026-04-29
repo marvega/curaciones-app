@@ -5,12 +5,18 @@ import { Patient } from '../patients/patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Appointment } from '../appointments/appointment.entity';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { KMS_SERVICE, KmsService } from '../kms/kms.service';
+import { InMemoryKmsService } from '../kms/in-memory-kms.service';
+import { runWithOrg } from '../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
 describe('DashboardService', () => {
   let service: DashboardService;
   let appointmentsService: AppointmentsService;
   let patientRepo: any;
   let curacionRepo: any;
+  let kms: KmsService;
 
   const mockQueryBuilder = {
     leftJoin: jest.fn().mockReturnThis(),
@@ -53,6 +59,7 @@ describe('DashboardService', () => {
             getAgenda: jest.fn(),
           },
         },
+        { provide: KMS_SERVICE, useClass: InMemoryKmsService },
       ],
     }).compile();
 
@@ -60,7 +67,13 @@ describe('DashboardService', () => {
     appointmentsService = module.get<AppointmentsService>(AppointmentsService);
     patientRepo = module.get(getRepositoryToken(Patient));
     curacionRepo = module.get(getRepositoryToken(Curacion));
+    kms = module.get(KMS_SERVICE);
   });
+
+  async function patientWithEncryptedRut(id: number, firstName: string, lastName: string, rut: string) {
+    const enc = await kms.encrypt(rut, `Patient.rut:${id}`, '1');
+    return { id, firstName, lastName, rut: enc };
+  }
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -88,10 +101,10 @@ describe('DashboardService', () => {
   });
 
   describe('getPatientsWithoutAppointment', () => {
-    it('should return active patients with no future appointments and last curacion data', async () => {
+    it('should return active patients with no future appointments and last curacion data', inOrg(async () => {
       const mockPatients = [
-        { id: 1, firstName: 'Ana', lastName: 'Lopez', rut: '12345678-9' },
-        { id: 2, firstName: 'Carlos', lastName: 'Martinez', rut: '98765432-1' },
+        await patientWithEncryptedRut(1, 'Ana', 'Lopez', '12345678-9'),
+        await patientWithEncryptedRut(2, 'Carlos', 'Martinez', '98765432-1'),
       ];
       mockQueryBuilder.getMany.mockResolvedValue(mockPatients);
 
@@ -123,28 +136,30 @@ describe('DashboardService', () => {
 
       expect(result[1].lastCuracion).toBeNull();
       expect(result[1].daysSinceLastCuracion).toBeNull();
-    });
+    }));
   });
 
   describe('getInactivePatients', () => {
-    it('should return patients whose last curacion exceeds threshold', async () => {
+    it('should return patients whose last curacion exceeds threshold', inOrg(async () => {
       const oldDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split('T')[0];
 
+      const enc1 = await kms.encrypt('12345678-9', 'Patient.rut:1', '1');
+      const enc2 = await kms.encrypt('98765432-1', 'Patient.rut:2', '1');
       mockQueryBuilder.getRawMany.mockResolvedValue([
         {
           id: 1,
           firstName: 'Ana',
           lastName: 'Lopez',
-          rut: '12345678-9',
+          rut: enc1,
           lastCuracionDate: oldDate,
         },
         {
           id: 2,
           firstName: 'Carlos',
           lastName: 'Martinez',
-          rut: '98765432-1',
+          rut: enc2,
           lastCuracionDate: null,
         },
       ]);
@@ -172,6 +187,8 @@ describe('DashboardService', () => {
         lastCuracionType: null,
         daysSinceLastCuracion: null,
       });
-    });
+      expect(result[0].rut).toBe('12345678-9');
+      expect(result[1].rut).toBe('98765432-1');
+    }));
   });
 });

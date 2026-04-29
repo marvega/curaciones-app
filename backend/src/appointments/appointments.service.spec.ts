@@ -4,6 +4,8 @@ import { AppointmentsService } from './appointments.service';
 import { Appointment } from './appointment.entity';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { runWithOrg } from '../common/org-context';
+import { KMS_SERVICE } from '../kms/kms.service';
+import { InMemoryKmsService } from '../kms/in-memory-kms.service';
 
 const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
@@ -22,6 +24,7 @@ describe('AppointmentsService', () => {
       providers: [
         AppointmentsService,
         { provide: getRepositoryToken(Appointment), useValue: mockRepo },
+        { provide: KMS_SERVICE, useClass: InMemoryKmsService },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -122,12 +125,13 @@ describe('AppointmentsService', () => {
   });
 
   describe('getAvailability', () => {
-    it('returns slots with available flag', inOrg(async () => {
-      // 2099-12-01 is a regular day → PM slots
+    it('returns slots with available flag and decrypted rut', inOrg(async () => {
+      const kms = (service as unknown as { kms: import('../kms/kms.service').KmsService }).kms;
+      const encryptedRut = await kms.encrypt('12345678-9', 'Patient.rut:1', '1');
       mockRepo.find.mockResolvedValueOnce([
         {
           time: '13:00',
-          patient: { id: 1, firstName: 'Ana', lastName: 'Garcia', rut: '12345678-9' },
+          patient: { id: 1, firstName: 'Ana', lastName: 'Garcia', rut: encryptedRut },
         },
       ]);
 
@@ -138,6 +142,7 @@ describe('AppointmentsService', () => {
       expect(bookedSlot.available).toBe(false);
       expect(bookedSlot.patient).toBeDefined();
       expect(bookedSlot.patient.firstName).toBe('Ana');
+      expect(bookedSlot.patient.rut).toBe('12345678-9');
 
       const freeSlot = result.find((s) => s.time === '14:00');
       expect(freeSlot.available).toBe(true);

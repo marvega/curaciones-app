@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   BadRequestException,
   NotFoundException,
@@ -10,12 +11,16 @@ import { CreateAppointmentDto } from './create-appointment.dto';
 import { getSlotsForDate } from '../common/schedule.util';
 import { findScoped, findOneScoped } from '../common/org-scoped.repository';
 import { getCurrentOrgId } from '../common/org-context';
+import { KMS_SERVICE } from '../kms/kms.service';
+import type { KmsService } from '../kms/kms.service';
+import { decryptPatientPii } from '../patients/patient-projection.util';
 
 @Injectable()
 export class AppointmentsService {
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepo: Repository<Appointment>,
+    @Inject(KMS_SERVICE) private readonly kms: KmsService,
   ) {}
 
   async create(dto: CreateAppointmentDto): Promise<Appointment> {
@@ -133,11 +138,25 @@ export class AppointmentsService {
   }
 
   async getAvailability(date: string): Promise<any[]> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const slots = getSlotsForDate(date);
     const appointments = await findScoped(this.appointmentRepo, {
       where: { date },
       relations: ['patient'],
     });
+
+    const decryptedRutByPatientId = new Map<number, string>(
+      await Promise.all(
+        appointments.map(
+          async (a) =>
+            [a.patient.id, (await decryptPatientPii(a.patient, this.kms, orgId)).rut] as [
+              number,
+              string,
+            ],
+        ),
+      ),
+    );
 
     return slots.map((time) => {
       const apt = appointments.find((a) => a.time === time);
@@ -149,7 +168,7 @@ export class AppointmentsService {
               id: apt.patient.id,
               firstName: apt.patient.firstName,
               lastName: apt.patient.lastName,
-              rut: apt.patient.rut,
+              rut: decryptedRutByPatientId.get(apt.patient.id),
             }
           : null,
       };
@@ -169,6 +188,16 @@ export class AppointmentsService {
       .addOrderBy('apt.time', 'ASC')
       .getMany();
 
+    const decryptedByPatientId = new Map(
+      await Promise.all(
+        Array.from(new Set(appointments.map((a) => a.patient.id))).map(async (pid) => {
+          const apt = appointments.find((a) => a.patient.id === pid)!;
+          const { rut } = await decryptPatientPii(apt.patient, this.kms, orgId);
+          return [pid, rut] as [number, string];
+        }),
+      ),
+    );
+
     return appointments.map((apt) => ({
       id: apt.id,
       date: apt.date,
@@ -178,7 +207,7 @@ export class AppointmentsService {
         id: apt.patient.id,
         firstName: apt.patient.firstName,
         lastName: apt.patient.lastName,
-        rut: apt.patient.rut,
+        rut: decryptedByPatientId.get(apt.patient.id),
       },
       curacion: apt.curacion
         ? { id: apt.curacion.id, type: apt.curacion.type }
