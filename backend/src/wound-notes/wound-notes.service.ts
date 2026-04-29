@@ -6,6 +6,7 @@ import { CreateWoundNoteDto } from './create-wound-note.dto';
 import { KMS_SERVICE } from '../kms/kms.service';
 import type { KmsService } from '../kms/kms.service';
 import { getCurrentOrgId } from '../common/org-context';
+import { findOneScoped } from '../common/org-scoped.repository';
 
 @Injectable()
 export class WoundNotesService {
@@ -54,25 +55,27 @@ export class WoundNotesService {
       await this.repo.update(saved.id, { notes: encrypted } as any);
     }
 
-    return this.repo.findOne({
+    return findOneScoped(this.repo, {
       where: { id: saved.id },
       relations: ['recordedBy'],
     });
   }
 
   async findByCuracion(curacionId: number): Promise<WoundNote | null> {
-    return this.repo.findOne({
+    return findOneScoped(this.repo, {
       where: { curacionId },
       relations: ['recordedBy'],
     });
   }
 
   async findByPatient(patientId: number): Promise<WoundNote[]> {
+    const orgId = this.requireOrgId();
     return this.repo
       .createQueryBuilder('wn')
       .innerJoinAndSelect('wn.curacion', 'c')
       .innerJoinAndSelect('wn.recordedBy', 'u')
       .where('c.patientId = :patientId', { patientId })
+      .andWhere('wn.organizationId = :orgId', { orgId })
       .orderBy('c.date', 'DESC')
       .getMany();
   }
@@ -82,11 +85,13 @@ export class WoundNotesService {
   ): Promise<
     { date: string; woundArea: number | null; woundColor: string | null; healingStage: string | null }[]
   > {
+    const orgId = this.requireOrgId();
     const notes = await this.repo
       .createQueryBuilder('wn')
       .innerJoin('wn.curacion', 'c')
       .addSelect('c.date', 'date')
       .where('c.patientId = :patientId', { patientId })
+      .andWhere('wn.organizationId = :orgId', { orgId })
       .orderBy('c.date', 'ASC')
       .getRawAndEntities();
 

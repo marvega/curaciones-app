@@ -11,6 +11,7 @@ import { KMS_SERVICE } from '../kms/kms.service';
 import type { KmsService } from '../kms/kms.service';
 import type { EncryptedField } from '../kms/encrypted-field';
 import { getCurrentOrgId } from '../common/org-context';
+import { findScoped, findOneScoped } from '../common/org-scoped.repository';
 
 /**
  * Patient projection where the encrypted PII columns have been resolved back to
@@ -92,7 +93,7 @@ export class PatientsService {
   }
 
   async findByRut(rut: string): Promise<DecryptedPatient | null> {
-    const patient = await this.patientRepo.findOne({
+    const patient = await findOneScoped(this.patientRepo, {
       where: { rutHash: sha256Hex(rut) },
       relations: ['curaciones'],
     });
@@ -100,7 +101,7 @@ export class PatientsService {
   }
 
   async findById(id: number): Promise<DecryptedPatient> {
-    const patient = await this.patientRepo.findOne({
+    const patient = await findOneScoped(this.patientRepo, {
       where: { id },
       relations: ['curaciones'],
     });
@@ -113,7 +114,7 @@ export class PatientsService {
   async create(dto: CreatePatientDto): Promise<DecryptedPatient> {
     const orgId = this.requireOrgId();
     const rutHash = sha256Hex(dto.rut);
-    const existing = await this.patientRepo.findOne({ where: { rutHash } });
+    const existing = await findOneScoped(this.patientRepo, { where: { rutHash } });
     if (existing) {
       throw new ConflictException(`Ya existe un paciente con RUT ${dto.rut}`);
     }
@@ -146,13 +147,16 @@ export class PatientsService {
     }
     await this.patientRepo.update(saved.id, updates as any);
 
-    const reloaded = await this.patientRepo.findOneOrFail({ where: { id: saved.id } });
+    const reloaded = await findOneScoped(this.patientRepo, { where: { id: saved.id } });
+    if (!reloaded) {
+      throw new NotFoundException(`Paciente con id ${saved.id} no encontrado`);
+    }
     return this.decryptPatient(reloaded);
   }
 
   async update(id: number, dto: UpdatePatientDto): Promise<DecryptedPatient> {
     const orgId = this.requireOrgId();
-    const patient = await this.patientRepo.findOne({ where: { id } });
+    const patient = await findOneScoped(this.patientRepo, { where: { id } });
     if (!patient) {
       throw new NotFoundException(`Paciente con id ${id} no encontrado`);
     }
@@ -178,7 +182,7 @@ export class PatientsService {
   }
 
   async remove(id: number): Promise<void> {
-    const patient = await this.patientRepo.findOne({ where: { id } });
+    const patient = await findOneScoped(this.patientRepo, { where: { id } });
     if (!patient) {
       throw new NotFoundException(`Paciente con id ${id} no encontrado`);
     }
@@ -200,7 +204,7 @@ export class PatientsService {
     const created: DecryptedPatient[] = [];
     for (const data of seedData) {
       const rutHash = sha256Hex(data.rut);
-      const existing = await this.patientRepo.findOne({ where: { rutHash } });
+      const existing = await findOneScoped(this.patientRepo, { where: { rutHash } });
       if (!existing) {
         const saved = await this.create(data);
         created.push(saved);
@@ -210,7 +214,7 @@ export class PatientsService {
   }
 
   async findAll(): Promise<DecryptedPatient[]> {
-    const patients = await this.patientRepo.find({ order: { lastName: 'ASC' } });
+    const patients = await findScoped(this.patientRepo, { order: { lastName: 'ASC' } });
     return this.decryptMany(patients);
   }
 
@@ -218,7 +222,9 @@ export class PatientsService {
     page: number,
     limit: number,
   ): Promise<{ data: DecryptedPatient[]; total: number; page: number; totalPages: number }> {
+    const orgId = this.requireOrgId();
     const [data, total] = await this.patientRepo.findAndCount({
+      where: { organizationId: orgId },
       order: { lastName: 'ASC', firstName: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -243,7 +249,9 @@ export class PatientsService {
     ageMax?: number;
     q?: string;
   }) {
+    const orgId = this.requireOrgId();
     const qb = this.patientRepo.createQueryBuilder('p');
+    qb.andWhere('p."organizationId" = :orgId', { orgId });
 
     if (filters.q && filters.q.trim() !== '') {
       const trimmed = filters.q.trim().slice(0, 100);
@@ -335,12 +343,13 @@ export class PatientsService {
     performedById: number,
     cancelAppointment: boolean,
   ): Promise<DecryptedPatient> {
+    const orgId = this.requireOrgId();
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       const patient = await queryRunner.manager.findOne(Patient, {
-        where: { id },
+        where: { id, organizationId: orgId },
       });
       if (!patient) throw new NotFoundException(`Paciente con id ${id} no encontrado`);
       if (patient.status !== PatientStatus.ACTIVE) {
@@ -372,12 +381,13 @@ export class PatientsService {
   }
 
   async readmit(id: number, performedById: number): Promise<DecryptedPatient> {
+    const orgId = this.requireOrgId();
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       const patient = await queryRunner.manager.findOne(Patient, {
-        where: { id },
+        where: { id, organizationId: orgId },
       });
       if (!patient) throw new NotFoundException(`Paciente con id ${id} no encontrado`);
       if (patient.status !== PatientStatus.DISCHARGED) {
@@ -405,7 +415,7 @@ export class PatientsService {
   }
 
   async getStatusHistory(id: number): Promise<PatientStatusChange[]> {
-    return this.statusChangeRepo.find({
+    return findScoped(this.statusChangeRepo, {
       where: { patientId: id },
       relations: ['performedBy'],
       order: { createdAt: 'DESC' },

@@ -10,6 +10,7 @@ import { KMS_SERVICE } from '../kms/kms.service';
 import type { KmsService } from '../kms/kms.service';
 import type { EncryptedField } from '../kms/encrypted-field';
 import { getCurrentOrgId } from '../common/org-context';
+import { findScoped, findOneScoped } from '../common/org-scoped.repository';
 
 @Injectable()
 export class CuracionesService {
@@ -69,14 +70,14 @@ export class CuracionesService {
   }
 
   async findOneWithAppointment(id: number): Promise<Curacion> {
-    return this.curacionRepo.findOne({
+    return findOneScoped(this.curacionRepo, {
       where: { id },
       relations: ['appointment'],
     }) as Promise<Curacion>;
   }
 
   async findByPatient(patientId: number): Promise<Curacion[]> {
-    return this.curacionRepo.find({
+    return findScoped(this.curacionRepo, {
       where: { patientId },
       relations: ['appointment', 'edits', 'edits.editedBy'],
       order: { date: 'DESC' },
@@ -96,12 +97,13 @@ export class CuracionesService {
     dto: UpdateCuracionDto,
     editedById: number,
   ): Promise<Curacion> {
+    const orgId = this.requireOrgId();
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       const curacion = await queryRunner.manager.findOne(Curacion, {
-        where: { id },
+        where: { id, organizationId: orgId },
         relations: ['appointment'],
       });
       if (!curacion) throw new NotFoundException(`Curación con id ${id} no encontrada`);
@@ -158,7 +160,7 @@ export class CuracionesService {
   }
 
   async getEdits(curacionId: number): Promise<CuracionEdit[]> {
-    return this.editRepo.find({
+    return findScoped(this.editRepo, {
       where: { curacionId },
       relations: ['editedBy'],
       order: { createdAt: 'DESC' },
