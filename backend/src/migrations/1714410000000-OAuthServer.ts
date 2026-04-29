@@ -13,6 +13,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Note on FK types: organizations.id is bigint (bigserial) and users.id is
  * integer in this codebase, so organizationId/userId on oauth_grant and
  * oauth_token use bigint/int respectively (not uuid as some specs imply).
+ *
+ * Deliberate FK omissions:
+ *   - oauth_token.{grantId,clientId,userId,organizationId} have no FK because
+ *     oidc-provider's lifecycle for these short-lived artifacts is decoupled
+ *     from the entities; cascade deletes from those parents would race with
+ *     in-flight token operations. ConnectedAppsService handles cascade
+ *     manually when revoking grants.
+ *   - oauth_revocation.userId has no FK so the deny-list survives any future
+ *     soft-delete or merge of users (it's a security audit artifact).
  */
 export class OAuthServer1714410000000 implements MigrationInterface {
   name = 'OAuthServer1714410000000';
@@ -54,7 +63,7 @@ export class OAuthServer1714410000000 implements MigrationInterface {
       );
     `);
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_client_first_authorized" ON "oauth_client" ("firstAuthorizedAt");`,
+      `CREATE INDEX "IDX_oauth_client_first_authorized" ON "oauth_client" ("firstAuthorizedAt");`,
     );
 
     // --- oauth_grant ----------------------------------------------------
@@ -74,11 +83,11 @@ export class OAuthServer1714410000000 implements MigrationInterface {
       );
     `);
     await queryRunner.query(`
-      CREATE UNIQUE INDEX "idx_oauth_grant_active" ON "oauth_grant" ("clientId","userId","organizationId")
+      CREATE UNIQUE INDEX "UQ_oauth_grant_active" ON "oauth_grant" ("clientId","userId","organizationId")
         WHERE "revokedAt" IS NULL;
     `);
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_grant_user" ON "oauth_grant" ("userId");`,
+      `CREATE INDEX "IDX_oauth_grant_user" ON "oauth_grant" ("userId");`,
     );
 
     // --- oauth_token ----------------------------------------------------
@@ -102,13 +111,13 @@ export class OAuthServer1714410000000 implements MigrationInterface {
       );
     `);
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_token_grant" ON "oauth_token" ("grantId");`,
+      `CREATE INDEX "IDX_oauth_token_grant" ON "oauth_token" ("grantId");`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_token_kind_expires" ON "oauth_token" ("kind","expiresAt");`,
+      `CREATE INDEX "IDX_oauth_token_kind_expires" ON "oauth_token" ("kind","expiresAt");`,
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_token_user" ON "oauth_token" ("userId");`,
+      `CREATE INDEX "IDX_oauth_token_user" ON "oauth_token" ("userId");`,
     );
 
     // --- oauth_signing_key ----------------------------------------------
@@ -130,7 +139,7 @@ export class OAuthServer1714410000000 implements MigrationInterface {
       );
     `);
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_signing_key_status" ON "oauth_signing_key" ("status");`,
+      `CREATE INDEX "IDX_oauth_signing_key_status" ON "oauth_signing_key" ("status");`,
     );
 
     // --- oauth_revocation -----------------------------------------------
@@ -144,7 +153,7 @@ export class OAuthServer1714410000000 implements MigrationInterface {
       );
     `);
     await queryRunner.query(
-      `CREATE INDEX "idx_oauth_revocation_expires" ON "oauth_revocation" ("expiresAt");`,
+      `CREATE INDEX "IDX_oauth_revocation_expires" ON "oauth_revocation" ("expiresAt");`,
     );
   }
 
