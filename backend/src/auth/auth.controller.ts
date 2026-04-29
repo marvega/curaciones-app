@@ -11,6 +11,8 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { SessionsService } from './sessions.service';
 import { SwitchOrgDto } from './dto/switch-org.dto';
+import { PasswordResetService } from './password-reset.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -24,6 +26,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly jwt: JwtService,
     private readonly sessions: SessionsService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   @Post('login')
@@ -73,5 +76,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async switchOrg(@Body() dto: SwitchOrgDto, @CurrentUser() user: any) {
     return this.authService.switchOrg(user.id, dto.organizationId);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.passwordReset.forgot(dto.email);
   }
 }

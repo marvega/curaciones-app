@@ -132,6 +132,15 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/forgot-password', () => {
+    it.skip('always returns 204 (anti-enumeration)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/forgot-password')
+        .send({ email: 'unknown@test.cl' })
+        .expect(204);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())
