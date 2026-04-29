@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConsentSignature } from './consent-signature.entity';
+import { findScoped } from '../common/org-scoped.repository';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -39,7 +40,7 @@ export class ConsentService {
   }
 
   async findByPatient(patientId: number): Promise<ConsentSignature[]> {
-    return this.signatureRepo.find({
+    return findScoped(this.signatureRepo, {
       where: { patientId },
       relations: ['witnessedBy'],
       order: { signedAt: 'DESC' },

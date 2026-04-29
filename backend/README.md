@@ -57,6 +57,24 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+### Test database
+
+E2E and org-isolation specs run against a separate Postgres database
+(default: `postgresql://curaciones:curaciones@localhost:5433/curaciones_test`,
+configured in `backend/.env.test`). Override with `TEST_DATABASE_URL` if
+needed.
+
+`npm run test:e2e` is preceded by `pretest:e2e`, which applies pending
+migrations to the test DB. Migrations are now the single source of truth
+for schema (`synchronize` is disabled in all environments), so after
+pulling new entity changes you must run:
+
+```bash
+npm run migration:run
+```
+
+against your local dev database too.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
@@ -96,3 +114,34 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Operational CLIs
+
+### Provision a new organization
+
+```bash
+npm run admin:create-org -- \
+  --name "CESFAM Lo Espejo" \
+  --owner-email "director@cesfamloespejo.cl" \
+  --owner-name "Dra. Patricia Soto" \
+  --tier pilot \
+  --establishment "Sede principal"
+```
+
+Sends an invitation email via Resend. The owner accepts at `${FRONTEND_URL}/accept-invitation?token=...`.
+
+### Verify the audit log hash chain
+
+```bash
+npm run audit:verify -- --org 1
+```
+
+Exits with code 2 on any mismatch (= tampering).
+
+### Encryption backfill (one-shot, idempotent)
+
+```bash
+npm run encryption:backfill
+```
+
+Walks tenanted entities and encrypts the v1 sensitive fields. Skips rows that are already encrypted.

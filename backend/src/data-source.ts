@@ -12,6 +12,20 @@ import { AuditLog } from './audit-log/audit-log.entity';
 import { WoundPhoto } from './wound-photos/wound-photo.entity';
 import { WoundNote } from './wound-notes/wound-note.entity';
 import { ConsentSignature } from './consent/consent-signature.entity';
+import { Establishment } from './establishments/establishment.entity';
+import { Product } from './inventory/products/product.entity';
+import { ProductCode } from './inventory/products/product-code.entity';
+import { Lot } from './inventory/lots/lot.entity';
+import { LotMovement } from './inventory/movements/lot-movement.entity';
+import { StockCount } from './inventory/stock-counts/stock-count.entity';
+import { CanastaCategory } from './inventory/canasta/canasta-category.entity';
+import { CanastaCategoryProduct } from './inventory/canasta/canasta-category-product.entity';
+import { Organization } from './organizations/organization.entity';
+import { OrganizationMembership } from './organizations/organization-membership.entity';
+import { UserEstablishmentAssignment } from './establishments/user-establishment-assignment.entity';
+import { RefreshToken } from './auth/refresh-token.entity';
+import { Invitation } from './auth/invitation.entity';
+import { PasswordResetToken } from './auth/password-reset-token.entity';
 
 dotenv.config();
 
@@ -19,17 +33,12 @@ const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [
-    Patient,
-    Curacion,
-    MonthlyCycle,
-    User,
-    Appointment,
-    PatientStatusChange,
-    CuracionEdit,
-    AuditLog,
-    WoundPhoto,
-    WoundNote,
-    ConsentSignature,
+    Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange,
+    CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature,
+    Establishment, Product, ProductCode, Lot, LotMovement, StockCount,
+    CanastaCategory, CanastaCategoryProduct,
+    Organization, OrganizationMembership, UserEstablishmentAssignment,
+    RefreshToken, Invitation, PasswordResetToken,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,

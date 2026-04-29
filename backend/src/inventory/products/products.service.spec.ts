@@ -4,6 +4,9 @@ import { ProductsService } from './products.service';
 import { Product, ProductType } from './product.entity';
 import { ProductCode, CodeSystem } from './product-code.entity';
 import { NotFoundException } from '@nestjs/common';
+import { runWithOrg } from '../../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -34,7 +37,7 @@ describe('ProductsService', () => {
     jest.clearAllMocks();
   });
 
-  it('create persists product with codes', async () => {
+  it('create persists product with codes', inOrg(async () => {
     const dto = {
       name: 'Apósito X',
       type: ProductType.INSUMO,
@@ -46,9 +49,9 @@ describe('ProductsService', () => {
     const result = await service.create(dto as any);
     expect(productRepo.save).toHaveBeenCalled();
     expect(result.id).toBe(5);
-  });
+  }));
 
-  it('upsertByCode updates existing when code matches', async () => {
+  it('upsertByCode updates existing when code matches', inOrg(async () => {
     codeRepo.findOne.mockResolvedValue({ id: 9, productId: 7, codeSystem: CodeSystem.AVIS_QUILPUE, code: '1778' });
     productRepo.findOne.mockResolvedValue({ id: 7, name: 'Old', type: 'INSUMO', packaging: 'UNIDAD' });
     productRepo.save.mockResolvedValue({ id: 7, name: 'New', type: 'INSUMO', packaging: 'UNIDAD' });
@@ -59,9 +62,9 @@ describe('ProductsService', () => {
     );
     expect(result.action).toBe('updated');
     expect(productRepo.save).toHaveBeenCalled();
-  });
+  }));
 
-  it('upsertByCode creates new when no code matches', async () => {
+  it('upsertByCode creates new when no code matches', inOrg(async () => {
     codeRepo.findOne.mockResolvedValue(null);
     productRepo.save.mockResolvedValue({ id: 8, name: 'New', type: 'INSUMO', packaging: 'UNIDAD' });
     codeRepo.save.mockResolvedValue({ id: 1, productId: 8, codeSystem: CodeSystem.AVIS_QUILPUE, code: '999' });
@@ -71,10 +74,10 @@ describe('ProductsService', () => {
       { name: 'New', type: ProductType.INSUMO, packaging: 'UNIDAD' },
     );
     expect(result.action).toBe('created');
-  });
+  }));
 
-  it('findById throws when missing', async () => {
+  it('findById throws when missing', inOrg(async () => {
     productRepo.findOne.mockResolvedValue(null);
     await expect(service.findById(404)).rejects.toThrow(NotFoundException);
-  });
+  }));
 });

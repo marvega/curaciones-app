@@ -43,7 +43,17 @@ import { MovementsModule } from './inventory/movements/movements.module';
 import { StockCountsModule } from './inventory/stock-counts/stock-counts.module';
 import { CanastaModule } from './inventory/canasta/canasta.module';
 import { AuditExportModule } from './inventory/audit-export/audit-export.module';
+import { KmsModule } from './kms/kms.module';
+import { EmailModule } from './email/email.module';
 import { BootstrapService } from './bootstrap.service';
+import { OrgContextInterceptor } from './common/org-context.interceptor';
+import { OrgScopeSubscriber } from './common/org-scope.subscriber';
+import { Organization } from './organizations/organization.entity';
+import { OrganizationMembership } from './organizations/organization-membership.entity';
+import { UserEstablishmentAssignment } from './establishments/user-establishment-assignment.entity';
+import { RefreshToken } from './auth/refresh-token.entity';
+import { Invitation } from './auth/invitation.entity';
+import { PasswordResetToken } from './auth/password-reset-token.entity';
 
 @Module({
   imports: [
@@ -58,11 +68,13 @@ import { BootstrapService } from './bootstrap.service';
         };
       },
     }),
+    KmsModule,
+    EmailModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct],
-      synchronize: process.env.NODE_ENV !== 'production',
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct, Organization, OrganizationMembership, UserEstablishmentAssignment, RefreshToken, Invitation, PasswordResetToken],
+      synchronize: false,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       extra: {
         max: parseInt(process.env.DB_POOL_MAX ?? '3', 10),
@@ -92,8 +104,10 @@ import { BootstrapService } from './bootstrap.service';
   controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: PerUserThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     BootstrapService,
+    OrgScopeSubscriber,
   ],
 })
 export class AppModule {}

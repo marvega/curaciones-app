@@ -5,17 +5,24 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Curacion } from './curacion.entity';
 import { User } from '../users/user.entity';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
+@OrgScoped()
 @Entity('curacion_edits')
+@Index('IDX_curacion_edit_org', ['organizationId'])
 export class CuracionEdit {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
   curacionId: number;
+
+  @Column({ type: 'bigint' })
+  organizationId: string;
 
   @Column()
   editedById: number;

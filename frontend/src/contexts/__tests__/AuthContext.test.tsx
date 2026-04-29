@@ -79,7 +79,9 @@ describe('AuthContext', () => {
     });
 
     expect(screen.getByTestId('token')).toHaveTextContent('new-token');
-    expect(localStorage.getItem('curaciones_token')).toBe('new-token');
+    // AuthContext now writes to the new ACCESS_KEY; the legacy 'curaciones_token'
+    // is only read for backward compatibility, never written.
+    expect(localStorage.getItem('curaciones_access_token')).toBe('new-token');
   });
 
   it('logout clears state', async () => {

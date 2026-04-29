@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AuditLogService } from './audit-log.service';
+import { AuditChainService } from './audit-chain.service';
 import { AuditLog, AuditAction } from './audit-log.entity';
 
 describe('AuditLogService', () => {
@@ -15,10 +16,29 @@ describe('AuditLogService', () => {
       findAndCount: jest.fn().mockResolvedValue([[], 0]),
     };
 
+    // The new log() runs inside dataSource.transaction. Stub the transaction to
+    // immediately invoke the callback with a fake EntityManager that exposes
+    // the repo we mocked above plus a stub for the raw `query` used to read
+    // the chain head.
+    const fakeManager = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: jest.fn().mockReturnValue(repo),
+    };
+    const mockDataSource: Partial<DataSource> = {
+      transaction: jest.fn().mockImplementation((cb: any) => cb(fakeManager)),
+    };
+
+    const mockChain: Partial<AuditChainService> = {
+      computePayloadHash: jest.fn().mockReturnValue('payload-hash'),
+      computeChainHash: jest.fn().mockReturnValue('chain-hash'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuditLogService,
         { provide: getRepositoryToken(AuditLog), useValue: repo },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditChainService, useValue: mockChain },
       ],
     }).compile();
 
@@ -30,6 +50,7 @@ describe('AuditLogService', () => {
       await service.log({
         userId: 1,
         username: 'admin',
+        organizationId: '1',
         action: AuditAction.CREATE,
         entity: 'Patient',
         entityId: 42,
