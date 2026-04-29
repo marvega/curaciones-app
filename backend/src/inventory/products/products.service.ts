@@ -5,6 +5,8 @@ import { Product, ProductType } from './product.entity';
 import { ProductCode, CodeSystem } from './product-code.entity';
 import { CreateProductDto } from './create-product.dto';
 import { UpdateProductDto } from './update-product.dto';
+import { findScoped, findOneScoped } from '../../common/org-scoped.repository';
+import { getCurrentOrgId } from '../../common/org-context';
 
 interface UpsertResult {
   action: 'created' | 'updated' | 'unchanged';
@@ -35,15 +37,17 @@ export class ProductsService {
   }
 
   async findById(id: number): Promise<Product> {
-    const p = await this.productRepo.findOne({ where: { id }, relations: ['codes'] });
+    const p = await findOneScoped(this.productRepo, { where: { id }, relations: ['codes'] });
     if (!p) throw new NotFoundException(`Product ${id} not found`);
     return p;
   }
 
   async list(opts: { search?: string; type?: ProductType; page?: number; limit?: number }) {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const page = opts.page ?? 1;
     const limit = Math.min(opts.limit ?? 50, 5000);
-    const where: any = {};
+    const where: any = { organizationId: orgId };
     if (opts.search) where.name = ILike(`%${opts.search}%`);
     if (opts.type) where.type = opts.type;
     const [data, total] = await this.productRepo.findAndCount({
@@ -57,7 +61,7 @@ export class ProductsService {
   }
 
   async listAll(): Promise<Product[]> {
-    return this.productRepo.find({ order: { name: 'ASC' }, relations: ['codes'] });
+    return findScoped(this.productRepo, { order: { name: 'ASC' }, relations: ['codes'] });
   }
 
   async update(id: number, dto: UpdateProductDto): Promise<Product> {
@@ -82,7 +86,7 @@ export class ProductsService {
   ): Promise<UpsertResult> {
     const existing = await this.codeRepo.findOne({ where: codeRef });
     if (existing) {
-      const product = await this.productRepo.findOne({ where: { id: existing.productId } });
+      const product = await findOneScoped(this.productRepo, { where: { id: existing.productId } });
       if (!product) throw new NotFoundException('Inconsistent code without product');
       const changed =
         product.name !== productData.name ||
