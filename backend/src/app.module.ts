@@ -44,6 +44,7 @@ import { StockCountsModule } from './inventory/stock-counts/stock-counts.module'
 import { CanastaModule } from './inventory/canasta/canasta.module';
 import { AuditExportModule } from './inventory/audit-export/audit-export.module';
 import { KmsModule } from './kms/kms.module';
+import { EmailModule } from './email/email.module';
 import { BootstrapService } from './bootstrap.service';
 import { OrgContextMiddleware } from './common/org-context.middleware';
 import { OrgScopeSubscriber } from './common/org-scope.subscriber';
@@ -62,6 +63,7 @@ import { OrgScopeSubscriber } from './common/org-scope.subscriber';
       },
     }),
     KmsModule,
+    EmailModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
