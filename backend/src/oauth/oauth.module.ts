@@ -14,6 +14,6 @@ import { OAuthRevocation } from './entities/oauth-revocation.entity';
   ],
   controllers: [],
   providers: [],
-  exports: [],
+  exports: [TypeOrmModule],
 })
 export class OAuthModule {}
