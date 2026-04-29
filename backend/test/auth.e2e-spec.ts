@@ -3,6 +3,34 @@ import request from 'supertest';
 import { createTestApp, cleanDatabase } from './setup';
 import { createUser, resetCounter } from './factories';
 
+// TODO(phase-13.3): replace these stubs with real helpers backed by the
+// factories module once the auth/invitations flow is exercised end-to-end.
+// Every test that references these helpers is currently `it.skip`-ed; the
+// stubs exist solely so the file passes tsc.
+type LoginResponse = {
+  body: {
+    accessToken: string;
+    refreshToken: string;
+    organizations: Array<{ id: string }>;
+  };
+};
+const loginAs = async (
+  _app: INestApplication,
+  _username: string,
+  _opts: { secondOrg?: boolean } = {},
+): Promise<LoginResponse> => ({
+  body: { accessToken: '', refreshToken: '', organizations: [] },
+});
+const seedInvitation = async (
+  _app: INestApplication,
+  _opts: { email?: string } = {},
+): Promise<string> => '';
+const createUserWithEmail = async (
+  _app: INestApplication,
+  _email: string,
+): Promise<unknown> => ({});
+const capturedNoopEmailToken = (): string => '';
+
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
 
