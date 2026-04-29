@@ -57,6 +57,24 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+### Test database
+
+E2E and org-isolation specs run against a separate Postgres database
+(default: `postgresql://curaciones:curaciones@localhost:5433/curaciones_test`,
+configured in `backend/.env.test`). Override with `TEST_DATABASE_URL` if
+needed.
+
+`npm run test:e2e` is preceded by `pretest:e2e`, which applies pending
+migrations to the test DB. Migrations are now the single source of truth
+for schema (`synchronize` is disabled in all environments), so after
+pulling new entity changes you must run:
+
+```bash
+npm run migration:run
+```
+
+against your local dev database too.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
