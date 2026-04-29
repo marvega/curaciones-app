@@ -47,4 +47,11 @@ export class AuthController {
       await this.sessions.revokeByJti(user.id, payload.jti);
     }
   }
+
+  @Post('logout-all')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  async logoutAll(@CurrentUser() user: any) {
+    await this.authService.logoutAll(user.id);
+  }
 }

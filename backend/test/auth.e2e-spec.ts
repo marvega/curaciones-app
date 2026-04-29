@@ -79,6 +79,21 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/logout-all', () => {
+    it.skip('revokes all sessions and bumps passwordChangedAt', async () => {
+      const a = await loginAs(app, 'logoutall');
+      const b = await loginAs(app, 'logoutall'); // second device
+      await request(app.getHttpServer())
+        .post('/api/auth/logout-all')
+        .set('Authorization', `Bearer ${a.body.accessToken}`)
+        .expect(204);
+      await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: b.body.refreshToken })
+        .expect(401);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())

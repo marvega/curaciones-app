@@ -89,6 +89,11 @@ export class AuthService {
     };
   }
 
+  async logoutAll(userId: number) {
+    await this.sessions.revokeAllForUser(userId);
+    await this.userRepo.update(userId, { passwordChangedAt: new Date() });
+  }
+
   async refresh(refreshToken: string, payload: { sub: number; jti: string }, ip?: string, ua?: string | null) {
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException();
