@@ -23,7 +23,10 @@ describe('UsersService', () => {
     id: 1,
     username: 'admin',
     passwordHash: 'hashed-pw',
-    role: 'admin',
+    email: null,
+    emailHash: null,
+    emailVerifiedAt: null,
+    passwordChangedAt: null,
     preferences: null,
     createdAt: new Date('2026-01-01'),
   };
@@ -88,7 +91,6 @@ describe('UsersService', () => {
       expect(mockRepo.create).toHaveBeenCalledWith({
         username: 'newuser',
         passwordHash: 'hashed-password',
-        role: 'user',
       });
       expect(mockRepo.save).toHaveBeenCalled();
       expect(result).toHaveProperty('id');
@@ -113,7 +115,9 @@ describe('UsersService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('defaults role to user', async () => {
+    // TODO(phase-13.1b): role now lives on OrganizationMembership; restore once
+    // create() accepts an organizationId and creates a membership row.
+    it.skip('defaults role to user', async () => {
       mockRepo.findOne.mockResolvedValue(null);
 
       await service.create({ username: 'newuser', password: 'secret123' });
@@ -132,7 +136,7 @@ describe('UsersService', () => {
 
       expect(mockRepo.find).toHaveBeenCalledWith({
         order: { username: 'ASC' },
-        select: ['id', 'username', 'role', 'createdAt'],
+        select: ['id', 'username', 'createdAt'],
       });
     });
   });

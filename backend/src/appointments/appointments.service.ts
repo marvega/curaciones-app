@@ -8,6 +8,8 @@ import { Repository, MoreThan, EntityManager } from 'typeorm';
 import { Appointment } from './appointment.entity';
 import { CreateAppointmentDto } from './create-appointment.dto';
 import { getSlotsForDate } from '../common/schedule.util';
+import { findScoped, findOneScoped } from '../common/org-scoped.repository';
+import { getCurrentOrgId } from '../common/org-context';
 
 @Injectable()
 export class AppointmentsService {
@@ -29,7 +31,7 @@ export class AppointmentsService {
       throw new BadRequestException('La fecha debe ser futura');
     }
 
-    const existing = await this.appointmentRepo.findOne({
+    const existing = await findOneScoped(this.appointmentRepo, {
       where: { date: dto.date, time: dto.time },
     });
     if (existing) {
@@ -49,6 +51,8 @@ export class AppointmentsService {
     time: string,
     manager?: EntityManager,
   ): Promise<Appointment> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const repo = manager
       ? manager.getRepository(Appointment)
       : this.appointmentRepo;
@@ -60,7 +64,7 @@ export class AppointmentsService {
       );
     }
 
-    const existing = await repo.findOne({ where: { date, time } });
+    const existing = await repo.findOne({ where: { date, time, organizationId: orgId } });
     if (existing) {
       throw new BadRequestException(
         `El horario ${time} del ${date} ya está ocupado`,
@@ -72,7 +76,7 @@ export class AppointmentsService {
   }
 
   async remove(id: number): Promise<void> {
-    const appointment = await this.appointmentRepo.findOne({ where: { id } });
+    const appointment = await findOneScoped(this.appointmentRepo, { where: { id } });
     if (!appointment) {
       throw new NotFoundException(`Cita con id ${id} no encontrada`);
     }
@@ -80,8 +84,10 @@ export class AppointmentsService {
   }
 
   async removeWithManager(id: number, manager: EntityManager): Promise<void> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const repo = manager.getRepository(Appointment);
-    const appointment = await repo.findOne({ where: { id } });
+    const appointment = await repo.findOne({ where: { id, organizationId: orgId } });
     if (!appointment) {
       throw new NotFoundException(`Cita con id ${id} no encontrada`);
     }
@@ -89,7 +95,7 @@ export class AppointmentsService {
   }
 
   async findByPatient(patientId: number): Promise<Appointment[]> {
-    return this.appointmentRepo.find({
+    return findScoped(this.appointmentRepo, {
       where: { patientId },
       relations: ['curacion'],
       order: { date: 'ASC', time: 'ASC' },
@@ -98,7 +104,7 @@ export class AppointmentsService {
 
   async findFutureByPatient(patientId: number): Promise<Appointment[]> {
     const today = new Date().toISOString().split('T')[0];
-    return this.appointmentRepo.find({
+    return findScoped(this.appointmentRepo, {
       where: { patientId, date: MoreThan(today) },
       order: { date: 'ASC', time: 'ASC' },
     });
@@ -108,6 +114,8 @@ export class AppointmentsService {
     patientId: number,
     manager?: EntityManager,
   ): Promise<number> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const today = new Date().toISOString().split('T')[0];
     const repo = manager
       ? manager.getRepository(Appointment)
@@ -115,9 +123,10 @@ export class AppointmentsService {
     const result = await repo
       .createQueryBuilder()
       .delete()
-      .where('"patientId" = :patientId AND date > :today', {
+      .where('"patientId" = :patientId AND date > :today AND "organizationId" = :orgId', {
         patientId,
         today,
+        orgId,
       })
       .execute();
     return result.affected || 0;
@@ -125,7 +134,7 @@ export class AppointmentsService {
 
   async getAvailability(date: string): Promise<any[]> {
     const slots = getSlotsForDate(date);
-    const appointments = await this.appointmentRepo.find({
+    const appointments = await findScoped(this.appointmentRepo, {
       where: { date },
       relations: ['patient'],
     });
@@ -148,11 +157,14 @@ export class AppointmentsService {
   }
 
   async getAgenda(from: string, to: string): Promise<any[]> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const appointments = await this.appointmentRepo
       .createQueryBuilder('apt')
       .leftJoinAndSelect('apt.patient', 'patient')
       .leftJoinAndSelect('apt.curacion', 'curacion')
       .where('apt.date >= :from AND apt.date <= :to', { from, to })
+      .andWhere('apt.organizationId = :orgId', { orgId })
       .orderBy('apt.date', 'ASC')
       .addOrderBy('apt.time', 'ASC')
       .getMany();
@@ -175,7 +187,7 @@ export class AppointmentsService {
   }
 
   async findByCuracionId(curacionId: number): Promise<Appointment | null> {
-    return this.appointmentRepo.findOne({ where: { curacionId } });
+    return findOneScoped(this.appointmentRepo, { where: { curacionId } });
   }
 
   async updateLinked(
@@ -184,11 +196,13 @@ export class AppointmentsService {
     time: string,
     manager?: EntityManager,
   ): Promise<Appointment> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const repo = manager
       ? manager.getRepository(Appointment)
       : this.appointmentRepo;
 
-    const appointment = await repo.findOne({ where: { id: appointmentId } });
+    const appointment = await repo.findOne({ where: { id: appointmentId, organizationId: orgId } });
     if (!appointment) {
       throw new NotFoundException(`Cita con id ${appointmentId} no encontrada`);
     }
@@ -200,7 +214,7 @@ export class AppointmentsService {
       );
     }
 
-    const existing = await repo.findOne({ where: { date, time } });
+    const existing = await repo.findOne({ where: { date, time, organizationId: orgId } });
     if (existing && existing.id !== appointmentId) {
       throw new BadRequestException(
         `El horario ${time} del ${date} ya está ocupado`,

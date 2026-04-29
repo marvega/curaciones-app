@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MonthlyCycle } from './cycle.entity';
 import { UpsertCycleDto } from './cycle.dto';
+import { findScoped, findOneScoped } from '../common/org-scoped.repository';
 
 @Injectable()
 export class CyclesService {
@@ -12,14 +13,14 @@ export class CyclesService {
   ) {}
 
   async getCyclesByYear(year: number): Promise<MonthlyCycle[]> {
-    return this.cycleRepo.find({
+    return findScoped(this.cycleRepo, {
       where: { year },
       order: { month: 'ASC' },
     });
   }
 
   async getCycle(year: number, month: number): Promise<MonthlyCycle | null> {
-    return this.cycleRepo.findOne({ where: { year, month } });
+    return findOneScoped(this.cycleRepo, { where: { year, month } });
   }
 
   /**
@@ -42,7 +43,7 @@ export class CyclesService {
   }
 
   async upsertCycle(dto: UpsertCycleDto): Promise<MonthlyCycle> {
-    const existing = await this.cycleRepo.findOne({
+    const existing = await findOneScoped(this.cycleRepo, {
       where: { year: dto.year, month: dto.month },
     });
     if (existing) {

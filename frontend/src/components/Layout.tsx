@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AlertBanner from './AlertBanner';
 import ExpiringLotsBanner from './ExpiringLotsBanner';
+import { OrgSwitcher } from './OrgSwitcher';
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +19,8 @@ import {
   Moon,
   Sun,
   Package,
+  UserCircle,
+  Building2,
 } from 'lucide-react';
 
 const navItems = [
@@ -50,7 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 export default function Layout() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, currentOrg } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -176,7 +179,41 @@ export default function Layout() {
               <Package className="w-5 h-5 shrink-0" />
               {(!collapsed || mobile) && 'Canasta Admin'}
             </NavLink>
+            <NavLink
+              to="/org/members"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Mi organización' : undefined}
+            >
+              <Building2 className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Mi organización'}
+            </NavLink>
           </>
+        )}
+        {(currentOrg?.role || user) && (
+          <NavLink
+            to="/account/sessions"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+              } ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`
+            }
+            title={collapsed && !mobile ? 'Mi cuenta' : undefined}
+          >
+            <UserCircle className="w-5 h-5 shrink-0" />
+            {(!collapsed || mobile) && 'Mi cuenta'}
+          </NavLink>
         )}
       </nav>
 
@@ -252,6 +289,7 @@ export default function Layout() {
           <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">{pageTitle}</h1>
 
           <div className="ml-auto flex items-center gap-3">
+            <OrgSwitcher />
             <span className="hidden sm:block text-sm text-slate-500 dark:text-slate-400">
               {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>

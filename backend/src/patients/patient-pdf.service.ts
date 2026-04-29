@@ -1,10 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type {
   TCreatedPdf,
   TDocumentDefinitions,
   TFontDictionary,
 } from 'pdfmake/interfaces';
+import { KMS_SERVICE } from '../kms/kms.service';
+import type { KmsService } from '../kms/kms.service';
+import type { EncryptedField } from '../kms/encrypted-field';
+import { getCurrentOrgId } from '../common/org-context';
 
 interface PdfMakeServer {
   setFonts(fonts: TFontDictionary): void;
@@ -109,7 +113,16 @@ export class PatientPdfService {
     private appointmentRepo: Repository<Appointment>,
     @InjectRepository(PatientStatusChange)
     private statusChangeRepo: Repository<PatientStatusChange>,
+    @Inject(KMS_SERVICE) private readonly kms: KmsService,
   ) {}
+
+  private requireOrgId(): string {
+    const orgId = getCurrentOrgId();
+    if (!orgId) {
+      throw new Error('No organization context — cannot decrypt patient PII');
+    }
+    return orgId;
+  }
 
   async generatePdf(patientId: number): Promise<Buffer> {
     const patient = await this.patientRepo.findOne({
@@ -133,7 +146,7 @@ export class PatientPdfService {
       }),
     ]);
 
-    const data = this.buildFichaData(
+    const data = await this.buildFichaData(
       patient,
       curaciones,
       appointments,
@@ -142,18 +155,53 @@ export class PatientPdfService {
     return this.renderPdf(buildFichaDocDef(data));
   }
 
-  private buildFichaData(
+  private async buildFichaData(
     patient: Patient,
     curaciones: Curacion[],
     appointments: Appointment[],
     statusChanges: PatientStatusChange[],
-  ): FichaData {
-    const fichaCuraciones: FichaCuracion[] = curaciones.map((c) => ({
-      fecha: formatDateCL(c.date),
-      tipo: CURACION_TYPE_LABELS[c.type] ?? c.type,
-      cantidad: c.quantity || 1,
-      obs: c.observations ?? '',
-    }));
+  ): Promise<FichaData> {
+    const orgId = this.requireOrgId();
+
+    // Decrypt patient PII fields.
+    const rutPlain = await this.kms.decrypt(
+      patient.rut as EncryptedField,
+      `Patient.rut:${patient.id}`,
+      orgId,
+    );
+    const phonePlain = patient.phone
+      ? await this.kms.decrypt(
+          patient.phone as EncryptedField,
+          `Patient.phone:${patient.id}`,
+          orgId,
+        )
+      : null;
+    const addressPlain = patient.address
+      ? await this.kms.decrypt(
+          patient.address as EncryptedField,
+          `Patient.address:${patient.id}`,
+          orgId,
+        )
+      : null;
+
+    // Decrypt observations on each curación in parallel.
+    const fichaCuraciones: FichaCuracion[] = await Promise.all(
+      curaciones.map(async (c) => {
+        const obs = c.observations
+          ? await this.kms.decrypt(
+              c.observations as EncryptedField,
+              `Curacion.observations:${c.id}`,
+              orgId,
+            )
+          : '';
+        return {
+          fecha: formatDateCL(c.date),
+          tipo: CURACION_TYPE_LABELS[c.type] ?? c.type,
+          cantidad: c.quantity || 1,
+          obs,
+        };
+      }),
+    );
 
     const fichaCitas: FichaCita[] = appointments.map((a) => ({
       fecha: formatDateCL(a.date),
@@ -170,12 +218,12 @@ export class PatientPdfService {
       folio: formatFolio(patient.id),
       generado: formatDateTimeCL(new Date()),
       nombre: `${patient.firstName} ${patient.lastName}`,
-      rut: patient.rut,
+      rut: rutPlain,
       nacimiento: formatDateCL(patient.birthDate),
       edad: computeAge(patient.birthDate),
       genero: patient.gender,
-      telefono: patient.phone || 'No registrado',
-      direccion: patient.address || 'No registrada',
+      telefono: phonePlain || 'No registrado',
+      direccion: addressPlain || 'No registrada',
       estado: STATUS_LABELS[patient.status] ?? patient.status,
       curaciones: fichaCuraciones,
       citas: fichaCitas,

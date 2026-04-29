@@ -10,6 +10,10 @@ import {
 } from './patient-status-change.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Appointment } from '../appointments/appointment.entity';
+import { KMS_SERVICE } from '../kms/kms.service';
+import { runWithOrg } from '../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
 describe('PatientPdfService', () => {
   let service: PatientPdfService;
@@ -34,17 +38,25 @@ describe('PatientPdfService', () => {
           provide: getRepositoryToken(PatientStatusChange),
           useValue: mockStatusChangeRepo,
         },
+        {
+          provide: KMS_SERVICE,
+          useValue: {
+            encrypt: jest.fn(async () => ({ v: 1, k: '', iv: '', c: '', t: '', aad: '' })),
+            decrypt: jest.fn(async () => 'fake-plaintext'),
+            rotateDek: jest.fn(),
+          },
+        },
       ],
     }).compile();
     service = moduleRef.get(PatientPdfService);
   });
 
-  it('throws NotFoundException when patient does not exist', async () => {
+  it('throws NotFoundException when patient does not exist', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue(null);
     await expect(service.generatePdf(999)).rejects.toThrow(NotFoundException);
-  });
+  }));
 
-  it('returns a Buffer with PDF magic bytes for an existing patient', async () => {
+  it('returns a Buffer with PDF magic bytes for an existing patient', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue({
       id: 42,
       firstName: 'María',
@@ -87,9 +99,9 @@ describe('PatientPdfService', () => {
     expect(Buffer.isBuffer(pdf)).toBe(true);
     expect(pdf.length).toBeGreaterThan(1000);
     expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
-  });
+  }));
 
-  it('handles a patient with no curaciones, citas or historial', async () => {
+  it('handles a patient with no curaciones, citas or historial', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue({
       id: 7,
       firstName: 'Juan',
@@ -108,5 +120,5 @@ describe('PatientPdfService', () => {
     const pdf = await service.generatePdf(7);
 
     expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
-  });
+  }));
 });

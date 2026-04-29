@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WoundPhoto } from './wound-photo.entity';
+import { findScoped, findOneScoped } from '../common/org-scoped.repository';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -41,7 +42,7 @@ export class WoundPhotosService {
   }
 
   async findByPatient(patientId: number): Promise<WoundPhoto[]> {
-    return this.photoRepo.find({
+    return findScoped(this.photoRepo, {
       where: { patientId },
       relations: ['uploadedBy'],
       order: { photoDate: 'DESC', createdAt: 'DESC' },
@@ -49,7 +50,7 @@ export class WoundPhotosService {
   }
 
   async remove(id: number): Promise<void> {
-    const photo = await this.photoRepo.findOne({ where: { id } });
+    const photo = await findOneScoped(this.photoRepo, { where: { id } });
     if (!photo) throw new NotFoundException('Foto no encontrada');
 
     // Delete file from disk

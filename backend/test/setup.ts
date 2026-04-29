@@ -27,8 +27,21 @@ export async function createTestApp(): Promise<INestApplication> {
 export async function cleanDatabase(app: INestApplication): Promise<void> {
   const dataSource = app.get(DataSource);
   const entities = dataSource.entityMetadatas;
-  for (const entity of entities) {
-    const repo = dataSource.getRepository(entity.name);
-    await repo.query(`TRUNCATE TABLE "${entity.tableName}" CASCADE`);
+  const tables = entities.map((e) => `"${e.tableName}"`).join(', ');
+  // Single TRUNCATE statement covering every entity table; this avoids
+  // deadlocks caused by issuing one CASCADE TRUNCATE per table while FKs are
+  // still being recomputed between statements. Brief retry handles the
+  // occasional cross-suite deadlock when previous BootstrapService inserts
+  // are still flushing on the connection pool.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await dataSource.query(`TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE`);
+      return;
+    } catch (err: any) {
+      if (attempt === 2 || !/deadlock detected/i.test(err?.message ?? '')) {
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
   }
 }

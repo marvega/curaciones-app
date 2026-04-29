@@ -5,22 +5,27 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable, tap } from 'rxjs';
+import { v4 as uuid } from 'uuid';
 import { AuditLogService } from './audit-log.service';
 import { AuditAction } from './audit-log.entity';
 
 const SKIP_PATHS = [
   '/api/auth/login',
+  '/api/auth/refresh',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/invitations/preview',
+  '/api/auth/invitations/accept',
   '/api/health',
   '/api/users/seed',
   '/api/patients/seed',
   '/api/inventory/products/import',
 ];
 
-// Paths with their own audit trail: [pattern, method]
 const CUSTOM_AUDIT_PATHS: Array<{ pattern: RegExp; method: string }> = [
-  { pattern: /^\/api\/curaciones\/\d+$/, method: 'PUT' },       // CuracionEdit
-  { pattern: /^\/api\/patients\/\d+\/discharge$/, method: 'POST' },  // PatientStatusChange
-  { pattern: /^\/api\/patients\/\d+\/readmit$/, method: 'POST' },    // PatientStatusChange
+  { pattern: /^\/api\/curaciones\/\d+$/, method: 'PUT' },
+  { pattern: /^\/api\/patients\/\d+\/discharge$/, method: 'POST' },
+  { pattern: /^\/api\/patients\/\d+\/readmit$/, method: 'POST' },
 ];
 
 @Injectable()
@@ -28,24 +33,18 @@ export class AuditLogInterceptor implements NestInterceptor {
   constructor(private readonly auditLogService: AuditLogService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const { method, path, body, user, ip } = request;
+    const req = context.switchToHttp().getRequest();
+    const { method, path, body, user, ip, headers } = req;
 
-    // Only audit write operations
     if (!['POST', 'PUT', 'DELETE'].includes(method)) {
       return next.handle();
     }
-
-    // Skip paths that don't need auditing
     if (SKIP_PATHS.includes(path)) {
       return next.handle();
     }
-
-    // Skip paths that have their own audit trail
-    if (CUSTOM_AUDIT_PATHS.some((entry) => entry.pattern.test(path) && method === entry.method)) {
+    if (CUSTOM_AUDIT_PATHS.some((e) => e.pattern.test(path) && method === e.method)) {
       return next.handle();
     }
-
     if (!user) {
       return next.handle();
     }
@@ -56,10 +55,10 @@ export class AuditLogInterceptor implements NestInterceptor {
         ? AuditAction.UPDATE
         : AuditAction.DELETE;
 
-    // Extract entity name and ID from path
     const pathParts = path.replace('/api/', '').split('/');
     const entity = pathParts[0];
     const entityId = parseInt(pathParts[1], 10) || 0;
+    const requestId: string = headers['x-request-id'] || uuid();
 
     return next.handle().pipe(
       tap((responseBody) => {
@@ -67,14 +66,17 @@ export class AuditLogInterceptor implements NestInterceptor {
         this.auditLogService.log({
           userId: user.id || user.sub,
           username: user.username,
+          organizationId: String(user.organizationId),
+          establishmentId: user.establishmentId ?? null,
           action,
           entity,
           entityId: logEntityId,
           payload: method !== 'DELETE' ? body : undefined,
+          afterJson: method !== 'DELETE' ? responseBody : undefined,
           ipAddress: ip,
-        }).catch(() => {
-          // Audit log failure should not break the request
-        });
+          userAgent: headers['user-agent'] ?? null,
+          requestId,
+        }).catch(() => {/* never break the request */});
       }),
     );
   }

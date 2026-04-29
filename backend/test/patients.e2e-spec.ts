@@ -61,7 +61,10 @@ describe('PatientsController (e2e)', () => {
     });
 
     it('should return 409 for duplicate RUT', async () => {
-      await createPatient(app, { rut: '12345678-9' });
+      // TODO(phase-13.3): factory should accept plaintext RUT and encrypt
+      // via KMS. For now, the rut field is a fixture-only EncryptedField and
+      // the duplicate check runs against rutHash (set by the factory).
+      await createPatient(app, { rut: '12345678-9' } as any);
 
       await request(app.getHttpServer())
         .post('/api/patients')
@@ -95,7 +98,8 @@ describe('PatientsController (e2e)', () => {
     });
 
     it('should search by RUT', async () => {
-      const patient = await createPatient(app, { rut: '99999999-K' });
+      // TODO(phase-13.3): factory should accept plaintext RUT and encrypt.
+      const patient = await createPatient(app, { rut: '99999999-K' } as any);
 
       const res = await request(app.getHttpServer())
         .get('/api/patients?rut=99999999-K')
@@ -109,11 +113,12 @@ describe('PatientsController (e2e)', () => {
 
   describe('GET /api/patients/:id', () => {
     it('should return a single patient', async () => {
+      // TODO(phase-13.3): factory should accept plaintext RUT and encrypt.
       const patient = await createPatient(app, {
         rut: '11111111-1',
         firstName: 'Ana',
         lastName: 'Garcia',
-      });
+      } as any);
 
       const res = await request(app.getHttpServer())
         .get(`/api/patients/${patient.id}`)

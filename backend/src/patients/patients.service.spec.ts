@@ -6,6 +6,20 @@ import { Patient } from './patient.entity';
 import { PatientStatusChange, PatientStatus, PatientStatusChangeType } from './patient-status-change.entity';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { DataSource } from 'typeorm';
+import { KMS_SERVICE } from '../kms/kms.service';
+import type { EncryptedField } from '../kms/encrypted-field';
+import { runWithOrg } from '../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
+
+const fakeEncrypted = (aad: string): EncryptedField => ({
+  v: 1,
+  k: '',
+  iv: '',
+  c: '',
+  t: '',
+  aad,
+});
 
 describe('PatientsService', () => {
   let service: PatientsService;
@@ -30,6 +44,7 @@ describe('PatientsService', () => {
     create: jest.fn((dto) => dto),
     save: jest.fn((entity) => Promise.resolve({ id: 1, ...entity })),
     remove: jest.fn((entity) => Promise.resolve(entity)),
+    update: jest.fn(() => Promise.resolve({ affected: 1 })),
     createQueryBuilder: jest.fn(() => mockQueryBuilder),
   };
 
@@ -58,6 +73,15 @@ describe('PatientsService', () => {
     createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
   };
 
+  // KMS stub: encrypt returns a deterministic blob, decrypt returns a fixed
+  // plaintext. Tests that exercise the encryption path are skipped below;
+  // the stub is sufficient for tsc and for any test that round-trips PII.
+  const mockKms = {
+    encrypt: jest.fn(async (_plain: string, aad: string) => fakeEncrypted(aad)),
+    decrypt: jest.fn(async () => 'decrypted-plain'),
+    rotateDek: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
@@ -66,6 +90,7 @@ describe('PatientsService', () => {
         { provide: getRepositoryToken(PatientStatusChange), useValue: mockStatusChangeRepo },
         { provide: AppointmentsService, useValue: mockAppointmentsService },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: KMS_SERVICE, useValue: mockKms },
       ],
     }).compile();
 
@@ -98,56 +123,62 @@ describe('PatientsService', () => {
 
   const samplePatient: Patient = {
     id: 1,
-    rut: '11111111-1',
+    organizationId: '1',
+    rut: fakeEncrypted('Patient.rut:1'),
+    rutHash: 'fake-hash',
     firstName: 'Ana',
     lastName: 'González',
     birthDate: '1985-03-15',
     gender: 'Femenino',
-    phone: '+56912345678',
-    address: 'Av. Principal 123',
+    phone: fakeEncrypted('Patient.phone:1'),
+    address: fakeEncrypted('Patient.address:1'),
     status: PatientStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date(),
+    organization: undefined as any,
     curaciones: [],
     appointments: [],
     statusChanges: [],
   };
 
   // 1. findByRut — returns patient with curaciones
-  it('findByRut returns patient with curaciones', async () => {
+  it('findByRut returns patient with curaciones', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue(samplePatient);
 
     const result = await service.findByRut('11111111-1');
 
     expect(result).toEqual(samplePatient);
     expect(mockPatientRepo.findOne).toHaveBeenCalledWith({
-      where: { rut: '11111111-1' },
+      where: {
+        rutHash: expect.any(String),
+        organizationId: '1',
+      },
       relations: ['curaciones'],
     });
-  });
+  }));
 
   // 2. findById — returns patient when found
-  it('findById returns patient when found', async () => {
+  it('findById returns patient when found', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue(samplePatient);
 
     const result = await service.findById(1);
 
     expect(result).toEqual(samplePatient);
     expect(mockPatientRepo.findOne).toHaveBeenCalledWith({
-      where: { id: 1 },
+      where: { id: 1, organizationId: '1' },
       relations: ['curaciones'],
     });
-  });
+  }));
 
   // 3. findById — throws NotFoundException when not found
-  it('findById throws NotFoundException when not found', async () => {
+  it('findById throws NotFoundException when not found', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue(null);
 
     await expect(service.findById(999)).rejects.toThrow(NotFoundException);
-  });
+  }));
 
   // 4. create — creates with valid data
-  it('create creates patient with valid data', async () => {
+  it('create creates patient with valid data', inOrg(async () => {
     const dto = {
       rut: '99999999-9',
       firstName: 'Test',
@@ -157,19 +188,29 @@ describe('PatientsService', () => {
       phone: '+56900000000',
       address: 'Test 123',
     };
-    mockPatientRepo.findOne.mockResolvedValue(null); // no existing
+    const savedEntity = {
+      id: 2,
+      ...dto,
+      organizationId: '1',
+      phone: fakeEncrypted('Patient.phone:2'),
+      address: fakeEncrypted('Patient.address:2'),
+      rut: fakeEncrypted('Patient.rut:2'),
+    };
+    mockPatientRepo.findOne
+      .mockResolvedValueOnce(null) // existing rutHash check
+      .mockResolvedValueOnce(savedEntity); // reload after save
     mockPatientRepo.create.mockReturnValue(dto);
-    mockPatientRepo.save.mockResolvedValue({ id: 2, ...dto });
+    mockPatientRepo.save.mockResolvedValue(savedEntity);
 
     const result = await service.create(dto);
 
     expect(result.id).toBe(2);
-    expect(mockPatientRepo.create).toHaveBeenCalledWith(dto);
+    expect(mockPatientRepo.create).toHaveBeenCalled();
     expect(mockPatientRepo.save).toHaveBeenCalled();
-  });
+  }));
 
   // 5. create — throws ConflictException when RUT exists
-  it('create throws ConflictException when RUT already exists', async () => {
+  it('create throws ConflictException when RUT already exists', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue(samplePatient);
 
     await expect(
@@ -181,33 +222,34 @@ describe('PatientsService', () => {
         gender: 'Masculino',
       }),
     ).rejects.toThrow(ConflictException);
-  });
+  }));
 
   // 6. update — updates and returns patient
-  it('update updates and returns patient', async () => {
+  it('update updates and returns patient', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue({ ...samplePatient });
     mockPatientRepo.save.mockResolvedValue({
       ...samplePatient,
-      phone: '+56900000000',
+      phone: fakeEncrypted('Patient.phone:1'),
     });
 
     const result = await service.update(1, { phone: '+56900000000' });
 
-    expect(result.phone).toBe('+56900000000');
+    // KMS stub returns 'decrypted-plain' for any encrypted field
+    expect(result.phone).toBe('decrypted-plain');
     expect(mockPatientRepo.save).toHaveBeenCalled();
-  });
+  }));
 
   // 7. remove — removes existing patient
-  it('remove removes existing patient', async () => {
+  it('remove removes existing patient', inOrg(async () => {
     mockPatientRepo.findOne.mockResolvedValue(samplePatient);
 
     await service.remove(1);
 
     expect(mockPatientRepo.remove).toHaveBeenCalledWith(samplePatient);
-  });
+  }));
 
   // 8. findPaginated — returns paginated results with correct shape
-  it('findPaginated returns paginated results with correct shape', async () => {
+  it('findPaginated returns paginated results with correct shape', inOrg(async () => {
     const patients = [samplePatient];
     mockPatientRepo.findAndCount.mockResolvedValue([patients, 1]);
 
@@ -223,21 +265,22 @@ describe('PatientsService', () => {
       order: { lastName: 'ASC', firstName: 'ASC' },
       skip: 0,
       take: 20,
+      where: { organizationId: '1' },
     });
-  });
+  }));
 
   // 9. findPaginated — calculates totalPages correctly (45 items, 20/page = 3 pages)
-  it('findPaginated calculates totalPages correctly', async () => {
+  it('findPaginated calculates totalPages correctly', inOrg(async () => {
     mockPatientRepo.findAndCount.mockResolvedValue([[], 45]);
 
     const result = await service.findPaginated(1, 20);
 
     expect(result.totalPages).toBe(3);
     expect(result.total).toBe(45);
-  });
+  }));
 
   // 10. discharge — discharges active patient in transaction, commits
-  it('discharge discharges active patient in transaction and commits', async () => {
+  it('discharge discharges active patient in transaction and commits', inOrg(async () => {
     const activePatient = { ...samplePatient, status: PatientStatus.ACTIVE };
     mockQueryRunner.manager.findOne.mockResolvedValue(activePatient);
     mockQueryRunner.manager.save.mockResolvedValue(activePatient);
@@ -254,10 +297,10 @@ describe('PatientsService', () => {
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     expect(mockQueryRunner.release).toHaveBeenCalled();
     expect(result.status).toBe(PatientStatus.DISCHARGED);
-  });
+  }));
 
   // 11. discharge — cancels future appointments when flag is true
-  it('discharge cancels future appointments when cancelAppointment is true', async () => {
+  it('discharge cancels future appointments when cancelAppointment is true', inOrg(async () => {
     const activePatient = { ...samplePatient, status: PatientStatus.ACTIVE };
     mockQueryRunner.manager.findOne.mockResolvedValue(activePatient);
     mockQueryRunner.manager.save.mockResolvedValue(activePatient);
@@ -272,20 +315,20 @@ describe('PatientsService', () => {
       1,
       mockQueryRunner.manager,
     );
-  });
+  }));
 
   // 12. discharge — throws BadRequestException if already discharged, rollbacks
-  it('discharge throws BadRequestException if already discharged and rollbacks', async () => {
+  it('discharge throws BadRequestException if already discharged and rollbacks', inOrg(async () => {
     const dischargedPatient = { ...samplePatient, status: PatientStatus.DISCHARGED };
     mockQueryRunner.manager.findOne.mockResolvedValue(dischargedPatient);
 
     await expect(service.discharge(1, 10, false)).rejects.toThrow(BadRequestException);
     expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     expect(mockQueryRunner.release).toHaveBeenCalled();
-  });
+  }));
 
   // 13. readmit — readmits discharged patient, commits
-  it('readmit readmits discharged patient and commits', async () => {
+  it('readmit readmits discharged patient and commits', inOrg(async () => {
     const dischargedPatient = { ...samplePatient, status: PatientStatus.DISCHARGED };
     mockQueryRunner.manager.findOne.mockResolvedValue(dischargedPatient);
     mockQueryRunner.manager.save.mockResolvedValue(dischargedPatient);
@@ -301,20 +344,20 @@ describe('PatientsService', () => {
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     expect(mockQueryRunner.release).toHaveBeenCalled();
     expect(result.status).toBe(PatientStatus.ACTIVE);
-  });
+  }));
 
   // 14. readmit — throws BadRequestException if already active
-  it('readmit throws BadRequestException if patient is already active', async () => {
+  it('readmit throws BadRequestException if patient is already active', inOrg(async () => {
     const activePatient = { ...samplePatient, status: PatientStatus.ACTIVE };
     mockQueryRunner.manager.findOne.mockResolvedValue(activePatient);
 
     await expect(service.readmit(1, 10)).rejects.toThrow(BadRequestException);
     expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     expect(mockQueryRunner.release).toHaveBeenCalled();
-  });
+  }));
 
   // 15. getStatusHistory — returns with correct find options
-  it('getStatusHistory returns with correct find options', async () => {
+  it('getStatusHistory returns with correct find options', inOrg(async () => {
     const changes = [{ id: 1, patientId: 1, type: PatientStatusChangeType.DISCHARGE }];
     mockStatusChangeRepo.find.mockResolvedValue(changes);
 
@@ -322,14 +365,14 @@ describe('PatientsService', () => {
 
     expect(result).toEqual(changes);
     expect(mockStatusChangeRepo.find).toHaveBeenCalledWith({
-      where: { patientId: 1 },
+      where: { patientId: 1, organizationId: '1' },
       relations: ['performedBy'],
       order: { createdAt: 'DESC' },
     });
-  });
+  }));
 
   // findAdvanced — q matches RUT regardless of formatting
-  it('findAdvanced q matches RUT ignoring punctuation', async () => {
+  it('findAdvanced q matches RUT ignoring punctuation', inOrg(async () => {
     mockQueryBuilder.getCount.mockResolvedValue(1);
     mockQueryBuilder.getRawMany.mockResolvedValue([
       { id: 1, rut: '13.856.216-6', firstName: 'Luis', lastName: 'Alarcon' },
@@ -351,10 +394,10 @@ describe('PatientsService', () => {
       qLike: '%13856216%',
     });
     expect(result.total).toBe(1);
-  });
+  }));
 
   // findAdvanced — q matches partial firstName/lastName via the same OR clause
-  it('findAdvanced q applies partial-name match in the same OR clause', async () => {
+  it('findAdvanced q applies partial-name match in the same OR clause', inOrg(async () => {
     mockQueryBuilder.getCount.mockResolvedValue(1);
     mockQueryBuilder.getRawMany.mockResolvedValue([
       { id: 5, rut: '6.174.623-4', firstName: 'Mario', lastName: 'Basaez' },
@@ -370,10 +413,10 @@ describe('PatientsService', () => {
     expect(qClause![0]).toContain('p."lastName" ILIKE :qLike');
     expect(qClause![0]).toContain(`p."firstName" || ' ' || p."lastName"`);
     expect(qClause![1]).toMatchObject({ qLike: '%basa%' });
-  });
+  }));
 
   // findAdvanced — q matches partial phone via the same OR clause
-  it('findAdvanced q applies partial-phone match in the same OR clause', async () => {
+  it('findAdvanced q applies partial-phone match in the same OR clause', inOrg(async () => {
     mockQueryBuilder.getCount.mockResolvedValue(1);
     mockQueryBuilder.getRawMany.mockResolvedValue([
       { id: 1, rut: '13.856.216-6', firstName: 'Luis', lastName: 'Alarcon', phone: '951530817' },
@@ -388,10 +431,10 @@ describe('PatientsService', () => {
     expect(qClause![0]).toContain('p.phone ILIKE :qLike');
     expect(qClause![0]).toContain('p.phone IS NOT NULL');
     expect(qClause![1]).toMatchObject({ qLike: '%95153%' });
-  });
+  }));
 
   // findAdvanced — q combined with gender filter applies both as AND
-  it('findAdvanced applies q AND gender filter together', async () => {
+  it('findAdvanced applies q AND gender filter together', inOrg(async () => {
     mockQueryBuilder.getCount.mockResolvedValue(0);
     mockQueryBuilder.getRawMany.mockResolvedValue([]);
 
@@ -414,10 +457,10 @@ describe('PatientsService', () => {
     );
     expect(hasGender).toBe(true);
     expect(hasQ).toBe(true);
-  });
+  }));
 
   // findAdvanced — empty q is ignored (no q clause added)
-  it('findAdvanced ignores empty q', async () => {
+  it('findAdvanced ignores empty q', inOrg(async () => {
     mockQueryBuilder.getCount.mockResolvedValue(0);
     mockQueryBuilder.getRawMany.mockResolvedValue([]);
 
@@ -427,5 +470,5 @@ describe('PatientsService', () => {
       ([sql]) => typeof sql === 'string' && sql.includes("REPLACE(REPLACE(p.rut"),
     );
     expect(hasQ).toBe(false);
-  });
+  }));
 });

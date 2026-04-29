@@ -6,6 +6,10 @@ import { Curacion, CuracionType } from './curacion.entity';
 import { CuracionEdit } from './curacion-edit.entity';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { DataSource } from 'typeorm';
+import { KMS_SERVICE } from '../kms/kms.service';
+import { runWithOrg } from '../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
 describe('CuracionesService', () => {
   let service: CuracionesService;
@@ -15,6 +19,7 @@ describe('CuracionesService', () => {
     save: jest.fn((entity) => Promise.resolve({ id: 1, ...entity })),
     findOne: jest.fn(),
     find: jest.fn(),
+    update: jest.fn(() => Promise.resolve({ affected: 1 })),
   };
 
   const mockEditRepo = {
@@ -54,6 +59,14 @@ describe('CuracionesService', () => {
         { provide: getRepositoryToken(CuracionEdit), useValue: mockEditRepo },
         { provide: AppointmentsService, useValue: mockAppointmentsService },
         { provide: DataSource, useValue: mockDataSource },
+        {
+          provide: KMS_SERVICE,
+          useValue: {
+            encrypt: jest.fn(async () => ({ v: 1, k: '', iv: '', c: '', t: '', aad: '' })),
+            decrypt: jest.fn(async () => 'fake-plaintext'),
+            rotateDek: jest.fn(),
+          },
+        },
       ],
     }).compile();
     service = module.get(CuracionesService);
@@ -61,7 +74,7 @@ describe('CuracionesService', () => {
   });
 
   describe('create', () => {
-    it('creates a curacion without appointment', async () => {
+    it('creates a curacion without appointment', inOrg(async () => {
       const dto = {
         patientId: 1,
         type: CuracionType.AVANZADA,
@@ -75,18 +88,20 @@ describe('CuracionesService', () => {
       const result = await service.create(dto);
 
       expect(mockCuracionRepo.create).toHaveBeenCalledWith({
+        organizationId: '1',
         patientId: 1,
         type: CuracionType.AVANZADA,
         date: '2026-03-20',
         quantity: 2,
-        observations: 'test',
+        observations: null,
+        bootDelivered: undefined,
       });
       expect(mockCuracionRepo.save).toHaveBeenCalled();
       expect(mockAppointmentsService.createLinked).not.toHaveBeenCalled();
       expect(result.id).toBe(5);
-    });
+    }));
 
-    it('creates a curacion with linked appointment', async () => {
+    it('creates a curacion with linked appointment', inOrg(async () => {
       const dto = {
         patientId: 1,
         type: CuracionType.PIE_DIABETICO,
@@ -106,11 +121,11 @@ describe('CuracionesService', () => {
         1, 6, '2026-04-01', '13:00',
       );
       expect(result.appointment).toBeDefined();
-    });
+    }));
   });
 
   describe('findByPatient', () => {
-    it('returns ordered list with relations', async () => {
+    it('returns ordered list with relations', inOrg(async () => {
       const curaciones = [
         { id: 2, date: '2026-03-20', appointment: null, edits: [] },
         { id: 1, date: '2026-03-19', appointment: null, edits: [] },
@@ -120,17 +135,17 @@ describe('CuracionesService', () => {
       const result = await service.findByPatient(1);
 
       expect(mockCuracionRepo.find).toHaveBeenCalledWith({
-        where: { patientId: 1 },
+        where: { patientId: 1, organizationId: '1' },
         relations: ['appointment', 'edits', 'edits.editedBy'],
         order: { date: 'DESC' },
       });
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe(2);
-    });
+    }));
   });
 
   describe('findOneWithAppointment', () => {
-    it('returns curacion with appointment relation', async () => {
+    it('returns curacion with appointment relation', inOrg(async () => {
       mockCuracionRepo.findOne.mockResolvedValueOnce({
         id: 1,
         appointment: { id: 10 },
@@ -139,15 +154,15 @@ describe('CuracionesService', () => {
       const result = await service.findOneWithAppointment(1);
 
       expect(mockCuracionRepo.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, organizationId: '1' },
         relations: ['appointment'],
       });
       expect(result.appointment).toBeDefined();
-    });
+    }));
   });
 
   describe('update', () => {
-    it('updates type and quantity, creates CuracionEdit', async () => {
+    it('updates type and quantity, creates CuracionEdit', inOrg(async () => {
       const existingCuracion = {
         id: 1,
         patientId: 1,
@@ -179,9 +194,9 @@ describe('CuracionesService', () => {
       });
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(mockQueryRunner.release).toHaveBeenCalled();
-    });
+    }));
 
-    it('creates appointment when curacion had none', async () => {
+    it('creates appointment when curacion had none', inOrg(async () => {
       mockManager.findOne.mockResolvedValueOnce({
         id: 1,
         patientId: 5,
@@ -203,9 +218,9 @@ describe('CuracionesService', () => {
         5, 1, '2026-04-15', '14:00', mockManager,
       );
       expect(mockAppointmentsService.updateLinked).not.toHaveBeenCalled();
-    });
+    }));
 
-    it('updates existing appointment', async () => {
+    it('updates existing appointment', inOrg(async () => {
       mockManager.findOne.mockResolvedValueOnce({
         id: 1,
         patientId: 5,
@@ -226,9 +241,9 @@ describe('CuracionesService', () => {
       expect(mockAppointmentsService.updateLinked).toHaveBeenCalledWith(
         20, '2026-04-15', '14:00', mockManager,
       );
-    });
+    }));
 
-    it('removes appointment when null/null passed', async () => {
+    it('removes appointment when null/null passed', inOrg(async () => {
       mockManager.findOne.mockResolvedValueOnce({
         id: 1,
         patientId: 5,
@@ -247,9 +262,9 @@ describe('CuracionesService', () => {
       await service.update(1, dto, 99);
 
       expect(mockAppointmentsService.removeWithManager).toHaveBeenCalledWith(20, mockManager);
-    });
+    }));
 
-    it('throws NotFoundException for non-existent curacion', async () => {
+    it('throws NotFoundException for non-existent curacion', inOrg(async () => {
       mockManager.findOne.mockResolvedValueOnce(null);
 
       const dto = { reason: 'test' };
@@ -257,11 +272,11 @@ describe('CuracionesService', () => {
       await expect(service.update(999, dto, 99)).rejects.toThrow(NotFoundException);
       expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
       expect(mockQueryRunner.release).toHaveBeenCalled();
-    });
+    }));
   });
 
   describe('getEdits', () => {
-    it('returns ordered edit history', async () => {
+    it('returns ordered edit history', inOrg(async () => {
       const edits = [
         { id: 2, curacionId: 1, createdAt: new Date('2026-03-20'), editedBy: { id: 1 } },
         { id: 1, curacionId: 1, createdAt: new Date('2026-03-19'), editedBy: { id: 2 } },
@@ -271,12 +286,12 @@ describe('CuracionesService', () => {
       const result = await service.getEdits(1);
 
       expect(mockEditRepo.find).toHaveBeenCalledWith({
-        where: { curacionId: 1 },
+        where: { curacionId: 1, organizationId: '1' },
         relations: ['editedBy'],
         order: { createdAt: 'DESC' },
       });
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe(2);
-    });
+    }));
   });
 });

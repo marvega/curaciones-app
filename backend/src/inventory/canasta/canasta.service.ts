@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CanastaCategory, CanastaSection } from './canasta-category.entity';
 import { ProductsService } from '../products/products.service';
+import { findScoped, findOneScoped } from '../../common/org-scoped.repository';
+import { getCurrentOrgId } from '../../common/org-context';
 
 @Injectable()
 export class CanastaService {
@@ -13,7 +15,7 @@ export class CanastaService {
   ) {}
 
   list(includeArchived = false): Promise<CanastaCategory[]> {
-    return this.repo.find({
+    return findScoped(this.repo, {
       where: includeArchived ? {} : { archived: false },
       relations: ['products'],
       order: { displayOrder: 'ASC' },
@@ -21,7 +23,7 @@ export class CanastaService {
   }
 
   async findById(id: number): Promise<CanastaCategory> {
-    const c = await this.repo.findOne({ where: { id }, relations: ['products'] });
+    const c = await findOneScoped(this.repo, { where: { id }, relations: ['products'] });
     if (!c) throw new NotFoundException(`Canasta category ${id} not found`);
     return c;
   }
@@ -50,10 +52,13 @@ export class CanastaService {
     isOptional?: boolean;
     notes?: string;
   }): Promise<CanastaCategory> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
     const entity = this.repo.create({
       name: dto.name,
       section: dto.section,
-      displayOrder: dto.displayOrder ?? (await this.repo.count()) + 1,
+      displayOrder:
+        dto.displayOrder ?? (await this.repo.count({ where: { organizationId: orgId } })) + 1,
       isOptional: dto.isOptional ?? false,
       notes: dto.notes ?? null,
       archived: false,

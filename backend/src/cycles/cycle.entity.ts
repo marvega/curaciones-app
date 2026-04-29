@@ -3,13 +3,23 @@ import {
   PrimaryGeneratedColumn,
   Column,
   Unique,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
+import { Organization } from '../organizations/organization.entity';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
+@OrgScoped()
 @Entity('monthly_cycles')
-@Unique(['year', 'month'])
+@Unique(['organizationId', 'year', 'month'])
+@Index('IDX_monthly_cycle_org', ['organizationId'])
 export class MonthlyCycle {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'bigint' })
+  organizationId: string;
 
   @Column()
   year: number;
@@ -22,4 +32,8 @@ export class MonthlyCycle {
 
   @Column({ type: 'date' })
   endDate: string;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 }

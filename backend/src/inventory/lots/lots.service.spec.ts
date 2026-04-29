@@ -4,6 +4,16 @@ import { DataSource } from 'typeorm';
 import { LotsService } from './lots.service';
 import { Lot } from './lot.entity';
 import { LotMovement, LotMovementType } from '../movements/lot-movement.entity';
+import { Establishment } from '../../establishments/establishment.entity';
+import { Product } from '../products/product.entity';
+import { runWithOrg } from '../../common/org-context';
+
+const inOrg = <T>(fn: () => Promise<T>) => runWithOrg('1', fn);
+const okQB = (entity: any) => ({
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  getOne: jest.fn().mockResolvedValue(entity),
+});
 
 describe('LotsService', () => {
   let service: LotsService;
@@ -23,6 +33,8 @@ describe('LotsService', () => {
     createQueryBuilder: jest.fn(),
     find: jest.fn(),
   };
+  const estRepo: any = { createQueryBuilder: jest.fn() };
+  const productRepo: any = { createQueryBuilder: jest.fn() };
 
   beforeEach(async () => {
     const m = await Test.createTestingModule({
@@ -30,6 +42,8 @@ describe('LotsService', () => {
         LotsService,
         { provide: getRepositoryToken(Lot), useValue: lotRepo },
         { provide: getRepositoryToken(LotMovement), useValue: movRepo },
+        { provide: getRepositoryToken(Establishment), useValue: estRepo },
+        { provide: getRepositoryToken(Product), useValue: productRepo },
         { provide: DataSource, useValue: ds },
       ],
     }).compile();
@@ -39,12 +53,16 @@ describe('LotsService', () => {
 
   describe('createReception', () => {
     it('creates lot + RECEPTION movement in a transaction', async () => {
+      estRepo.createQueryBuilder.mockReturnValue(okQB({ id: 1, organizationId: '1' }));
+      productRepo.createQueryBuilder.mockReturnValue(okQB({ id: 1, organizationId: '1' }));
       mockManager.save
         .mockResolvedValueOnce({ id: 7, productId: 1, establishmentId: 1, receivedAt: '2026-04-27' })
         .mockResolvedValueOnce({ id: 1, lotId: 7, type: 'RECEPTION', delta: 50 });
-      const lot = await service.createReception(
-        { productId: 1, establishmentId: 1, receivedAt: '2026-04-27', quantity: 50, lotCode: 'L1' },
-        99,
+      const lot = await inOrg(() =>
+        service.createReception(
+          { productId: 1, establishmentId: 1, receivedAt: '2026-04-27', quantity: 50, lotCode: 'L1' },
+          99,
+        ),
       );
       expect(mockQR.startTransaction).toHaveBeenCalled();
       expect(mockQR.commitTransaction).toHaveBeenCalled();
@@ -53,11 +71,15 @@ describe('LotsService', () => {
     });
 
     it('rolls back on error', async () => {
+      estRepo.createQueryBuilder.mockReturnValue(okQB({ id: 1, organizationId: '1' }));
+      productRepo.createQueryBuilder.mockReturnValue(okQB({ id: 1, organizationId: '1' }));
       mockManager.save.mockRejectedValueOnce(new Error('DB down'));
       await expect(
-        service.createReception(
-          { productId: 1, establishmentId: 1, receivedAt: '2026-04-27', quantity: 1 },
-          99,
+        inOrg(() =>
+          service.createReception(
+            { productId: 1, establishmentId: 1, receivedAt: '2026-04-27', quantity: 1 },
+            99,
+          ),
         ),
       ).rejects.toThrow('DB down');
       expect(mockQR.rollbackTransaction).toHaveBeenCalled();
@@ -106,12 +128,22 @@ describe('LotsService', () => {
 
   describe('createAdjustment', () => {
     it('persists ADJUSTMENT movement with delta and notes', async () => {
-      lotRepo.findOne.mockResolvedValue({ id: 5 });
-      movRepo.save = jest.fn((e) => Promise.resolve({ id: 99, ...e }));
-      movRepo.create = jest.fn((dto) => dto);
-      const result = await service.createAdjustment(5, { delta: -3, notes: 'damaged' }, 99);
-      expect(result.delta).toBe(-3);
-      expect(result.type).toBe('ADJUSTMENT');
+      await inOrg(async () => {
+        // findById uses an org-scoped queryBuilder; stub it to return a lot.
+        lotRepo.createQueryBuilder = jest.fn(() => ({
+          innerJoin: jest.fn().mockReturnThis(),
+          leftJoinAndSelect: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 5 }),
+        }));
+        lotRepo.findOne.mockResolvedValue({ id: 5 });
+        movRepo.save = jest.fn((e) => Promise.resolve({ id: 99, ...e }));
+        movRepo.create = jest.fn((dto) => dto);
+        const result = await service.createAdjustment(5, { delta: -3, notes: 'damaged' }, 99);
+        expect(result.delta).toBe(-3);
+        expect(result.type).toBe('ADJUSTMENT');
+      });
     });
   });
 });

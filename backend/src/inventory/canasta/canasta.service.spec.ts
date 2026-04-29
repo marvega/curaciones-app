@@ -4,6 +4,9 @@ import { DataSource } from 'typeorm';
 import { CanastaService } from './canasta.service';
 import { CanastaCategory, CanastaSection } from './canasta-category.entity';
 import { ProductsService } from '../products/products.service';
+import { runWithOrg } from '../../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
 describe('CanastaService', () => {
   let service: CanastaService;
@@ -31,18 +34,18 @@ describe('CanastaService', () => {
     jest.clearAllMocks();
   });
 
-  it('list excludes archived by default', async () => {
+  it('list excludes archived by default', inOrg(async () => {
     repo.find.mockResolvedValue([{ id: 1, name: 'A', displayOrder: 1, products: [] }]);
     const r = await service.list();
     expect(r).toHaveLength(1);
     expect(repo.find).toHaveBeenCalledWith({
-      where: { archived: false },
+      where: { archived: false, organizationId: '1' },
       relations: ['products'],
       order: { displayOrder: 'ASC' },
     });
-  });
+  }));
 
-  it('list(true) includes archived', async () => {
+  it('list(true) includes archived', inOrg(async () => {
     repo.find.mockResolvedValue([
       { id: 1, name: 'A', displayOrder: 1, products: [], archived: false },
       { id: 2, name: 'B', displayOrder: 2, products: [], archived: true },
@@ -50,13 +53,13 @@ describe('CanastaService', () => {
     const r = await service.list(true);
     expect(r).toHaveLength(2);
     expect(repo.find).toHaveBeenCalledWith({
-      where: {},
+      where: { organizationId: '1' },
       relations: ['products'],
       order: { displayOrder: 'ASC' },
     });
-  });
+  }));
 
-  it('replaceProducts wipes ALL associations and inserts new with auto_mapped=FALSE', async () => {
+  it('replaceProducts wipes ALL associations and inserts new with auto_mapped=FALSE', inOrg(async () => {
     repo.findOne.mockResolvedValue({ id: 5 });
     ds.query.mockResolvedValue(undefined);
     await service.replaceProducts(5, [10, 20, 30]);
@@ -72,9 +75,9 @@ describe('CanastaService', () => {
       String(c[0]).includes('INSERT INTO canasta_category_products'),
     );
     expect(insertCall![0]).toContain('FALSE');
-  });
+  }));
 
-  it('createCategory uses default displayOrder = count + 1 when omitted', async () => {
+  it('createCategory uses default displayOrder = count + 1 when omitted', inOrg(async () => {
     repo.count.mockResolvedValue(7);
     const created = { id: 99, name: 'Nueva', section: CanastaSection.INSUMOS, displayOrder: 8 };
     repo.create.mockReturnValue(created);
@@ -90,18 +93,18 @@ describe('CanastaService', () => {
       }),
     );
     expect(r).toBe(created);
-  });
+  }));
 
-  it('updateCategory loads, assigns, and saves', async () => {
+  it('updateCategory loads, assigns, and saves', inOrg(async () => {
     const entity = { id: 4, name: 'Old', section: CanastaSection.INSUMOS, archived: false };
     repo.findOne.mockResolvedValue(entity);
     repo.save.mockImplementation(async (e: any) => e);
     const r = await service.updateCategory(4, { name: 'New', archived: true });
     expect(r.name).toBe('New');
     expect(r.archived).toBe(true);
-  });
+  }));
 
-  it('deleteCategory removes products links then deletes entity', async () => {
+  it('deleteCategory removes products links then deletes entity', inOrg(async () => {
     repo.findOne.mockResolvedValue({ id: 9 });
     ds.query.mockResolvedValue(undefined);
     repo.delete.mockResolvedValue(undefined);
@@ -111,5 +114,5 @@ describe('CanastaService', () => {
       [9],
     );
     expect(repo.delete).toHaveBeenCalledWith(9);
-  });
+  }));
 });
