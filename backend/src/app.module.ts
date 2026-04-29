@@ -46,6 +46,7 @@ import { AuditExportModule } from './inventory/audit-export/audit-export.module'
 import { KmsModule } from './kms/kms.module';
 import { BootstrapService } from './bootstrap.service';
 import { OrgContextMiddleware } from './common/org-context.middleware';
+import { OrgScopeSubscriber } from './common/org-scope.subscriber';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { OrgContextMiddleware } from './common/org-context.middleware';
     { provide: APP_GUARD, useClass: PerUserThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     BootstrapService,
+    OrgScopeSubscriber,
   ],
 })
 export class AppModule implements NestModule {
