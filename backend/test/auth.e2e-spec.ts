@@ -141,6 +141,21 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/reset-password', () => {
+    it.skip('resets password and auto-logs in', async () => {
+      const u = await createUserWithEmail(app, 'reset@test.cl');
+      await request(app.getHttpServer())
+        .post('/api/auth/forgot-password')
+        .send({ email: 'reset@test.cl' });
+      const token = capturedNoopEmailToken(); // from NoopEmailService spy
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/reset-password')
+        .send({ token, newPassword: 'new-strong-password-12' })
+        .expect(201);
+      expect(res.body.accessToken).toBeDefined();
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())

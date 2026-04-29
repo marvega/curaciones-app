@@ -11,6 +11,7 @@ import { OrganizationMembership, MembershipStatus, OrgRole } from '../organizati
 import { Organization } from '../organizations/organization.entity';
 import { UserEstablishmentAssignment } from '../establishments/user-establishment-assignment.entity';
 import { SessionsService } from './sessions.service';
+import { PasswordResetService } from './password-reset.service';
 
 export interface LoginResult {
   accessToken: string;
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwt: JwtService,
     private readonly sessions: SessionsService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   private emailHash(email: string) {
@@ -107,6 +109,24 @@ export class AuthService {
     if (!user) throw new UnauthorizedException();
     const { accessToken } = await this.signAccessToken(user, newOrgId);
     return { accessToken };
+  }
+
+  async resetPassword(token: string, newPassword: string, ip?: string, ua?: string | null) {
+    const row = await this.passwordReset.findValidToken(token);
+    if (!row) throw new UnauthorizedException('Invalid or expired token');
+    const user = await this.userRepo.findOne({ where: { id: row.userId } });
+    if (!user) throw new UnauthorizedException();
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordChangedAt = new Date();
+    await this.userRepo.save(user);
+    await this.passwordReset.markUsed(row.id);
+    await this.sessions.revokeAllForUser(user.id);
+    // auto-login on first membership
+    const m = await this.membershipRepo.findOne({ where: { userId: user.id, status: MembershipStatus.ACTIVE } });
+    if (!m) throw new UnauthorizedException('No memberships');
+    const { accessToken } = await this.signAccessToken(user, m.organizationId);
+    const refresh = await this.sessions.issue(user.id, m.organizationId, ip, ua);
+    return { accessToken, refreshToken: refresh.refreshToken };
   }
 
   async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
