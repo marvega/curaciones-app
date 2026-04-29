@@ -167,6 +167,17 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/invitations/preview', () => {
+    it.skip('previews valid invitation', async () => {
+      const token = await seedInvitation(app);
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/invitations/preview')
+        .send({ token })
+        .expect(201);
+      expect(res.body.valid).toBe(true);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())

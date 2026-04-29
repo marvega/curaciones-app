@@ -15,6 +15,8 @@ import { PasswordResetService } from './password-reset.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { InvitationsService } from './invitations.service';
+import { InvitationPreviewDto } from './dto/invitation-preview.dto';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -29,6 +31,7 @@ export class AuthController {
     private readonly jwt: JwtService,
     private readonly sessions: SessionsService,
     private readonly passwordReset: PasswordResetService,
+    private readonly invitations: InvitationsService,
   ) {}
 
   @Post('login')
@@ -102,5 +105,10 @@ export class AuthController {
     if (u?.emailHash) {
       // best-effort send via passwordReset.email path or inject EmailService here
     }
+  }
+
+  @Post('invitations/preview')
+  async previewInvitation(@Body() dto: InvitationPreviewDto) {
+    return this.invitations.preview(dto.token);
   }
 }
