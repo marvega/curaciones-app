@@ -96,3 +96,34 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Operational CLIs
+
+### Provision a new organization
+
+```bash
+npm run admin:create-org -- \
+  --name "CESFAM Lo Espejo" \
+  --owner-email "director@cesfamloespejo.cl" \
+  --owner-name "Dra. Patricia Soto" \
+  --tier pilot \
+  --establishment "Sede principal"
+```
+
+Sends an invitation email via Resend. The owner accepts at `${FRONTEND_URL}/accept-invitation?token=...`.
+
+### Verify the audit log hash chain
+
+```bash
+npm run audit:verify -- --org 1
+```
+
+Exits with code 2 on any mismatch (= tampering).
+
+### Encryption backfill (one-shot, idempotent)
+
+```bash
+npm run encryption:backfill
+```
+
+Walks tenanted entities and encrypts the v1 sensitive fields. Skips rows that are already encrypted.
