@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PerUserThrottlerGuard } from './common/per-user-throttler.guard';
@@ -45,6 +45,7 @@ import { CanastaModule } from './inventory/canasta/canasta.module';
 import { AuditExportModule } from './inventory/audit-export/audit-export.module';
 import { KmsModule } from './kms/kms.module';
 import { BootstrapService } from './bootstrap.service';
+import { OrgContextMiddleware } from './common/org-context.middleware';
 
 @Module({
   imports: [
@@ -98,4 +99,8 @@ import { BootstrapService } from './bootstrap.service';
     BootstrapService,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(OrgContextMiddleware).forRoutes('*');
+  }
+}
