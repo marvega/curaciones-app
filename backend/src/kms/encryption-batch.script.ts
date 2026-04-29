@@ -40,10 +40,16 @@ async function encryptColumn(
   aadPrefix: string,
   opts: { hashCol?: string; lowerHash?: boolean } = {},
 ) {
+  // Some tenanted entities have an `organizationId` column; global tables (e.g. users)
+  // do not. We detect once per table and select NULL when absent so the loop body
+  // can rely on `r.organizationId ?? '1'` consistently.
+  const orgColExists = await tableHasColumn(ds, table, 'organizationId');
+  const orgSelect = orgColExists ? '"organizationId"' : 'NULL::bigint AS "organizationId"';
+
   let offset = 0;
   while (true) {
     const rows = await ds.query(
-      `SELECT id, "organizationId", "${column}" AS val FROM "${table}" ORDER BY id LIMIT $1 OFFSET $2`,
+      `SELECT id, ${orgSelect}, "${column}" AS val FROM "${table}" ORDER BY id LIMIT $1 OFFSET $2`,
       [CHUNK, offset],
     );
     if (rows.length === 0) break;
@@ -69,6 +75,14 @@ async function encryptColumn(
     offset += rows.length;
     console.log(`[enc] ${table}.${column}: ${offset} processed`);
   }
+}
+
+async function tableHasColumn(ds: DataSource, table: string, column: string): Promise<boolean> {
+  const rows = await ds.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2 LIMIT 1`,
+    [table, column],
+  );
+  return rows.length > 0;
 }
 
 main().catch((err) => {
