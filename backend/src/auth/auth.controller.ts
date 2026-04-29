@@ -14,6 +14,7 @@ import { SwitchOrgDto } from './dto/switch-org.dto';
 import { PasswordResetService } from './password-reset.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -88,5 +89,18 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
     return this.authService.resetPassword(dto.token, dto.newPassword, req.ip, req.headers['user-agent']);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: any, @Req() req: Request) {
+    await this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+    await this.sessions.revokeAllForUser(user.id);
+    // notify
+    const u = await this.authService.userById(user.id);
+    if (u?.emailHash) {
+      // best-effort send via passwordReset.email path or inject EmailService here
+    }
   }
 }

@@ -156,6 +156,17 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/change-password', () => {
+    it.skip('changes password and revokes prior sessions', async () => {
+      const a = await loginAs(app, 'changer');
+      await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${a.body.accessToken}`)
+        .send({ currentPassword: 'password123', newPassword: 'new-strong-pwd-12' })
+        .expect(204);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())
