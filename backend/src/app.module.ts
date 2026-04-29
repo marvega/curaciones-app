@@ -1,4 +1,4 @@
-import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PerUserThrottlerGuard } from './common/per-user-throttler.guard';
@@ -46,7 +46,6 @@ import { AuditExportModule } from './inventory/audit-export/audit-export.module'
 import { KmsModule } from './kms/kms.module';
 import { EmailModule } from './email/email.module';
 import { BootstrapService } from './bootstrap.service';
-import { OrgContextMiddleware } from './common/org-context.middleware';
 import { OrgContextInterceptor } from './common/org-context.interceptor';
 import { OrgScopeSubscriber } from './common/org-scope.subscriber';
 import { Organization } from './organizations/organization.entity';
@@ -111,8 +110,4 @@ import { PasswordResetToken } from './auth/password-reset-token.entity';
     OrgScopeSubscriber,
   ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(OrgContextMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

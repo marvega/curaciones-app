@@ -8,14 +8,12 @@ import { Observable } from 'rxjs';
 import { orgContext } from './org-context';
 
 /**
- * Interceptor variant of org context. Runs AFTER guards (so JwtAuthGuard has
- * already populated `req.user`), wraps the handler call inside
- * `orgContext.run` so downstream service code sees the org id via
- * `getCurrentOrgId()` / `findScoped` / `findOneScoped`.
- *
- * The middleware (`OrgContextMiddleware`) runs before guards and cannot see
- * `req.user`; the interceptor is the actual workhorse for authenticated
- * routes. Middleware is kept for non-auth routes (e.g. health checks).
+ * Org context interceptor. Runs AFTER guards (so JwtAuthGuard has already
+ * populated `req.user`), wraps the handler call inside `orgContext.run` so
+ * downstream service code sees the org id via `getCurrentOrgId()` /
+ * `findScoped` / `findOneScoped`. Canonical and only source of org context;
+ * a middleware variant was removed because middleware runs before guards
+ * and cannot see `req.user`.
  */
 @Injectable()
 export class OrgContextInterceptor implements NestInterceptor {
