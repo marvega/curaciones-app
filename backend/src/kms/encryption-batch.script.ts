@@ -56,8 +56,26 @@ async function encryptColumn(
     for (const r of rows) {
       if (r.val === null) continue;
       if (isEncryptedField(r.val)) continue; // already encrypted
-      const plaintext = typeof r.val === 'object' && r.val.plaintext ? r.val.plaintext : r.val;
-      if (typeof plaintext !== 'string') continue;
+      // Extract plaintext from migration placeholder shape ({plaintext: "..."}),
+      // raw string, or anything else. Use `'plaintext' in obj` rather than a
+      // truthy check — `{plaintext: ""}` is valid and was being silently
+      // skipped, leaving rows in the placeholder shape that decrypt later
+      // throws AAD mismatch on.
+      let plaintext: string | null = null;
+      if (typeof r.val === 'string') {
+        plaintext = r.val;
+      } else if (r.val && typeof r.val === 'object' && 'plaintext' in r.val) {
+        const p = (r.val as { plaintext: unknown }).plaintext;
+        plaintext = typeof p === 'string' ? p : null;
+      }
+      if (plaintext === null) continue;
+      // Empty strings on nullable columns: store NULL instead of encrypting "".
+      // Required+hashed columns (rut, email) keep the value to preserve the
+      // hash uniqueness contract — they should never be empty in practice.
+      if (plaintext === '' && !opts.hashCol) {
+        await ds.query(`UPDATE "${table}" SET "${column}" = NULL WHERE id = $1`, [r.id]);
+        continue;
+      }
       const aad = `${aadPrefix}:${r.id}`;
       const encrypted = await kms.encrypt(plaintext, aad, String(r.organizationId ?? '1'));
       const params: any[] = [encrypted, r.id];
