@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Curacion } from './curacion.entity';
@@ -6,6 +6,10 @@ import { CuracionEdit } from './curacion-edit.entity';
 import { CreateCuracionDto } from './create-curacion.dto';
 import { UpdateCuracionDto } from './update-curacion.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { KMS_SERVICE } from '../kms/kms.service';
+import type { KmsService } from '../kms/kms.service';
+import type { EncryptedField } from '../kms/encrypted-field';
+import { getCurrentOrgId } from '../common/org-context';
 
 @Injectable()
 export class CuracionesService {
@@ -16,18 +20,41 @@ export class CuracionesService {
     private readonly editRepo: Repository<CuracionEdit>,
     private readonly appointmentsService: AppointmentsService,
     private readonly dataSource: DataSource,
+    @Inject(KMS_SERVICE) private readonly kms: KmsService,
   ) {}
 
+  private requireOrgId(): string {
+    const orgId = getCurrentOrgId();
+    if (!orgId) {
+      throw new Error('No organization context — cannot perform encrypted curación operation');
+    }
+    return orgId;
+  }
+
   async create(dto: CreateCuracionDto): Promise<Curacion> {
-    const curacion = this.curacionRepo.create({
+    const orgId = this.requireOrgId();
+
+    // Phase 1: insert without observations to obtain id for the row-bound AAD.
+    const draft = this.curacionRepo.create({
+      organizationId: orgId,
       patientId: dto.patientId,
       type: dto.type,
       date: dto.date,
       quantity: dto.quantity,
-      observations: dto.observations,
+      observations: null,
       bootDelivered: dto.bootDelivered,
-    });
-    const saved = await this.curacionRepo.save(curacion);
+    } as Partial<Curacion>);
+    const saved = await this.curacionRepo.save(draft);
+
+    // Phase 2: encrypt observations against the real id.
+    if (dto.observations) {
+      const encrypted = await this.kms.encrypt(
+        dto.observations,
+        `Curacion.observations:${saved.id}`,
+        orgId,
+      );
+      await this.curacionRepo.update(saved.id, { observations: encrypted } as any);
+    }
 
     if (dto.appointmentDate && dto.appointmentTime) {
       await this.appointmentsService.createLinked(
