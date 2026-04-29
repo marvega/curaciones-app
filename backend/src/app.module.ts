@@ -54,6 +54,12 @@ import { UserEstablishmentAssignment } from './establishments/user-establishment
 import { RefreshToken } from './auth/refresh-token.entity';
 import { Invitation } from './auth/invitation.entity';
 import { PasswordResetToken } from './auth/password-reset-token.entity';
+import { OAuthModule } from './oauth/oauth.module';
+import { OAuthClient } from './oauth/entities/oauth-client.entity';
+import { OAuthGrant } from './oauth/entities/oauth-grant.entity';
+import { OAuthToken } from './oauth/entities/oauth-token.entity';
+import { OAuthSigningKey } from './oauth/entities/oauth-signing-key.entity';
+import { OAuthRevocation } from './oauth/entities/oauth-revocation.entity';
 
 @Module({
   imports: [
@@ -73,7 +79,7 @@ import { PasswordResetToken } from './auth/password-reset-token.entity';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct, Organization, OrganizationMembership, UserEstablishmentAssignment, RefreshToken, Invitation, PasswordResetToken],
+      entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct, Organization, OrganizationMembership, UserEstablishmentAssignment, RefreshToken, Invitation, PasswordResetToken, OAuthClient, OAuthGrant, OAuthToken, OAuthSigningKey, OAuthRevocation],
       synchronize: false,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       extra: {
@@ -100,6 +106,7 @@ import { PasswordResetToken } from './auth/password-reset-token.entity';
     StockCountsModule,
     CanastaModule,
     AuditExportModule,
+    OAuthModule,
   ],
   controllers: [HealthController],
   providers: [
