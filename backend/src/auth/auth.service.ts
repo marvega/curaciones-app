@@ -1,40 +1,110 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
+import { v4 as uuid } from 'uuid';
 import { UsersService } from '../users/users.service';
+import { User } from '../users/user.entity';
+import { OrganizationMembership, MembershipStatus, OrgRole } from '../organizations/organization-membership.entity';
+import { Organization } from '../organizations/organization.entity';
+import { UserEstablishmentAssignment } from '../establishments/user-establishment-assignment.entity';
+import { SessionsService } from './sessions.service';
+
+export interface LoginResult {
+  accessToken: string;
+  refreshToken: string;
+  user: { id: number; username: string };
+  organizations: Array<{ id: string; name: string; role: string }>;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(OrganizationMembership) private readonly membershipRepo: Repository<OrganizationMembership>,
+    @InjectRepository(Organization) private readonly orgRepo: Repository<Organization>,
+    @InjectRepository(UserEstablishmentAssignment) private readonly ueaRepo: Repository<UserEstablishmentAssignment>,
     private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
+    private readonly jwt: JwtService,
+    private readonly sessions: SessionsService,
   ) {}
 
-  async validateUser(username: string, password: string) {
-    const user = await this.usersService.findByUsername(username);
-    if (user && (await bcrypt.compare(password, user.passwordHash))) {
-      const { passwordHash, ...result } = user;
-      return result;
-    }
-    return null;
+  private emailHash(email: string) {
+    return createHash('sha256').update(email.toLowerCase()).digest('hex');
   }
 
-  async login(username: string, password: string) {
-    const user = await this.validateUser(username, password);
-    if (!user) {
+  async findUserByUsernameOrEmail(usernameOrEmail: string): Promise<User | null> {
+    const byUsername = await this.userRepo.findOne({ where: { username: usernameOrEmail } });
+    if (byUsername) return byUsername;
+    return this.userRepo.findOne({ where: { emailHash: this.emailHash(usernameOrEmail) } });
+  }
+
+  async signAccessToken(user: User, organizationId: string): Promise<{ accessToken: string; jti: string; orgName: string; role: OrgRole }> {
+    const membership = await this.membershipRepo.findOne({
+      where: { userId: user.id, organizationId, status: MembershipStatus.ACTIVE },
+    });
+    if (!membership) throw new UnauthorizedException('No active membership for this org');
+    const org = await this.orgRepo.findOne({ where: { id: organizationId } });
+    const ueas = await this.ueaRepo.find({ where: { userId: user.id } });
+    const jti = uuid();
+    const accessToken = this.jwt.sign({
+      sub: user.id,
+      username: user.username,
+      organizationId,
+      organizationName: org?.name ?? '',
+      role: membership.role,
+      establishmentIds: ueas.map((u) => u.establishmentId),
+      passwordChangedAt: user.passwordChangedAt?.getTime() ?? null,
+      jti,
+    });
+    return { accessToken, jti, orgName: org?.name ?? '', role: membership.role };
+  }
+
+  async login(usernameOrEmail: string, password: string, ip?: string, userAgent?: string | null): Promise<LoginResult> {
+    const user = await this.findUserByUsernameOrEmail(usernameOrEmail);
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('Usuario o contraseña incorrectos');
     }
+
+    const memberships = await this.membershipRepo.find({
+      where: { userId: user.id, status: MembershipStatus.ACTIVE },
+    });
+    if (memberships.length === 0) throw new UnauthorizedException('No memberships');
+
+    const primary = memberships[0];
+    const { accessToken } = await this.signAccessToken(user, primary.organizationId);
+    const refresh = await this.sessions.issue(user.id, primary.organizationId, ip, userAgent);
+
+    const orgs = await this.orgRepo.findByIds(memberships.map((m) => m.organizationId));
     return {
-      access_token: this.jwtService.sign({
-        sub: user.id,
-        username: user.username,
-        role: user.role,
+      accessToken,
+      refreshToken: refresh.refreshToken,
+      user: { id: user.id, username: user.username },
+      organizations: orgs.map((o) => {
+        const m = memberships.find((mm) => mm.organizationId === o.id)!;
+        return { id: String(o.id), name: o.name, role: m.role };
       }),
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-      },
     };
+  }
+
+  async switchOrg(userId: number, newOrgId: string): Promise<{ accessToken: string }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    const { accessToken } = await this.signAccessToken(user, newOrgId);
+    return { accessToken };
+  }
+
+  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 12) throw new BadRequestException('Password must be at least 12 chars');
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Current password incorrect');
+    }
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordChangedAt = new Date();
+    await this.userRepo.save(user);
   }
 }
