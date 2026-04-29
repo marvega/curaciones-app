@@ -74,7 +74,7 @@ import { PasswordResetToken } from './auth/password-reset-token.entity';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct, Organization, OrganizationMembership, UserEstablishmentAssignment, RefreshToken, Invitation, PasswordResetToken],
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: false,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       extra: {
         max: parseInt(process.env.DB_POOL_MAX ?? '3', 10),
