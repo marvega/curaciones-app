@@ -10,7 +10,9 @@ import {
 import { Patient } from '../patients/patient.entity';
 import { User } from '../users/user.entity';
 import { Organization } from '../organizations/organization.entity';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
+@OrgScoped()
 @Entity('consent_signatures')
 @Index('IDX_consent_org', ['organizationId'])
 export class ConsentSignature {

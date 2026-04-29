@@ -10,12 +10,14 @@ import {
 } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { Organization } from '../../organizations/organization.entity';
+import { OrgScoped } from '../../common/org-scoped.decorator';
 
 export enum CanastaSection {
   INSUMOS = 'INSUMOS',
   AYUDAS_TECNICAS = 'AYUDAS_TECNICAS',
 }
 
+@OrgScoped()
 @Entity('canasta_categories')
 @Index('IDX_canasta_category_org', ['organizationId'])
 export class CanastaCategory {

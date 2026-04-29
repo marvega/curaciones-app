@@ -15,6 +15,7 @@ import { CuracionEdit } from './curacion-edit.entity';
 import { Organization } from '../organizations/organization.entity';
 import type { EncryptedField } from '../kms/encrypted-column.transformer';
 import { encryptedColumnTransformer } from '../kms/encrypted-column.transformer';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
 export enum CuracionType {
   AVANZADA = 'avanzada',
@@ -22,6 +23,7 @@ export enum CuracionType {
   ULCERA_VENOSA = 'ulcera_venosa',
 }
 
+@OrgScoped()
 @Entity('curaciones')
 @Index('IDX_curacion_org', ['organizationId'])
 @Index('IDX_curacion_org_date', ['organizationId', 'date'])

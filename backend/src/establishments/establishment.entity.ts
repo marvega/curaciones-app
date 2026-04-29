@@ -8,7 +8,9 @@ import {
   Index,
 } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
+@OrgScoped()
 @Entity('establishments')
 @Index('IDX_establishment_org', ['organizationId'])
 export class Establishment {

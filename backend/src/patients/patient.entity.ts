@@ -15,7 +15,9 @@ import { PatientStatusChange, PatientStatus } from './patient-status-change.enti
 import { Organization } from '../organizations/organization.entity';
 import type { EncryptedField } from '../kms/encrypted-column.transformer';
 import { encryptedColumnTransformer } from '../kms/encrypted-column.transformer';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
+@OrgScoped()
 @Entity('patients')
 @Index('IDX_patient_org', ['organizationId'])
 @Index('IDX_patient_org_status', ['organizationId', 'status'])

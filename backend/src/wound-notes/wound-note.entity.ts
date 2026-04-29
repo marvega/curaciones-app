@@ -12,6 +12,7 @@ import { User } from '../users/user.entity';
 import { Organization } from '../organizations/organization.entity';
 import type { EncryptedField } from '../kms/encrypted-column.transformer';
 import { encryptedColumnTransformer } from '../kms/encrypted-column.transformer';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
 export enum WoundColor {
   RED = 'red',
@@ -35,6 +36,7 @@ export enum HealingStage {
   CHRONIC = 'chronic',
 }
 
+@OrgScoped()
 @Entity('wound_notes')
 @Index('IDX_wound_note_org', ['organizationId'])
 export class WoundNote {

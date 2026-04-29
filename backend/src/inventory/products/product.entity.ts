@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { ProductCode } from './product-code.entity';
 import { Organization } from '../../organizations/organization.entity';
+import { OrgScoped } from '../../common/org-scoped.decorator';
 
 export enum ProductType {
   INSUMO = 'INSUMO',
@@ -18,6 +19,7 @@ export enum ProductType {
   OTRO = 'OTRO',
 }
 
+@OrgScoped()
 @Entity('products')
 @Index('IDX_product_org', ['organizationId'])
 export class Product {

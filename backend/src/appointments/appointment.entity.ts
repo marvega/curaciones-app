@@ -12,7 +12,9 @@ import {
 import { Patient } from '../patients/patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Organization } from '../organizations/organization.entity';
+import { OrgScoped } from '../common/org-scoped.decorator';
 
+@OrgScoped()
 @Entity('appointments')
 @Unique(['organizationId', 'date', 'time'])
 @Index('IDX_appointment_org', ['organizationId'])
