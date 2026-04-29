@@ -95,18 +95,20 @@
     "moduleFileExtensions": [
       "js",
       "json",
-      "ts"
+      "ts",
+      "tsx"
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": [
+      "^.+\\.(t|j)sx?$": [
         "ts-jest",
         {
           "tsconfig": {
             "module": "commonjs",
             "moduleResolution": "node",
-            "resolvePackageJsonExports": false
+            "resolvePackageJsonExports": false,
+            "jsx": "react"
           }
         }
       ]
