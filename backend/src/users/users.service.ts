@@ -39,7 +39,6 @@ export class UsersService {
     const user = this.userRepo.create({
       username: dto.username,
       passwordHash: hash,
-      role: dto.role || 'user',
     });
     return this.userRepo.save(user);
   }
@@ -47,7 +46,7 @@ export class UsersService {
   async findAll() {
     return this.userRepo.find({
       order: { username: 'ASC' },
-      select: ['id', 'username', 'role', 'createdAt'],
+      select: ['id', 'username', 'createdAt'],
     });
   }
 
@@ -64,9 +63,12 @@ export class UsersService {
   }
 
   async seed() {
+    // TODO(phase-13.1b): seed should also create default Organization +
+    // OrganizationMembership for admin users. For now this just inserts the
+    // bare User rows so tsc compiles; org membership wiring is out of scope.
     const users = [
-      { username: 'admin', password: 'A}B5sxY%2=qy', role: 'admin' },
-      { username: 'cynthia', password: 'pompeya2026', role: 'admin' },
+      { username: 'admin', password: 'A}B5sxY%2=qy' },
+      { username: 'cynthia', password: 'pompeya2026' },
     ];
 
     const created: User[] = [];
@@ -77,7 +79,6 @@ export class UsersService {
         const user = this.userRepo.create({
           username: u.username,
           passwordHash: hash,
-          role: u.role,
         });
         const saved = await this.userRepo.save(user);
         created.push(saved);
