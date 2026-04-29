@@ -4,6 +4,7 @@ import {
 
 @Entity('oauth_grant')
 @Index('UQ_oauth_grant_active', ['clientId', 'userId', 'organizationId'], { unique: true, where: '"revokedAt" IS NULL' })
+@Index('IDX_oauth_grant_user', ['userId'])
 export class OAuthGrant {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

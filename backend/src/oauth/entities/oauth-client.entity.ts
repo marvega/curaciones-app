@@ -6,6 +6,7 @@ export type TokenEndpointAuthMethod = 'client_secret_basic' | 'client_secret_pos
 export type ApplicationType = 'web' | 'native';
 
 @Entity('oauth_client')
+@Index('IDX_oauth_client_first_authorized', ['firstAuthorizedAt'])
 export class OAuthClient {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
