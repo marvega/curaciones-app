@@ -22,6 +22,15 @@ import CatalogAdminPage from './pages/inventory/CatalogAdminPage';
 import CanastaAdminPage from './pages/inventory/CanastaAdminPage';
 import AuditExportPage from './pages/inventory/AuditExportPage';
 import UiGalleryPage from './pages/dev/UiGalleryPage';
+import AcceptInvitationPage from './pages/AcceptInvitationPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import SessionsPage from './pages/account/SessionsPage';
+import ChangePasswordPage from './pages/account/ChangePasswordPage';
+import MembersPage from './pages/org/MembersPage';
+import InvitationsPage from './pages/org/InvitationsPage';
+import EstablishmentsPage from './pages/org/EstablishmentsPage';
+import OrgSettingsPage from './pages/org/SettingsPage';
 
 function App() {
   return (
@@ -32,6 +41,9 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/" element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route index element={<HomePage />} />
@@ -49,6 +61,12 @@ function App() {
               <Route path="inventory/audit-export" element={<AuditExportPage />} />
               <Route path="inventory/admin/catalog" element={<CatalogAdminPage />} />
               <Route path="inventory/admin/canasta" element={<CanastaAdminPage />} />
+              <Route path="account/sessions" element={<SessionsPage />} />
+              <Route path="account/change-password" element={<ChangePasswordPage />} />
+              <Route path="org/members" element={<MembersPage />} />
+              <Route path="org/invitations" element={<InvitationsPage />} />
+              <Route path="org/establishments" element={<EstablishmentsPage />} />
+              <Route path="org/settings" element={<OrgSettingsPage />} />
               {import.meta.env.DEV && (
                 <Route path="dev/ui" element={<UiGalleryPage />} />
               )}
