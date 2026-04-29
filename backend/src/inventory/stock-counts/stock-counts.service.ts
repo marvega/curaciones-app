@@ -3,7 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StockCount, StockCountStatus } from './stock-count.entity';
 import { LotMovement, LotMovementType } from '../movements/lot-movement.entity';
+import { getCurrentOrgId } from '../../common/org-context';
 
+// TODO(phase-13.3): StockCount has no organizationId — scoping derives from
+// establishment.organizationId. Reads use a QueryBuilder join. The
+// upsertEntry write path joins via findById which is now scoped, but
+// still trusts the lotId; phase 13.3 should re-validate the lot belongs
+// to an establishment in the same org.
 @Injectable()
 export class StockCountsService {
   constructor(
@@ -11,8 +17,21 @@ export class StockCountsService {
     @InjectRepository(LotMovement) private readonly movRepo: Repository<LotMovement>,
   ) {}
 
+  private requireOrgId(): string {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
+    return orgId;
+  }
+
   async openOrCreate(establishmentId: number, countDate: string, performedById: number): Promise<StockCount> {
-    const existing = await this.scRepo.findOne({ where: { establishmentId, countDate } });
+    const orgId = this.requireOrgId();
+    const existing = await this.scRepo
+      .createQueryBuilder('sc')
+      .innerJoin('sc.establishment', 'est')
+      .where('sc.establishmentId = :establishmentId', { establishmentId })
+      .andWhere('sc.countDate = :countDate', { countDate })
+      .andWhere('est.organizationId = :orgId', { orgId })
+      .getOne();
     if (existing) {
       if (existing.status === StockCountStatus.CLOSED) {
         throw new BadRequestException(`Count for ${countDate} is already closed`);
@@ -25,14 +44,25 @@ export class StockCountsService {
   }
 
   async list(opts: { establishmentId?: number; status?: StockCountStatus }) {
-    const where: any = {};
-    if (opts.establishmentId) where.establishmentId = opts.establishmentId;
-    if (opts.status) where.status = opts.status;
-    return this.scRepo.find({ where, order: { countDate: 'DESC' } });
+    const orgId = this.requireOrgId();
+    const qb = this.scRepo
+      .createQueryBuilder('sc')
+      .innerJoin('sc.establishment', 'est')
+      .where('est.organizationId = :orgId', { orgId });
+    if (opts.establishmentId) qb.andWhere('sc.establishmentId = :establishmentId', { establishmentId: opts.establishmentId });
+    if (opts.status) qb.andWhere('sc.status = :status', { status: opts.status });
+    qb.orderBy('sc.countDate', 'DESC');
+    return qb.getMany();
   }
 
   async findById(id: number): Promise<StockCount> {
-    const sc = await this.scRepo.findOne({ where: { id } });
+    const orgId = this.requireOrgId();
+    const sc = await this.scRepo
+      .createQueryBuilder('sc')
+      .innerJoin('sc.establishment', 'est')
+      .where('sc.id = :id', { id })
+      .andWhere('est.organizationId = :orgId', { orgId })
+      .getOne();
     if (!sc) throw new NotFoundException(`StockCount ${id} not found`);
     return sc;
   }

@@ -4,7 +4,13 @@ import { DataSource, Repository, LessThanOrEqual, MoreThanOrEqual, And } from 't
 import { Lot } from './lot.entity';
 import { LotMovement, LotMovementType } from '../movements/lot-movement.entity';
 import { ReceptionDto } from './reception.dto';
+import { getCurrentOrgId } from '../../common/org-context';
 
+// TODO(phase-13.3): Lot has no organizationId — scoping derives from
+// establishment.organizationId. Reads use a QueryBuilder join. Write paths
+// (createReception, createAdjustment) should validate that the supplied
+// establishmentId belongs to the active org; for now they rely on the
+// caller (controller + JWT scoping) to pass valid IDs.
 @Injectable()
 export class LotsService {
   constructor(
@@ -44,8 +50,22 @@ export class LotsService {
     }
   }
 
+  private requireOrgId(): string {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
+    return orgId;
+  }
+
   async findById(id: number): Promise<Lot> {
-    const lot = await this.lotRepo.findOne({ where: { id }, relations: ['product', 'movements'] });
+    const orgId = this.requireOrgId();
+    const lot = await this.lotRepo
+      .createQueryBuilder('lot')
+      .innerJoin('lot.establishment', 'est')
+      .leftJoinAndSelect('lot.product', 'product')
+      .leftJoinAndSelect('lot.movements', 'movements')
+      .where('lot.id = :id', { id })
+      .andWhere('est.organizationId = :orgId', { orgId })
+      .getOne();
     if (!lot) throw new NotFoundException(`Lot ${id} not found`);
     return lot;
   }
@@ -75,17 +95,23 @@ export class LotsService {
   }
 
   async list(opts: { productId?: number; establishmentId?: number; expiringInDays?: number; active?: boolean }): Promise<Array<Lot & { currentStock: number }>> {
-    const where: any = {};
-    if (opts.productId) where.productId = opts.productId;
-    if (opts.establishmentId) where.establishmentId = opts.establishmentId;
+    const orgId = this.requireOrgId();
+    const qb = this.lotRepo
+      .createQueryBuilder('lot')
+      .innerJoin('lot.establishment', 'est')
+      .leftJoinAndSelect('lot.product', 'product')
+      .where('est.organizationId = :orgId', { orgId });
+    if (opts.productId) qb.andWhere('lot.productId = :productId', { productId: opts.productId });
+    if (opts.establishmentId) qb.andWhere('lot.establishmentId = :establishmentId', { establishmentId: opts.establishmentId });
     if (opts.expiringInDays != null) {
       const today = new Date().toISOString().slice(0, 10);
       const end = new Date();
       end.setDate(end.getDate() + opts.expiringInDays);
       const endStr = end.toISOString().slice(0, 10);
-      where.expiresAt = And(MoreThanOrEqual(today), LessThanOrEqual(endStr));
+      qb.andWhere('lot.expiresAt >= :today AND lot.expiresAt <= :endStr', { today, endStr });
     }
-    const lots = await this.lotRepo.find({ where, relations: ['product'], order: { expiresAt: 'ASC', id: 'ASC' } });
+    qb.orderBy('lot.expiresAt', 'ASC').addOrderBy('lot.id', 'ASC');
+    const lots = await qb.getMany();
     const enriched: Array<Lot & { currentStock: number }> = [];
     for (const lot of lots) {
       const stock = await this.getCurrentStock(lot.id);
@@ -96,13 +122,20 @@ export class LotsService {
   }
 
   async getExpiring(establishmentId: number | undefined, days: number): Promise<Array<Lot & { currentStock: number; daysToExpiry: number }>> {
+    const orgId = this.requireOrgId();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const end = new Date(today); end.setDate(end.getDate() + days);
     const todayStr = today.toISOString().slice(0, 10);
     const endStr = end.toISOString().slice(0, 10);
-    const where: any = { expiresAt: And(MoreThanOrEqual(todayStr), LessThanOrEqual(endStr)) };
-    if (establishmentId) where.establishmentId = establishmentId;
-    const lots = await this.lotRepo.find({ where, relations: ['product'], order: { expiresAt: 'ASC' } });
+    const qb = this.lotRepo
+      .createQueryBuilder('lot')
+      .innerJoin('lot.establishment', 'est')
+      .leftJoinAndSelect('lot.product', 'product')
+      .where('est.organizationId = :orgId', { orgId })
+      .andWhere('lot.expiresAt >= :todayStr AND lot.expiresAt <= :endStr', { todayStr, endStr });
+    if (establishmentId) qb.andWhere('lot.establishmentId = :establishmentId', { establishmentId });
+    qb.orderBy('lot.expiresAt', 'ASC');
+    const lots = await qb.getMany();
     const out: Array<Lot & { currentStock: number; daysToExpiry: number }> = [];
     for (const lot of lots) {
       const stock = await this.getCurrentStock(lot.id);
@@ -128,9 +161,13 @@ export class LotsService {
   }
 
   async getStockSnapshot(establishmentId: number | undefined, atDate?: Date): Promise<Array<{ lotId: number; productId: number; stock: number }>> {
-    const where: any = {};
-    if (establishmentId) where.establishmentId = establishmentId;
-    const lots = await this.lotRepo.find({ where });
+    const orgId = this.requireOrgId();
+    const qb = this.lotRepo
+      .createQueryBuilder('lot')
+      .innerJoin('lot.establishment', 'est')
+      .where('est.organizationId = :orgId', { orgId });
+    if (establishmentId) qb.andWhere('lot.establishmentId = :establishmentId', { establishmentId });
+    const lots = await qb.getMany();
     const out: Array<{ lotId: number; productId: number; stock: number }> = [];
     for (const lot of lots) {
       const stock = await this.getCurrentStock(lot.id, atDate);
