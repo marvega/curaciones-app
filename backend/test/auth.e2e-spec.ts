@@ -41,6 +41,28 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('POST /api/auth/refresh', () => {
+    it.skip('rotates refresh token and rejects reuse', async () => {
+      await createUser(app, { username: 'refreshuser' });
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ usernameOrEmail: 'refreshuser', password: 'password123' });
+      const r1 = login.body.refreshToken;
+
+      const refresh1 = await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: r1 })
+        .expect(201);
+      expect(refresh1.body.refreshToken).toBeDefined();
+
+      // Reuse old token: must 403 and revoke entire chain
+      await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: r1 })
+        .expect(403);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())

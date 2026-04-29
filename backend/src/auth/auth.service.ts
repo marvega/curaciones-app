@@ -89,6 +89,14 @@ export class AuthService {
     };
   }
 
+  async refresh(refreshToken: string, payload: { sub: number; jti: string }, ip?: string, ua?: string | null) {
+    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
+    if (!user) throw new UnauthorizedException();
+    const { row, issued } = await this.sessions.rotate(refreshToken, payload.jti, payload.sub, ip, ua);
+    const { accessToken } = await this.signAccessToken(user, row.organizationId);
+    return { accessToken, refreshToken: issued.refreshToken };
+  }
+
   async switchOrg(userId: number, newOrgId: string): Promise<{ accessToken: string }> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
