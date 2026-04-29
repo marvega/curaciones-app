@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards, HttpCode, HttpStatus, Get } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, HttpCode, HttpStatus, Get, Delete, Param } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
@@ -59,5 +59,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async listSessions(@CurrentUser() user: any) {
     return this.sessions.listForUser(user.id, user.jti);
+  }
+
+  @Delete('sessions/:jti')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  async revokeSession(@Param('jti') jti: string, @CurrentUser() user: any) {
+    await this.sessions.revokeByJti(user.id, jti);
   }
 }

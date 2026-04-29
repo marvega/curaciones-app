@@ -106,6 +106,20 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('DELETE /api/auth/sessions/:jti', () => {
+    it.skip('revokes specific session', async () => {
+      const a = await loginAs(app, 'revokeuser');
+      const list = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${a.body.accessToken}`);
+      const otherJti = list.body[0].jti; // current
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${otherJti}`)
+        .set('Authorization', `Bearer ${a.body.accessToken}`)
+        .expect(204);
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())
