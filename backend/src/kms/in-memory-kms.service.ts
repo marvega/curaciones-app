@@ -1,17 +1,37 @@
 import { Injectable } from '@nestjs/common';
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto';
 import { KmsService } from './kms.service';
 import { EncryptedField } from './encrypted-field';
 
+/**
+ * Local KMS: derives per-org DEK deterministically from KMS_LOCAL_MASTER_KEY
+ * via HKDF-SHA256, so DEKs survive process restarts. Falls back to ephemeral
+ * random keys (test-only) when the env var is absent.
+ */
 @Injectable()
 export class InMemoryKmsService implements KmsService {
   private readonly dekByOrg = new Map<string, Buffer>();
   private readonly fakeKekArn = 'arn:aws:kms:test:fake-cmk';
+  private readonly masterKey: Buffer | null;
+
+  constructor() {
+    const raw = process.env.KMS_LOCAL_MASTER_KEY;
+    this.masterKey = raw ? Buffer.from(raw, 'hex') : null;
+    if (this.masterKey && this.masterKey.length < 32) {
+      throw new Error('KMS_LOCAL_MASTER_KEY must be at least 32 bytes (64 hex chars)');
+    }
+  }
 
   private getDek(orgId: string): Buffer {
     let dek = this.dekByOrg.get(orgId);
     if (!dek) {
-      dek = randomBytes(32);
+      if (this.masterKey) {
+        dek = Buffer.from(
+          hkdfSync('sha256', this.masterKey, Buffer.from(orgId, 'utf8'), 'curaciones-dek/v1', 32),
+        );
+      } else {
+        dek = randomBytes(32);
+      }
       this.dekByOrg.set(orgId, dek);
     }
     return dek;
