@@ -34,22 +34,53 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
 });
 
+const ACCESS_KEY = 'curaciones_access_token';
+const REFRESH_KEY = 'curaciones_refresh_token';
+const LEGACY_TOKEN_KEY = 'curaciones_token';
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('curaciones_token');
+  const token = localStorage.getItem(ACCESS_KEY) ?? localStorage.getItem(LEGACY_TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+let refreshing: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const r = localStorage.getItem(REFRESH_KEY);
+  if (!r) return null;
+  try {
+    const { data } = await axios.post(
+      `${api.defaults.baseURL}/auth/refresh`,
+      { refreshToken: r },
+    );
+    localStorage.setItem(ACCESS_KEY, data.accessToken);
+    localStorage.setItem(REFRESH_KEY, data.refreshToken);
+    return data.accessToken as string;
+  } catch {
+    return null;
+  }
+}
+
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    // No redirigir en 401 para login (credenciales incorrectas)
-    const isLoginRequest = err.config?.url?.includes('/auth/login');
-    if (err.response?.status === 401 && !isLoginRequest) {
-      localStorage.removeItem('curaciones_token');
-      localStorage.removeItem('curaciones_user');
+  async (err) => {
+    const original = err.config;
+    const isAuthCall =
+      original?.url?.includes('/auth/login') ||
+      original?.url?.includes('/auth/refresh');
+    if (err.response?.status === 401 && !isAuthCall && !original?._retry) {
+      original._retry = true;
+      if (!refreshing) refreshing = refreshAccessToken();
+      const newToken = await refreshing;
+      refreshing = null;
+      if (newToken) {
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
+      }
+      localStorage.clear();
       window.location.href = '/login';
     }
     return Promise.reject(err);
@@ -57,8 +88,66 @@ api.interceptors.response.use(
 );
 
 // Auth
-export const login = async (username: string, password: string) => {
-  const { data } = await api.post('/auth/login', { username, password });
+export const login = async (usernameOrEmail: string, password: string) => {
+  // Send both keys so this works against the legacy `username`-only backend
+  // and the new multi-tenant backend that expects `usernameOrEmail`.
+  const { data } = await api.post('/auth/login', {
+    usernameOrEmail,
+    username: usernameOrEmail,
+    password,
+  });
+  return data;
+};
+
+export const switchOrg = async (organizationId: string) => {
+  const { data } = await api.post('/auth/switch-org', { organizationId });
+  return data;
+};
+
+export const logoutCurrent = async (refreshToken: string) =>
+  api.post('/auth/logout', { refreshToken });
+
+export const logoutAll = async () => api.post('/auth/logout-all');
+
+export const listSessions = async () => {
+  const { data } = await api.get('/auth/sessions');
+  return data as Array<{
+    jti: string;
+    deviceLabel: string | null;
+    lastUsedAt: string;
+    current: boolean;
+  }>;
+};
+
+export const revokeSession = async (jti: string) =>
+  api.delete(`/auth/sessions/${jti}`);
+
+export const forgotPassword = async (email: string) =>
+  api.post('/auth/forgot-password', { email });
+
+export const resetPassword = async (token: string, newPassword: string) => {
+  const { data } = await api.post('/auth/reset-password', { token, newPassword });
+  return data;
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string) =>
+  api.post('/auth/change-password', { currentPassword, newPassword });
+
+export const previewInvitation = async (token: string) => {
+  const { data } = await api.post('/auth/invitations/preview', { token });
+  return data;
+};
+
+export const acceptInvitation = async (
+  token: string,
+  password: string,
+  fullName: string,
+) => {
+  const { data } = await api.post('/auth/invitations/accept', {
+    token,
+    password,
+    fullName,
+  });
   return data;
 };
 
