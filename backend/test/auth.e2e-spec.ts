@@ -94,6 +94,18 @@ describe('AuthController (e2e)', () => {
     });
   });
 
+  describe('GET /api/auth/sessions', () => {
+    it.skip('lists active sessions with current flag', async () => {
+      const a = await loginAs(app, 'sessionsuser');
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${a.body.accessToken}`)
+        .expect(200);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body.find((s: any) => s.current)).toBeDefined();
+    });
+  });
+
   describe('Protected endpoints', () => {
     it('should return 401 without token', async () => {
       await request(app.getHttpServer())
