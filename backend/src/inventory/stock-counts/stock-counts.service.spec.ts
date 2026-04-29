@@ -4,11 +4,15 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { StockCountsService } from './stock-counts.service';
 import { StockCount, StockCountStatus } from './stock-count.entity';
 import { LotMovement, LotMovementType } from '../movements/lot-movement.entity';
+import { Lot } from '../lots/lot.entity';
+import { Establishment } from '../../establishments/establishment.entity';
 
 describe('StockCountsService', () => {
   let service: StockCountsService;
   const scRepo: any = { create: jest.fn((e) => e), save: jest.fn(), findOne: jest.fn(), find: jest.fn(), update: jest.fn() };
   const movRepo: any = { create: jest.fn((e) => e), save: jest.fn(), findOne: jest.fn() };
+  const lotRepo: any = { createQueryBuilder: jest.fn() };
+  const estRepo: any = { createQueryBuilder: jest.fn() };
 
   beforeEach(async () => {
     const m = await Test.createTestingModule({
@@ -16,6 +20,8 @@ describe('StockCountsService', () => {
         StockCountsService,
         { provide: getRepositoryToken(StockCount), useValue: scRepo },
         { provide: getRepositoryToken(LotMovement), useValue: movRepo },
+        { provide: getRepositoryToken(Lot), useValue: lotRepo },
+        { provide: getRepositoryToken(Establishment), useValue: estRepo },
       ],
     }).compile();
     service = m.get(StockCountsService);

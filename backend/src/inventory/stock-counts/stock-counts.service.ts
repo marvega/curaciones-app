@@ -3,18 +3,22 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StockCount, StockCountStatus } from './stock-count.entity';
 import { LotMovement, LotMovementType } from '../movements/lot-movement.entity';
+import { Lot } from '../lots/lot.entity';
+import { Establishment } from '../../establishments/establishment.entity';
 import { getCurrentOrgId } from '../../common/org-context';
 
-// TODO(phase-13.3): StockCount has no organizationId — scoping derives from
-// establishment.organizationId. Reads use a QueryBuilder join. The
-// upsertEntry write path joins via findById which is now scoped, but
-// still trusts the lotId; phase 13.3 should re-validate the lot belongs
-// to an establishment in the same org.
+// StockCount has no organizationId — org scoping derives from
+// establishment.organizationId via a JOIN. Reads use a QueryBuilder join.
+// Writes pre-validate that establishmentId / lotId from the DTO belong to
+// an establishment in the active org, so a user from Org A cannot create
+// or upsert a count entry against Org B's data by passing a foreign id.
 @Injectable()
 export class StockCountsService {
   constructor(
     @InjectRepository(StockCount) private readonly scRepo: Repository<StockCount>,
     @InjectRepository(LotMovement) private readonly movRepo: Repository<LotMovement>,
+    @InjectRepository(Lot) private readonly lotRepo: Repository<Lot>,
+    @InjectRepository(Establishment) private readonly estRepo: Repository<Establishment>,
   ) {}
 
   private requireOrgId(): string {
@@ -23,8 +27,28 @@ export class StockCountsService {
     return orgId;
   }
 
+  private async assertEstablishmentInOrg(establishmentId: number, orgId: string): Promise<void> {
+    const est = await this.estRepo
+      .createQueryBuilder('e')
+      .where('e.id = :id', { id: establishmentId })
+      .andWhere('e.organizationId = :orgId', { orgId })
+      .getOne();
+    if (!est) throw new NotFoundException('Establishment not found in this org');
+  }
+
+  private async assertLotInOrg(lotId: number, orgId: string): Promise<void> {
+    const lot = await this.lotRepo
+      .createQueryBuilder('l')
+      .innerJoin('l.establishment', 'e')
+      .where('l.id = :id', { id: lotId })
+      .andWhere('e.organizationId = :orgId', { orgId })
+      .getOne();
+    if (!lot) throw new NotFoundException('Lot not found in this org');
+  }
+
   async openOrCreate(establishmentId: number, countDate: string, performedById: number): Promise<StockCount> {
     const orgId = this.requireOrgId();
+    await this.assertEstablishmentInOrg(establishmentId, orgId);
     const existing = await this.scRepo
       .createQueryBuilder('sc')
       .innerJoin('sc.establishment', 'est')
@@ -73,10 +97,12 @@ export class StockCountsService {
     dto: { absoluteValue: number; notes?: string },
     performedById: number,
   ): Promise<LotMovement> {
+    const orgId = this.requireOrgId();
     const sc = await this.findById(stockCountId);
     if (sc.status === StockCountStatus.CLOSED) {
       throw new BadRequestException('Stock count is closed');
     }
+    await this.assertLotInOrg(lotId, orgId);
     const existing = await this.movRepo.findOne({ where: { stockCountId, lotId, type: LotMovementType.COUNT } });
     if (existing) {
       existing.absoluteValue = dto.absoluteValue;

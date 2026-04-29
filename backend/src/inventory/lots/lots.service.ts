@@ -3,23 +3,49 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, LessThanOrEqual, MoreThanOrEqual, And } from 'typeorm';
 import { Lot } from './lot.entity';
 import { LotMovement, LotMovementType } from '../movements/lot-movement.entity';
+import { Establishment } from '../../establishments/establishment.entity';
+import { Product } from '../products/product.entity';
 import { ReceptionDto } from './reception.dto';
 import { getCurrentOrgId } from '../../common/org-context';
 
-// TODO(phase-13.3): Lot has no organizationId — scoping derives from
-// establishment.organizationId. Reads use a QueryBuilder join. Write paths
-// (createReception, createAdjustment) should validate that the supplied
-// establishmentId belongs to the active org; for now they rely on the
-// caller (controller + JWT scoping) to pass valid IDs.
+// Lot has no organizationId — org scoping derives from
+// establishment.organizationId via a JOIN. Reads use a QueryBuilder join.
+// Writes (createReception, createAdjustment) pre-validate that the supplied
+// establishmentId / productId / lotId belong to the active org so a user
+// from Org A cannot create rows under Org B's establishment by passing a
+// foreign establishmentId in the DTO.
 @Injectable()
 export class LotsService {
   constructor(
     @InjectRepository(Lot) private readonly lotRepo: Repository<Lot>,
     @InjectRepository(LotMovement) private readonly movRepo: Repository<LotMovement>,
+    @InjectRepository(Establishment) private readonly estRepo: Repository<Establishment>,
+    @InjectRepository(Product) private readonly productRepo: Repository<Product>,
     private readonly dataSource: DataSource,
   ) {}
 
+  private async assertEstablishmentInOrg(establishmentId: number, orgId: string): Promise<void> {
+    const est = await this.estRepo
+      .createQueryBuilder('e')
+      .where('e.id = :id', { id: establishmentId })
+      .andWhere('e.organizationId = :orgId', { orgId })
+      .getOne();
+    if (!est) throw new NotFoundException('Establishment not found in this org');
+  }
+
+  private async assertProductInOrg(productId: number, orgId: string): Promise<void> {
+    const product = await this.productRepo
+      .createQueryBuilder('p')
+      .where('p.id = :id', { id: productId })
+      .andWhere('p.organizationId = :orgId', { orgId })
+      .getOne();
+    if (!product) throw new NotFoundException('Product not found in this org');
+  }
+
   async createReception(dto: ReceptionDto, performedById: number): Promise<Lot> {
+    const orgId = this.requireOrgId();
+    await this.assertEstablishmentInOrg(dto.establishmentId, orgId);
+    await this.assertProductInOrg(dto.productId, orgId);
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
