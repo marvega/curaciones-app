@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '../patients/patient.entity';
 import { Curacion } from '../curaciones/curacion.entity';
 import { Appointment } from '../appointments/appointment.entity';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { KMS_SERVICE } from '../kms/kms.service';
+import type { KmsService } from '../kms/kms.service';
+import { getCurrentOrgId } from '../common/org-context';
+import { decryptPatientPii } from '../patients/patient-projection.util';
+import { EncryptedField } from '../kms/encrypted-field';
 
 @Injectable()
 export class DashboardService {
@@ -16,7 +21,14 @@ export class DashboardService {
     @InjectRepository(Appointment)
     private readonly appointmentRepo: Repository<Appointment>,
     private readonly appointmentsService: AppointmentsService,
+    @Inject(KMS_SERVICE) private readonly kms: KmsService,
   ) {}
+
+  private requireOrgId(): string {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
+    return orgId;
+  }
 
   async getTodayAppointments() {
     const today = new Date().toISOString().split('T')[0];
@@ -25,6 +37,7 @@ export class DashboardService {
 
   async getPatientsWithoutAppointment() {
     const today = new Date().toISOString().split('T')[0];
+    const orgId = this.requireOrgId();
 
     // Active patients with no future appointments
     const patients = await this.patientRepo
@@ -39,10 +52,13 @@ export class DashboardService {
     // For each patient, get their last curacion
     const result = await Promise.all(
       patients.map(async (p) => {
-        const lastCuracion = await this.curacionRepo.findOne({
-          where: { patientId: p.id },
-          order: { date: 'DESC' },
-        });
+        const [lastCuracion, { rut }] = await Promise.all([
+          this.curacionRepo.findOne({
+            where: { patientId: p.id },
+            order: { date: 'DESC' },
+          }),
+          decryptPatientPii(p, this.kms, orgId),
+        ]);
 
         const daysSince = lastCuracion
           ? Math.floor(
@@ -55,7 +71,7 @@ export class DashboardService {
           id: p.id,
           firstName: p.firstName,
           lastName: p.lastName,
-          rut: p.rut,
+          rut,
           lastCuracion: lastCuracion
             ? { date: lastCuracion.date, type: lastCuracion.type }
             : null,
@@ -68,6 +84,7 @@ export class DashboardService {
   }
 
   async getInactivePatients(days: number) {
+    const orgId = this.requireOrgId();
     // Use raw query for the HAVING clause with date arithmetic
     const results = await this.patientRepo
       .createQueryBuilder('p')
@@ -97,13 +114,18 @@ export class DashboardService {
           ? new Date(r.lastCuracionDate).toISOString().split('T')[0]
           : null;
 
-        let lastCuracionType: string | null = null;
-        if (rawDate) {
-          const curacion = await this.curacionRepo.findOne({
-            where: { patientId: r.id, date: rawDate },
-          });
-          lastCuracionType = curacion?.type || null;
-        }
+        const [lastCuracionType, { rut }] = await Promise.all([
+          rawDate
+            ? this.curacionRepo
+                .findOne({ where: { patientId: r.id, date: rawDate } })
+                .then((c) => c?.type ?? null)
+            : Promise.resolve(null),
+          decryptPatientPii(
+            { id: r.id, rut: r.rut as EncryptedField },
+            this.kms,
+            orgId,
+          ),
+        ]);
 
         const daysSince = rawDate
           ? Math.floor(
@@ -116,7 +138,7 @@ export class DashboardService {
           id: r.id,
           firstName: r.firstName,
           lastName: r.lastName,
-          rut: r.rut,
+          rut,
           lastCuracionDate: rawDate,
           lastCuracionType,
           daysSinceLastCuracion: daysSince,
