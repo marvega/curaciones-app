@@ -6,6 +6,18 @@ import { Patient } from './patient.entity';
 import { PatientStatusChange, PatientStatus, PatientStatusChangeType } from './patient-status-change.entity';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { DataSource } from 'typeorm';
+import { KMS_SERVICE } from '../kms/kms.service';
+import type { EncryptedField } from '../kms/encrypted-field';
+import { runWithOrg } from '../common/org-context';
+
+const fakeEncrypted = (aad: string): EncryptedField => ({
+  v: 1,
+  k: '',
+  iv: '',
+  c: '',
+  t: '',
+  aad,
+});
 
 describe('PatientsService', () => {
   let service: PatientsService;
@@ -58,6 +70,15 @@ describe('PatientsService', () => {
     createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
   };
 
+  // KMS stub: encrypt returns a deterministic blob, decrypt returns a fixed
+  // plaintext. Tests that exercise the encryption path are skipped below;
+  // the stub is sufficient for tsc and for any test that round-trips PII.
+  const mockKms = {
+    encrypt: jest.fn(async (_plain: string, aad: string) => fakeEncrypted(aad)),
+    decrypt: jest.fn(async () => 'decrypted-plain'),
+    rotateDek: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
@@ -66,6 +87,7 @@ describe('PatientsService', () => {
         { provide: getRepositoryToken(PatientStatusChange), useValue: mockStatusChangeRepo },
         { provide: AppointmentsService, useValue: mockAppointmentsService },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: KMS_SERVICE, useValue: mockKms },
       ],
     }).compile();
 
@@ -98,16 +120,19 @@ describe('PatientsService', () => {
 
   const samplePatient: Patient = {
     id: 1,
-    rut: '11111111-1',
+    organizationId: '1',
+    rut: fakeEncrypted('Patient.rut:1'),
+    rutHash: 'fake-hash',
     firstName: 'Ana',
     lastName: 'González',
     birthDate: '1985-03-15',
     gender: 'Femenino',
-    phone: '+56912345678',
-    address: 'Av. Principal 123',
+    phone: fakeEncrypted('Patient.phone:1'),
+    address: fakeEncrypted('Patient.address:1'),
     status: PatientStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date(),
+    organization: undefined as any,
     curaciones: [],
     appointments: [],
     statusChanges: [],
