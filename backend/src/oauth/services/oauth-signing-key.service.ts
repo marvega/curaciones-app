@@ -48,7 +48,10 @@ export class OAuthSigningKeyService {
     if (this.allCache && this.allCache.expiresAt > Date.now()) {
       return this.allCache.value;
     }
-    const rows = await this.repo.find({ where: { status: In(['active', 'retired']) } });
+    const rows = await this.repo.find({
+      where: { status: In(['active', 'retired']) },
+      order: { activatedAt: 'DESC' },
+    });
     const resolved = await Promise.all(rows.map((r) => this.resolve(r)));
     this.allCache = { value: resolved, expiresAt: Date.now() + CACHE_TTL_MS };
     return resolved;
@@ -59,12 +62,13 @@ export class OAuthSigningKeyService {
     const privateKeyPem = await this.kms.decrypt(field, signingKeyAad(row.id), OAUTH_KMS_ORG_ID);
     const publicKey = createPublicKey(row.publicKeyPem);
     const jwk = publicKey.export({ format: 'jwk' }) as Record<string, unknown>;
-    return {
+    const resolved: ResolvedSigningKey = {
       kid: row.id,
       algorithm: row.algorithm,
       privateKeyPem,
       publicKeyPem: row.publicKeyPem,
-      publicJwk: { ...jwk, alg: row.algorithm, use: 'sig', kid: row.id },
+      publicJwk: Object.freeze({ ...jwk, alg: row.algorithm, use: 'sig', kid: row.id }) as Record<string, unknown>,
     };
+    return Object.freeze(resolved);
   }
 }
