@@ -128,12 +128,22 @@ describe('LotsService', () => {
 
   describe('createAdjustment', () => {
     it('persists ADJUSTMENT movement with delta and notes', async () => {
-      lotRepo.findOne.mockResolvedValue({ id: 5 });
-      movRepo.save = jest.fn((e) => Promise.resolve({ id: 99, ...e }));
-      movRepo.create = jest.fn((dto) => dto);
-      const result = await service.createAdjustment(5, { delta: -3, notes: 'damaged' }, 99);
-      expect(result.delta).toBe(-3);
-      expect(result.type).toBe('ADJUSTMENT');
+      await inOrg(async () => {
+        // findById uses an org-scoped queryBuilder; stub it to return a lot.
+        lotRepo.createQueryBuilder = jest.fn(() => ({
+          innerJoin: jest.fn().mockReturnThis(),
+          leftJoinAndSelect: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 5 }),
+        }));
+        lotRepo.findOne.mockResolvedValue({ id: 5 });
+        movRepo.save = jest.fn((e) => Promise.resolve({ id: 99, ...e }));
+        movRepo.create = jest.fn((dto) => dto);
+        const result = await service.createAdjustment(5, { delta: -3, notes: 'damaged' }, 99);
+        expect(result.delta).toBe(-3);
+        expect(result.type).toBe('ADJUSTMENT');
+      });
     });
   });
 });

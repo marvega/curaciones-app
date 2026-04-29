@@ -2,6 +2,9 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CyclesService } from './cycles.service';
 import { MonthlyCycle } from './cycle.entity';
+import { runWithOrg } from '../common/org-context';
+
+const inOrg = (fn: () => Promise<void>) => () => runWithOrg('1', fn);
 
 describe('CyclesService', () => {
   let service: CyclesService;
@@ -25,7 +28,7 @@ describe('CyclesService', () => {
   });
 
   describe('getCyclesByYear', () => {
-    it('returns ordered cycles for a year', async () => {
+    it('returns ordered cycles for a year', inOrg(async () => {
       const cycles = [
         { id: 1, year: 2026, month: 1, startDate: '2026-01-01', endDate: '2026-01-31' },
         { id: 2, year: 2026, month: 2, startDate: '2026-02-01', endDate: '2026-02-28' },
@@ -35,16 +38,16 @@ describe('CyclesService', () => {
       const result = await service.getCyclesByYear(2026);
 
       expect(mockCycleRepo.find).toHaveBeenCalledWith({
-        where: { year: 2026 },
+        where: { year: 2026, organizationId: '1' },
         order: { month: 'ASC' },
       });
       expect(result).toHaveLength(2);
       expect(result[0].month).toBe(1);
-    });
+    }));
   });
 
   describe('getEffectiveDates', () => {
-    it('returns cycle dates when configured', async () => {
+    it('returns cycle dates when configured', inOrg(async () => {
       mockCycleRepo.findOne.mockResolvedValueOnce({
         id: 1,
         year: 2026,
@@ -59,9 +62,9 @@ describe('CyclesService', () => {
         startDate: '2026-02-26',
         endDate: '2026-03-25',
       });
-    });
+    }));
 
-    it('falls back to calendar month when no cycle configured', async () => {
+    it('falls back to calendar month when no cycle configured', inOrg(async () => {
       mockCycleRepo.findOne.mockResolvedValueOnce(null);
 
       const result = await service.getEffectiveDates(2026, 3);
@@ -70,9 +73,9 @@ describe('CyclesService', () => {
         startDate: '2026-03-01',
         endDate: '2026-03-31',
       });
-    });
+    }));
 
-    it('calculates correct last day for February (non-leap)', async () => {
+    it('calculates correct last day for February (non-leap)', inOrg(async () => {
       mockCycleRepo.findOne.mockResolvedValueOnce(null);
 
       const result = await service.getEffectiveDates(2026, 2);
@@ -81,9 +84,9 @@ describe('CyclesService', () => {
         startDate: '2026-02-01',
         endDate: '2026-02-28',
       });
-    });
+    }));
 
-    it('calculates correct last day for February (leap year)', async () => {
+    it('calculates correct last day for February (leap year)', inOrg(async () => {
       mockCycleRepo.findOne.mockResolvedValueOnce(null);
 
       const result = await service.getEffectiveDates(2028, 2);
@@ -92,11 +95,11 @@ describe('CyclesService', () => {
         startDate: '2028-02-01',
         endDate: '2028-02-29',
       });
-    });
+    }));
   });
 
   describe('upsertCycle', () => {
-    it('creates new cycle when none exists', async () => {
+    it('creates new cycle when none exists', inOrg(async () => {
       mockCycleRepo.findOne.mockResolvedValueOnce(null);
       mockCycleRepo.save.mockResolvedValueOnce({
         id: 1,
@@ -118,9 +121,9 @@ describe('CyclesService', () => {
       expect(mockCycleRepo.create).toHaveBeenCalledWith(dto);
       expect(mockCycleRepo.save).toHaveBeenCalled();
       expect(result.month).toBe(4);
-    });
+    }));
 
-    it('updates existing cycle', async () => {
+    it('updates existing cycle', inOrg(async () => {
       const existing = {
         id: 1,
         year: 2026,
@@ -147,11 +150,11 @@ describe('CyclesService', () => {
       expect(mockCycleRepo.create).not.toHaveBeenCalled();
       expect(mockCycleRepo.save).toHaveBeenCalled();
       expect(result.startDate).toBe('2026-03-26');
-    });
+    }));
   });
 
   describe('bulkUpsert', () => {
-    it('processes all cycles', async () => {
+    it('processes all cycles', inOrg(async () => {
       // Each upsertCycle call does findOne + save
       mockCycleRepo.findOne.mockResolvedValue(null);
       mockCycleRepo.save.mockImplementation((entity) =>
@@ -168,6 +171,6 @@ describe('CyclesService', () => {
 
       expect(result).toHaveLength(3);
       expect(mockCycleRepo.save).toHaveBeenCalledTimes(3);
-    });
+    }));
   });
 });
