@@ -62,15 +62,17 @@ export class WoundNotesService {
   }
 
   async findByCuracion(curacionId: number): Promise<WoundNote | null> {
-    return findOneScoped(this.repo, {
+    const note = await findOneScoped(this.repo, {
       where: { curacionId },
       relations: ['recordedBy'],
     });
+    if (note) await this.decryptNotes(note);
+    return note;
   }
 
   async findByPatient(patientId: number): Promise<WoundNote[]> {
     const orgId = this.requireOrgId();
-    return this.repo
+    const notes = await this.repo
       .createQueryBuilder('wn')
       .innerJoinAndSelect('wn.curacion', 'c')
       .innerJoinAndSelect('wn.recordedBy', 'u')
@@ -78,6 +80,22 @@ export class WoundNotesService {
       .andWhere('wn.organizationId = :orgId', { orgId })
       .orderBy('c.date', 'DESC')
       .getMany();
+    await Promise.all(notes.map((n) => this.decryptNotes(n)));
+    return notes;
+  }
+
+  // The encrypted-column transformer is a passthrough; raw EncryptedField
+  // objects would otherwise leak to the SPA and crash React (#31).
+  private async decryptNotes(note: WoundNote): Promise<void> {
+    if (note.notes && typeof note.notes === 'object') {
+      const orgId = this.requireOrgId();
+      const plain = await this.kms.decrypt(
+        note.notes,
+        `WoundNote.notes:${note.id}`,
+        orgId,
+      );
+      (note as any).notes = plain;
+    }
   }
 
   async getEvolutionData(

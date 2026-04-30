@@ -53,6 +53,10 @@ export class PatientsService {
    * Decrypts the encrypted PII columns on a Patient entity in place and returns
    * the same object cast to `DecryptedPatient`. Safe for in-memory use only —
    * never pass the result back to `repo.save()`.
+   *
+   * Also decrypts `curaciones[].observations` when the curaciones relation has
+   * been loaded, since the column transformer is a passthrough and the raw
+   * EncryptedField object would otherwise leak to the SPA and crash React.
    */
   private async decryptPatient(p: Patient): Promise<DecryptedPatient> {
     const orgId = this.requireOrgId();
@@ -83,6 +87,22 @@ export class PatientsService {
       );
     } else {
       out.address = null;
+    }
+    if (Array.isArray((p as any).curaciones)) {
+      for (const c of (p as any).curaciones as Array<{
+        id: number;
+        observations: EncryptedField | string | null;
+      }>) {
+        if (c.observations && typeof c.observations === 'object') {
+          tasks.push(
+            this.kms
+              .decrypt(c.observations as EncryptedField, `Curacion.observations:${c.id}`, orgId)
+              .then((s) => {
+                c.observations = s;
+              }),
+          );
+        }
+      }
     }
     await Promise.all(tasks);
     return out as DecryptedPatient;
