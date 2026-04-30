@@ -100,11 +100,28 @@ export class AppointmentsService {
   }
 
   async findByPatient(patientId: number): Promise<Appointment[]> {
-    return findScoped(this.appointmentRepo, {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
+    const appointments = await findScoped(this.appointmentRepo, {
       where: { patientId },
       relations: ['curacion'],
       order: { date: 'ASC', time: 'ASC' },
     });
+    // Curacion.observations is a passthrough EncryptedField in the column
+    // transformer; decrypt before returning so the SPA never sees ciphertext.
+    await Promise.all(
+      appointments.map(async (a) => {
+        const c: any = a.curacion;
+        if (c && c.observations && typeof c.observations === 'object') {
+          c.observations = await this.kms.decrypt(
+            c.observations,
+            `Curacion.observations:${c.id}`,
+            orgId,
+          );
+        }
+      }),
+    );
+    return appointments;
   }
 
   async findFutureByPatient(patientId: number): Promise<Appointment[]> {

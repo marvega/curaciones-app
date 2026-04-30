@@ -177,6 +177,37 @@ describe('PatientsService', () => {
     await expect(service.findById(999)).rejects.toThrow(NotFoundException);
   }));
 
+  // 3b. findById — decrypts curaciones[].observations so frontend never sees ciphertext
+  it('findById decrypts curaciones[].observations', inOrg(async () => {
+    const patientWithCuraciones = {
+      ...samplePatient,
+      curaciones: [
+        { id: 11, observations: fakeEncrypted('Curacion.observations:11') },
+        { id: 12, observations: null },
+        { id: 13, observations: fakeEncrypted('Curacion.observations:13') },
+      ],
+    };
+    mockPatientRepo.findOne.mockResolvedValue(patientWithCuraciones);
+
+    const result = await service.findById(1);
+
+    expect(result.curaciones).toHaveLength(3);
+    expect(result.curaciones[0].observations).toBe('decrypted-plain');
+    expect(result.curaciones[1].observations).toBeNull();
+    expect(result.curaciones[2].observations).toBe('decrypted-plain');
+    // The mock kms records every decrypt call; we expect rut + 2 observations.
+    expect(mockKms.decrypt).toHaveBeenCalledWith(
+      expect.any(Object),
+      'Curacion.observations:11',
+      '1',
+    );
+    expect(mockKms.decrypt).toHaveBeenCalledWith(
+      expect.any(Object),
+      'Curacion.observations:13',
+      '1',
+    );
+  }));
+
   // 4. create — creates with valid data
   it('create creates patient with valid data', inOrg(async () => {
     const dto = {
