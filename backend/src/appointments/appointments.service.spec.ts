@@ -150,6 +150,61 @@ describe('AppointmentsService', () => {
     }));
   });
 
+  describe('findByPatient', () => {
+    it('decrypts curacion.observations on appointments returned for patient detail', inOrg(async () => {
+      const kms = (service as unknown as { kms: import('../kms/kms.service').KmsService }).kms;
+      const obs1 = await kms.encrypt('cura observada A', 'Curacion.observations:101', '1');
+      const obs2 = await kms.encrypt('cura observada B', 'Curacion.observations:102', '1');
+
+      mockRepo.find.mockResolvedValueOnce([
+        {
+          id: 1,
+          patientId: 7,
+          date: '2099-12-01',
+          time: '13:00',
+          curacion: { id: 101, observations: obs1 },
+        },
+        {
+          id: 2,
+          patientId: 7,
+          date: '2099-12-02',
+          time: '14:00',
+          curacion: null,
+        },
+        {
+          id: 3,
+          patientId: 7,
+          date: '2099-12-03',
+          time: '15:00',
+          curacion: { id: 102, observations: obs2 },
+        },
+      ]);
+
+      const result = await service.findByPatient(7);
+
+      expect(result).toHaveLength(3);
+      expect(result[0].curacion!.observations as unknown as string).toBe('cura observada A');
+      expect(result[1].curacion).toBeNull();
+      expect(result[2].curacion!.observations as unknown as string).toBe('cura observada B');
+    }));
+
+    it('returns appointments with null observations untouched', inOrg(async () => {
+      mockRepo.find.mockResolvedValueOnce([
+        {
+          id: 4,
+          patientId: 7,
+          date: '2099-12-04',
+          time: '13:00',
+          curacion: { id: 200, observations: null },
+        },
+      ]);
+
+      const result = await service.findByPatient(7);
+
+      expect(result[0].curacion!.observations).toBeNull();
+    }));
+  });
+
   describe('createLinked', () => {
     it('creates appointment linked to curacion', inOrg(async () => {
       const result = await service.createLinked(1, 5, '2099-12-01', '13:00');
