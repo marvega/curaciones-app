@@ -72,6 +72,16 @@ export async function buildOidcProvider(
     adapter: Adapter as any,
     jwks,
     scopes: SUPPORTED_SCOPES,
+    // Map our custom claims onto the `openid` scope so that the userinfo
+    // endpoint actually returns them. oidc-provider's `Claims#scope()` filter
+    // (see `lib/helpers/claims.js`) only includes claims that are listed in
+    // this `claims` config under one of the requested scopes — without this
+    // entry, the claims our `findAccount.claims()` returns (`username`,
+    // `org_id`, `org_name`, `role`) get silently stripped from the userinfo
+    // response, leaving only `sub`.
+    claims: {
+      openid: ['sub', 'username', 'org_id', 'org_name', 'role'],
+    },
     // @types/oidc-provider v9 dropped `methods`, but runtime v8 still accepts
     // it. Cast to satisfy the type-checker without losing the runtime config.
     pkce: { required: () => true, methods: ['S256'] } as any,
@@ -108,7 +118,23 @@ export async function buildOidcProvider(
       //   `ttl.AccessToken` for consistency.
       resourceIndicators: {
         enabled: true,
-        defaultResource: () => deps.issuer,
+        // Only default to the issuer-as-resource when the request includes a
+        // resource-server (domain) scope. Pure OIDC requests (`openid` and/or
+        // `offline_access` only) must NOT be bound to a resource — otherwise
+        // the resulting AT carries an `aud` claim and oidc-provider's
+        // userinfo endpoint rejects it with `token audience prevents accessing
+        // the userinfo endpoint`. With this guard, an AT obtained via
+        // `scope=openid` is opaque and accepted by /oauth/userinfo; ATs
+        // obtained with any domain scope remain JWT-format and bound to the
+        // issuer-as-resource (the original intent of resource indicators).
+        defaultResource: (ctx) => {
+          const rawScope = (ctx.oidc?.params?.scope as string | undefined) ?? '';
+          const scopes = rawScope.split(/\s+/).filter(Boolean);
+          const hasDomainScope = scopes.some(
+            (s) => s !== 'openid' && s !== 'offline_access',
+          );
+          return hasDomainScope ? deps.issuer : (undefined as unknown as string);
+        },
         useGrantedResource: () => true,
         getResourceServerInfo: () => ({
           // Resource Server scopes — only domain/functional scopes belong
