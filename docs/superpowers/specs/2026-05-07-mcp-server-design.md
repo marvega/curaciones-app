@@ -94,35 +94,36 @@ Cero código compartido entre MCP y backend. Solo contrato HTTP. Tipos del API s
 
 ### 4.1 Catálogo
 
-18 tools + `whoami` (extra, sin contar). Naming en inglés (convención MCP). Descripciones en código se escribirán en español para alinear con clínicos chilenos. Cada una mapea 1:1 a un endpoint REST existente.
+19 tools + `whoami` (extra, sin contar). Subimos de 18 a 19 al separar agenda por paciente vs agenda por rango de fecha (que mapean a endpoints distintos en el backend: `appointments` vs `curaciones/agenda`). Naming en inglés (convención MCP). Descripciones en código se escribirán en español para alinear con clínicos chilenos. Cada una mapea 1:1 a un endpoint REST existente.
 
 | # | Tool | Endpoint backend | Scope | readOnly | destructive |
 |---|---|---|---|---|---|
 | 1 | `search_patients` | `GET /api/patients?q=&cursor=` | `patients:read` | ✓ | ✗ |
 | 2 | `get_patient` | `GET /api/patients/:id` | `patients:read` | ✓ | ✗ |
 | 3 | `create_patient` | `POST /api/patients` | `patients:write` | ✗ | ✗ |
-| 4 | `update_patient` | `PATCH /api/patients/:id` | `patients:write` | ✗ | ✗ |
+| 4 | `update_patient` | `PUT /api/patients/:id` | `patients:write` | ✗ | ✗ |
 | 5 | `discharge_patient` | `POST /api/patients/:id/discharge` | `patients:write` | ✗ | ✓ |
 | 6 | `readmit_patient` | `POST /api/patients/:id/readmit` | `patients:write` | ✗ | ✗ |
-| 7 | `list_appointments` | `GET /api/appointments?date=&patientId=&cursor=` | `agenda:read` | ✓ | ✗ |
-| 8 | `create_appointment` | `POST /api/appointments` | `agenda:write` | ✗ | ✗ |
-| 9 | `cancel_appointment` | `DELETE /api/appointments/:id` | `agenda:write` | ✗ | ✓ |
-| 10 | `list_curaciones` | `GET /api/curaciones?patientId=&cursor=` | `clinical:read` | ✓ | ✗ |
-| 11 | `register_curacion` | `POST /api/curaciones` | `clinical:write` | ✗ | ✗ |
-| 12 | `get_curacion_pdf` | wrappea `GET /api/curaciones/:id/pdf` (modalidad final — URL temporal vs MCP resource binary — se decide en plan) | `clinical:read` | ✓ | ✗ |
-| 13 | `add_wound_note` | `POST /api/wound-notes` | `clinical:write` | ✗ | ✗ |
-| 14 | `list_wound_notes` | `GET /api/wound-notes/patient/:patientId` | `clinical:read` | ✓ | ✗ |
-| 15 | `search_inventory` | `GET /api/inventory/products?q=&cursor=` | `inventory:read` | ✓ | ✗ |
-| 16 | `list_lots_expiring` | `GET /api/inventory/lots/expiring?cursor=` | `inventory:read` | ✓ | ✗ |
-| 17 | `register_canasta_consumption` | `POST /api/canasta` | `inventory:write` | ✗ | ✗ |
-| 18 | `monthly_report` | `GET /api/reports/monthly?month=` | `reports:read` | ✓ | ✗ |
+| 7 | `list_patient_appointments` | `GET /api/appointments/patient/:patientId` | `agenda:read` | ✓ | ✗ |
+| 8 | `get_agenda_by_date_range` | `GET /api/curaciones/agenda?from=&to=` | `clinical:read` | ✓ | ✗ |
+| 9 | `create_appointment` | `POST /api/appointments` | `agenda:write` | ✗ | ✗ |
+| 10 | `cancel_appointment` | `DELETE /api/appointments/:id` | `agenda:write` | ✗ | ✓ |
+| 11 | `list_curaciones` | `GET /api/curaciones/patient/:patientId` | `clinical:read` | ✓ | ✗ |
+| 12 | `register_curacion` | `POST /api/curaciones` | `clinical:write` | ✗ | ✗ |
+| 13 | `get_patient_pdf` | wrappea `GET /api/patients/:id/pdf` (PDF de ficha clínica del paciente; modalidad final — URL temporal vs MCP resource binary — se decide en plan) | `patients:read` | ✓ | ✗ |
+| 14 | `add_wound_note` | `POST /api/wound-notes` | `clinical:write` | ✗ | ✗ |
+| 15 | `list_wound_notes` | `GET /api/wound-notes/patient/:patientId` | `clinical:read` | ✓ | ✗ |
+| 16 | `search_inventory` | `GET /api/inventory/products?q=&cursor=` | `inventory:read` | ✓ | ✗ |
+| 17 | `list_lots_expiring` | `GET /api/inventory/lots/expiring?cursor=` | `inventory:read` | ✓ | ✗ |
+| 18 | `register_canasta_consumption` | `POST /api/inventory/canasta` | `inventory:write` | ✗ | ✗ |
+| 19 | `monthly_report` | `GET /api/reports/monthly?month=` | `reports:read` | ✓ | ✗ |
 | — | `whoami` | `GET /api/auth/me` reformulado | (todo grant) | ✓ | ✗ |
 
 ### 4.2 Cobertura por dominio
 
-- Patients: 6 (search, get, create, update, discharge, readmit)
-- Agenda: 3
-- Curaciones: 3 (incluye PDF)
+- Patients: 7 (search, get, create, update, discharge, readmit, pdf)
+- Agenda: 4 (list_patient_appointments, get_agenda_by_date_range, create, cancel)
+- Curaciones: 2 (list, register)
 - Wound notes: 2
 - Inventory: 3 (read products, read lots, write canasta)
 - Reports: 1
@@ -331,7 +332,7 @@ Restricto a orígenes MCP conocidos (`https://claude.ai`, `https://*.anthropic.c
 Sub #3 cerrado cuando:
 
 1. Servicio `mcp-server` deployado en Railway en `mcp.<placeholder>`, accesible vía streamable-HTTP.
-2. Las 18 tools v1 + `whoami` implementadas, cada una con scope check, mapping al backend, error handling per §7.
+2. Las 19 tools v1 + `whoami` implementadas, cada una con scope check, mapping al backend, error handling per §7.
 3. JWT validation con JWKS público (`/jwks.json` del backend) funcional; MCP valida firma + `iss` + `aud=OAUTH_ISSUER` + `exp/nbf`. Sin cambios en el AS.
 4. Las 5 tools con elicitation funcionan en cliente que la soporta (verificado con MCP Inspector) y degradan correctamente en cliente que no.
 5. Logs estructurados con redaction de PHI; correlation-id propagated end-to-end Claude→MCP→API.
@@ -364,10 +365,10 @@ Sub #3 cerrado cuando:
 | 0 | Pre-requisitos en backend: paginación cursor en endpoints de listado + OpenAPI export verificado (sin cambios en el AS) |
 | 1 | Bootstrap `mcp-server/`: Fastify + MCP SDK + health endpoint + Dockerfile + CI workflow |
 | 2 | Auth middleware: JWT verification con JWKS + scope catalog + error mapping |
-| 3 | Tools read-only (8 tools): search/get/list para todos los dominios |
-| 4 | Tools write sin elicitation (5 tools): discharge_patient, readmit_patient, cancel_appointment, add_wound_note, get_curacion_pdf_url |
+| 3 | Tools read-only sin paginación cursor del lado MCP (9 tools): search_patients, get_patient, list_patient_appointments, get_agenda_by_date_range, list_curaciones, list_wound_notes, search_inventory, list_lots_expiring, get_patient_pdf |
+| 4 | Tools write sin elicitation (4 tools): discharge_patient, readmit_patient, cancel_appointment, add_wound_note |
 | 5 | Tools con elicitation (5 tools): create_patient, update_patient, register_curacion, create_appointment, register_canasta_consumption |
-| 6 | Reports + whoami |
+| 6 | Reports (monthly_report) + whoami |
 | 7 | Logging + redaction + correlation-id end-to-end |
 | 8 | Documentación interna + smoke test manual + Railway deploy a `mcp.<placeholder>` |
 
