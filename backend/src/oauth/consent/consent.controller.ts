@@ -16,7 +16,6 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
@@ -81,8 +80,6 @@ const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
 @Controller('oauth/consent')
 @UseGuards(JwtAuthGuard)
 export class ConsentController {
-  private readonly logger = new Logger(ConsentController.name);
-
   constructor(
     private readonly oidc: OidcProviderSingleton,
     private readonly consent: ConsentService,
@@ -198,16 +195,7 @@ export class ConsentController {
     // row. This is the join used by `extraTokenClaims` to enrich access
     // tokens with `org_id` / `role` (Grant.organizationId is in-memory only
     // and is dropped on serialization).
-    try {
-      await this.oauthGrantRepo.update(oauthGrant.id, { oidcGrantId: grantId });
-    } catch (err: unknown) {
-      this.logger.error(
-        `Failed to persist oidcGrantId on grant ${oauthGrant.id}: ${(err as Error).message}`,
-      );
-      // Do not rethrow — consent was recorded; the token claims will fall
-      // back gracefully via extraTokenClaims returning {} if oidcGrantId is
-      // null.
-    }
+    await this.oauthGrantRepo.update(oauthGrant.id, { oidcGrantId: grantId });
 
     interaction.result = {
       login: { accountId: String(user.id) },
