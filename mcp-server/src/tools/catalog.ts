@@ -19,6 +19,7 @@ import { addWoundNoteHandler } from './wound-notes/add-wound-note.js';
 import { searchInventoryHandler } from './inventory/search-inventory.js';
 import { listLotsExpiringHandler } from './inventory/list-lots-expiring.js';
 import { registerCanastaConsumptionHandler } from './inventory/register-canasta-consumption.js';
+import { monthlyReportHandler } from './reports/monthly-report.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -71,7 +72,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'list_lots_expiring', description: 'Lista lotes de inventario próximos a vencer en N días (default 30).', requiredScope: 'inventory:read', readOnly: true, destructive: false, inputSchema: z.object({ days: z.number().int().min(1).max(365).optional() }), handler: (input, ctx) => listLotsExpiringHandler(input as any, ctx) },
   { name: 'register_canasta_consumption', description: 'Registra consumo de insumos en una curación o canasta. Solicita productos y cantidades vía elicitation.', requiredScope: 'inventory:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: (input, ctx) => registerCanastaConsumptionHandler(input, ctx) },
   // reports
-  { name: 'monthly_report', description: 'Reporte mensual de curaciones (formato YYYY-MM).', requiredScope: 'reports:read', readOnly: true, destructive: false, inputSchema: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }), handler: stub },
+  { name: 'monthly_report', description: 'Reporte mensual de curaciones (formato YYYY-MM).', requiredScope: 'reports:read', readOnly: true, destructive: false, inputSchema: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }), handler: (input, ctx) => monthlyReportHandler(input as any, ctx) },
   // identity
   { name: 'whoami', description: 'Devuelve el usuario y organización actuales (lee del JWT, no llama al backend).', requiredScope: '', readOnly: true, destructive: false, inputSchema: z.object({}), handler: stub },
 ];
