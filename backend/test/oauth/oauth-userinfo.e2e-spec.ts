@@ -26,6 +26,7 @@ interface Fixtures {
   orgName: string;
   userId: number;
   username: string;
+  role: string;
   spaAccessToken: string;
 }
 
@@ -71,7 +72,7 @@ async function createTestFixtures(app: INestApplication): Promise<Fixtures> {
     { secret: process.env.JWT_SECRET || 'test-secret-key' },
   );
 
-  return { orgId, orgName, userId, username, spaAccessToken };
+  return { orgId, orgName, userId, username, role: 'admin', spaAccessToken };
 }
 
 describe('OAuth userinfo endpoint (e2e)', () => {
@@ -184,6 +185,6 @@ describe('OAuth userinfo endpoint (e2e)', () => {
     expect(userinfoRes.body.username).toBe(fixtures.username);
     expect(userinfoRes.body.org_id).toBe(fixtures.orgId);
     expect(userinfoRes.body.org_name).toBe(fixtures.orgName);
-    expect(userinfoRes.body.role).toBe('admin');
+    expect(userinfoRes.body.role).toBe(fixtures.role);
   });
 });
