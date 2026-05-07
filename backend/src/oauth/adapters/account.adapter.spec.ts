@@ -52,11 +52,57 @@ describe('AccountAdapterService', () => {
     });
   });
 
-  it('findAccount returns undefined when membership inactive', async () => {
-    userRepo.findOne.mockResolvedValue({ id: 12 });
+  it('findAccount returns the user even when grant entity not yet set; claims fall back to first active membership', async () => {
+    // oidc-provider runs `loadAccount` before `loadGrant`, so we must not
+    // gate the account on the Grant entity. The org-scoped claims are
+    // resolved lazily inside `claims()` from the user's first active
+    // membership when no grant is available.
+    userRepo.findOne.mockResolvedValue({ id: 12, username: 'marcelo' });
+    memRepo.findOne.mockResolvedValueOnce({
+      userId: 12,
+      organizationId: 'uuid-fallback',
+      role: OrgRole.CLINICIAN,
+      status: MembershipStatus.ACTIVE,
+    });
+    memRepo.findOne.mockResolvedValueOnce({
+      userId: 12,
+      organizationId: 'uuid-fallback',
+      role: OrgRole.CLINICIAN,
+      status: MembershipStatus.ACTIVE,
+    });
+    orgRepo.findOne.mockResolvedValue({ id: 'uuid-fallback', name: 'Fallback Org' });
+    ueaRepo.find.mockResolvedValue([]);
+
+    const ctx = { oidc: { entities: {}, result: undefined } } as any;
+    const account = await service.findAccount(ctx, '12');
+    expect(account!.accountId).toBe('12');
+
+    const claims = await account!.claims!('id_token', 'openid');
+    expect(claims).toMatchObject({
+      sub: '12',
+      org_id: 'uuid-fallback',
+      role: OrgRole.CLINICIAN,
+    });
+  });
+
+  it('findAccount returns undefined when user not found', async () => {
+    userRepo.findOne.mockResolvedValue(null);
+    const ctx = { oidc: { entities: {} } } as any;
+    const account = await service.findAccount(ctx, '999');
+    expect(account).toBeUndefined();
+  });
+
+  it('findAccount returns minimal claims when user has no active membership', async () => {
+    // We still return the account so the authorization request can proceed
+    // far enough for the consent UI to surface the "no orgs" error to the
+    // user; the claim shape is degraded to just `sub` and `username` rather
+    // than throwing — the consent screen will block submission anyway.
+    userRepo.findOne.mockResolvedValue({ id: 12, username: 'marcelo' });
     memRepo.findOne.mockResolvedValue(null);
     const ctx = { oidc: { entities: { Grant: { organizationId: 'x' } } } } as any;
     const account = await service.findAccount(ctx, '12');
-    expect(account).toBeUndefined();
+    expect(account!.accountId).toBe('12');
+    const claims = await account!.claims!('id_token', 'openid');
+    expect(claims).toEqual({ sub: '12', username: 'marcelo' });
   });
 });

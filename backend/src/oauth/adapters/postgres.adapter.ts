@@ -16,6 +16,12 @@ const NAME_TO_KIND: Record<string, OAuthTokenKind> = {
   RefreshToken: 'refresh',
   Interaction: 'interaction',
   RegistrationAccessToken: 'registration_access_token',
+  // oidc-provider's `Grant` model is the consent envelope (scopes a user
+  // approved for a client). It's distinct from the persistent `OAuthGrant`
+  // entity (which is *our* longer-lived consent record) — the OIDC `Grant`
+  // payload here is the in-flight handle the provider hands to access tokens
+  // and authorization codes via `payload.grantId`.
+  Grant: 'grant',
   // ClientCredentials, DeviceCode, BackchannelAuthenticationRequest not used in v1
 };
 

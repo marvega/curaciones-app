@@ -32,6 +32,13 @@ export class OidcProviderSingleton implements OnApplicationBootstrap {
       findAccount: this.accountAdapter.findAccount,
       loadExistingGrant: this.grantService.loadExistingGrant,
     });
+    // Surface oidc-provider's `server_error` events (otherwise they get
+    // swallowed by the koa error_handler and only the generic HTML response
+    // reaches the client). One-line log keeps prod noise low while making
+    // misconfigurations debuggable in tests and during integration work.
+    this.provider.on('server_error', (_ctx, err: Error) => {
+      this.logger.error(`oidc-provider server_error: ${err.message}`, err.stack);
+    });
     this.logger.log(`oidc-provider initialized at ${issuer}`);
   }
 
