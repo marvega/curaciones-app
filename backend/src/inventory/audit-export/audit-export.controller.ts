@@ -1,16 +1,19 @@
 import { Controller, Get, Query, Res, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { MultiAuthGuard } from '../../oauth/guards/multi-auth.guard';
+import { OAuthScopeGuard } from '../../oauth/guards/oauth-scope.guard';
+import { RequiredScopes } from '../../oauth/decorators/required-scopes.decorator';
 import { AuditExportService } from './audit-export.service';
 
 @ApiTags('Inventory / AuditExport')
 @ApiBearerAuth()
 @Controller('api/inventory/audit-export')
-@UseGuards(JwtAuthGuard)
+@UseGuards(MultiAuthGuard, OAuthScopeGuard)
 export class AuditExportController {
   constructor(private readonly svc: AuditExportService) {}
 
+  @RequiredScopes('inventory:read')
   @Get()
   async export(
     @Query('mode') mode: 'current' | 'month',

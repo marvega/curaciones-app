@@ -21,6 +21,7 @@ import {
   Package,
   UserCircle,
   Building2,
+  AppWindow,
 } from 'lucide-react';
 
 const navItems = [
@@ -198,22 +199,40 @@ export default function Layout() {
           </>
         )}
         {(currentOrg?.role || user) && (
-          <NavLink
-            to="/account/sessions"
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
-                collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
-              } ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`
-            }
-            title={collapsed && !mobile ? 'Mi cuenta' : undefined}
-          >
-            <UserCircle className="w-5 h-5 shrink-0" />
-            {(!collapsed || mobile) && 'Mi cuenta'}
-          </NavLink>
+          <>
+            <NavLink
+              to="/account/sessions"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Mi cuenta' : undefined}
+            >
+              <UserCircle className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Mi cuenta'}
+            </NavLink>
+            <NavLink
+              to="/account/connected-apps"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`
+              }
+              title={collapsed && !mobile ? 'Aplicaciones conectadas' : undefined}
+            >
+              <AppWindow className="w-5 h-5 shrink-0" />
+              {(!collapsed || mobile) && 'Aplicaciones conectadas'}
+            </NavLink>
+          </>
         )}
       </nav>
 

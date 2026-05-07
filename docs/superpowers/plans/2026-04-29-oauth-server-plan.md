@@ -114,17 +114,17 @@ Expected: enum con `Owner`, `Admin`, `Clinician`, `Receptionist`. Lo vamos a ref
 ### Task 1.1: Generar migration esqueleto
 
 **Files:**
-- Create: `backend/src/migrations/1714400000000-OAuthServer.ts`
+- Create: `backend/src/migrations/1714410000000-OAuthServer.ts`
 
 - [ ] **Step 1: Crear archivo migration vacío**
 
-Crear `backend/src/migrations/1714400000000-OAuthServer.ts` con el esqueleto:
+Crear `backend/src/migrations/1714410000000-OAuthServer.ts` con el esqueleto:
 
 ```typescript
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class OAuthServer1714400000000 implements MigrationInterface {
-  name = 'OAuthServer1714400000000';
+export class OAuthServer1714410000000 implements MigrationInterface {
+  name = 'OAuthServer1714410000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // populated in next steps
@@ -196,7 +196,7 @@ await queryRunner.query(`
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "clientId" text NOT NULL REFERENCES "oauth_client"("clientId") ON DELETE CASCADE,
     "userId" int NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-    "organizationId" uuid NOT NULL REFERENCES "organizations"("id") ON DELETE CASCADE,
+    "organizationId" bigint NOT NULL REFERENCES "organizations"("id") ON DELETE CASCADE,
     "scopes" text[] NOT NULL,
     "revokedAt" timestamptz NULL,
     "expiresAt" timestamptz NOT NULL,
@@ -235,7 +235,7 @@ await queryRunner.query(`
     "grantId" uuid NULL,
     "clientId" text NULL,
     "userId" int NULL,
-    "organizationId" uuid NULL,
+    "organizationId" bigint NULL,
     "expiresAt" timestamptz NOT NULL,
     "consumed" boolean NOT NULL DEFAULT false,
     "createdAt" timestamptz NOT NULL DEFAULT now()
@@ -311,7 +311,7 @@ cd backend
 npm run migration:run
 ```
 
-Expected: log de TypeORM aplicando `OAuthServer1714400000000`. Sin errores.
+Expected: log de TypeORM aplicando `OAuthServer1714410000000`. Sin errores.
 
 - [ ] **Step 8: Verificar tablas creadas**
 
@@ -324,7 +324,7 @@ Expected: 5 tablas listadas.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add backend/src/migrations/1714400000000-OAuthServer.ts
+git add backend/src/migrations/1714410000000-OAuthServer.ts
 git commit -m "feat(oauth): migration creating 5 OAuth tables"
 ```
 
@@ -457,7 +457,7 @@ export class OAuthGrant {
   @Column({ type: 'int' })
   userId!: number;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'bigint' })
   organizationId!: string;
 
   @Column({ type: 'text', array: true })
@@ -515,7 +515,7 @@ export class OAuthToken {
   @Column({ type: 'int', nullable: true })
   userId!: number | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'bigint', nullable: true })
   organizationId!: string | null;
 
   @Column({ type: 'timestamptz' })
