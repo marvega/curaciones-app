@@ -23,6 +23,7 @@ import { ConsentController } from './consent/consent.controller';
 import { ConsentService } from './consent/consent.service';
 import { OAuthJwtStrategy } from './strategies/oauth-jwt.strategy';
 import { OAuthJwtGuard } from './guards/oauth-jwt.guard';
+import { OAuthScopeGuard } from './guards/oauth-scope.guard';
 
 @Module({
   imports: [
@@ -43,11 +44,11 @@ import { OAuthJwtGuard } from './guards/oauth-jwt.guard';
     OAuthBootstrapService, OAuthSigningKeyService, OAuthGrantService,
     AccountAdapterService, OidcProviderSingleton,
     ConsentService,
-    OAuthJwtStrategy, OAuthJwtGuard,
+    OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
   ],
   exports: [
     OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService,
-    OAuthJwtStrategy, OAuthJwtGuard,
+    OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
   ],
 })
 export class OAuthModule {}
