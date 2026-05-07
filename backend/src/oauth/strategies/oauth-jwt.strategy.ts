@@ -28,6 +28,7 @@ export class OAuthJwtStrategy {
 
   async validate(token: string, httpMethod: string): Promise<any> {
     const issuer = process.env.OAUTH_ISSUER || 'http://localhost:3000';
+    const audience = process.env.OAUTH_AUDIENCE || issuer;
     const keys = await this.getJwks();
 
     const payload = await new Promise<jwt.JwtPayload>((resolve, reject) => {
@@ -38,7 +39,7 @@ export class OAuthJwtStrategy {
           if (!k) return cb(new Error('Unknown kid'));
           cb(null, k.publicKeyPem);
         },
-        { issuer, algorithms: ['RS256', 'ES256', 'PS256'] },
+        { issuer, audience, algorithms: ['RS256', 'ES256', 'PS256'] },
         (err, decoded) => {
           if (err) return reject(new UnauthorizedException(err.message || 'Invalid token'));
           resolve(decoded as jwt.JwtPayload);
@@ -47,12 +48,13 @@ export class OAuthJwtStrategy {
     });
 
     if (!payload.sub) throw new UnauthorizedException('No sub');
+    const orgId = (payload as any).org_id;
+    if (!orgId) throw new UnauthorizedException('No org claim');
+
     const userId = Number(payload.sub);
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
 
-    const orgId = (payload as any).org_id;
-    if (!orgId) throw new UnauthorizedException('No org claim');
     const membership = await this.memRepo.findOne({
       where: { userId, organizationId: orgId, status: MembershipStatus.ACTIVE },
     });
