@@ -2,6 +2,7 @@ import { z, type ZodTypeAny } from 'zod';
 import type { VerifiedToken } from '../auth/jwt-verifier.js';
 import type { BackendClient } from '../http/backend-client.js';
 import { searchPatientsHandler } from './patients/search-patients.js';
+import { getPatientHandler } from './patients/get-patient.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -32,7 +33,7 @@ const stub: ToolDef['handler'] = async () => ({ content: [{ type: 'text', text: 
 export const TOOLS: ToolDef[] = [
   // patients
   { name: 'search_patients', description: 'Busca pacientes por nombre, RUT o teléfono. Devuelve lista paginada con cursor.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ q: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => searchPatientsHandler(input as any, ctx) },
-  { name: 'get_patient', description: 'Devuelve los datos demográficos y clínicos de un paciente por id.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: stub },
+  { name: 'get_patient', description: 'Devuelve los datos demográficos y clínicos de un paciente por id.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => getPatientHandler(input as any, ctx) },
   { name: 'create_patient', description: 'Crea un paciente nuevo. Solicita RUT, nombre, fecha de nacimiento y datos demográficos vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   { name: 'update_patient', description: 'Actualiza datos demográficos de un paciente existente. Solicita campos a modificar vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }).passthrough(), handler: stub },
   { name: 'discharge_patient', description: 'Da de alta a un paciente. Acción destructiva: detiene seguimiento clínico.', requiredScope: 'patients:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int(), cancelAppointment: z.boolean().optional() }), handler: stub },
