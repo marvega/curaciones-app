@@ -29,6 +29,7 @@ import { OAuthScopeGuard } from './guards/oauth-scope.guard';
 import { MultiAuthGuard } from './guards/multi-auth.guard';
 import { ConnectedAppsController } from './connected-apps/connected-apps.controller';
 import { ConnectedAppsService } from './connected-apps/connected-apps.service';
+import { OAuthCleanupService } from './services/oauth-cleanup.service';
 
 @Global()
 @Module({
@@ -55,6 +56,7 @@ import { ConnectedAppsService } from './connected-apps/connected-apps.service';
     ConnectedAppsService,
     OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
     JwtAuthGuard, MultiAuthGuard,
+    OAuthCleanupService,
   ],
   exports: [
     OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService,
