@@ -10,11 +10,20 @@ export class OAuthAuthorizeController {
   // Both `/oauth/authorize` and `/oauth/auth` are accepted: the former is the
   // route configured in the oidc-provider factory (and hence advertised by the
   // discovery doc); the latter is a common alias many OAuth client libraries
-  // hit by default. Both forward straight into oidc-provider's koa app.
+  // hit by default. The `/authorize/:uid` form is the post-consent resume URL
+  // emitted by oidc-provider — the SPA redirects there once consent is granted
+  // and the provider finishes the flow with `code=...`. All forms forward
+  // straight into oidc-provider's koa app.
 
   @Public()
   @All('authorize')
   authorize(@Req() req: Request, @Res() res: Response) {
+    return this.oidc.get().callback()(req, res);
+  }
+
+  @Public()
+  @All('authorize/:uid')
+  authorizeResume(@Req() req: Request, @Res() res: Response) {
     return this.oidc.get().callback()(req, res);
   }
 
