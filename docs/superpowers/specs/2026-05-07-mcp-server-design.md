@@ -114,10 +114,10 @@ Cero código compartido entre MCP y backend. Solo contrato HTTP. Tipos del API s
 | 14 | `add_wound_note` | `POST /api/wound-notes` | `clinical:write` | ✗ | ✗ |
 | 15 | `list_wound_notes` | `GET /api/wound-notes/patient/:patientId` | `clinical:read` | ✓ | ✗ |
 | 16 | `search_inventory` | `GET /api/inventory/products?q=&cursor=` | `inventory:read` | ✓ | ✗ |
-| 17 | `list_lots_expiring` | `GET /api/inventory/lots/expiring?cursor=` | `inventory:read` | ✓ | ✗ |
+| 17 | `list_lots_expiring` | `GET /api/inventory/expiring?days=` | `inventory:read` | ✓ | ✗ |
 | 18 | `register_canasta_consumption` | `POST /api/inventory/canasta` | `inventory:write` | ✗ | ✗ |
 | 19 | `monthly_report` | `GET /api/reports/monthly?month=` | `reports:read` | ✓ | ✗ |
-| — | `whoami` | `GET /api/auth/me` reformulado | (todo grant) | ✓ | ✗ |
+| — | `whoami` | reads from JWT claims (no backend call) | (todo grant) | ✓ | ✗ |
 
 ### 4.2 Cobertura por dominio
 
