@@ -139,7 +139,7 @@ describe('OAuth PKCE enforcement (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   beforeEach(async () => {

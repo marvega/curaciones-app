@@ -20,12 +20,14 @@ export class OAuthTokenController {
   }
 
   @Public()
+  @Throttle({ default: { ttl: 60 * 1000, limit: 60 } })
   @All('revoke')
   revoke(@Req() req: Request, @Res() res: Response) {
     return this.oidc.get().callback()(req, res);
   }
 
   @Public()
+  @Throttle({ default: { ttl: 60 * 1000, limit: 120 } })
   @All('userinfo')
   userinfo(@Req() req: Request, @Res() res: Response) {
     return this.oidc.get().callback()(req, res);
