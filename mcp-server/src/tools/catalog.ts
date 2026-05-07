@@ -4,6 +4,7 @@ import type { BackendClient } from '../http/backend-client.js';
 import { searchPatientsHandler } from './patients/search-patients.js';
 import { getPatientHandler } from './patients/get-patient.js';
 import { getPatientPdfHandler } from './patients/get-patient-pdf.js';
+import { listPatientAppointmentsHandler } from './agenda/list-patient-appointments.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -41,7 +42,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'readmit_patient', description: 'Reingresa a un paciente previamente dado de alta.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: stub },
   { name: 'get_patient_pdf', description: 'Devuelve el PDF de la ficha clínica del paciente como recurso descargable.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => getPatientPdfHandler(input as any, ctx) },
   // agenda
-  { name: 'list_patient_appointments', description: 'Lista las citas agendadas de un paciente específico.', requiredScope: 'agenda:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int() }), handler: stub },
+  { name: 'list_patient_appointments', description: 'Lista las citas agendadas de un paciente específico.', requiredScope: 'agenda:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int() }), handler: (input, ctx) => listPatientAppointmentsHandler(input as any, ctx) },
   { name: 'get_agenda_by_date_range', description: 'Devuelve la agenda de curaciones planeadas en un rango de fechas (formato YYYY-MM-DD).', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ from: z.string(), to: z.string() }), handler: stub },
   { name: 'create_appointment', description: 'Agenda una nueva cita. Solicita paciente, fecha y hora vía elicitation.', requiredScope: 'agenda:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   { name: 'cancel_appointment', description: 'Cancela una cita agendada por id. Acción destructiva.', requiredScope: 'agenda:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int() }), handler: stub },
