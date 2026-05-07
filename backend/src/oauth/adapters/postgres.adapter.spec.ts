@@ -12,7 +12,7 @@ describe('PostgresAdapter', () => {
       type: 'postgres',
       url: process.env.TEST_DATABASE_URL || 'postgresql://curaciones:curaciones@localhost:5433/curaciones_test',
       entities: [OAuthToken],
-      synchronize: false,
+      synchronize: true,
     });
     await dataSource.initialize();
     repo = dataSource.getRepository(OAuthToken);
