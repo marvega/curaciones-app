@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Provider as OidcProvider, Configuration } from 'oidc-provider';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
 import { Repository } from 'typeorm';
@@ -81,7 +82,7 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
       keys: [process.env.OAUTH_COOKIE_SECRET || 'change-in-production'],
     },
     issueRefreshToken(_ctx, client, code) {
-      return code.scopes?.has('offline_access') !== false;
+      return code.scopes?.has('offline_access') ?? false;
     },
     extraTokenClaims(_ctx, token) {
       const payload: Record<string, unknown> = {};
@@ -98,6 +99,5 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
 }
 
 function randomClientId(): string {
-  const { randomBytes } = require('crypto') as typeof import('crypto');
   return randomBytes(16).toString('hex');
 }
