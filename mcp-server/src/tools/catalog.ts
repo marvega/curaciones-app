@@ -3,6 +3,7 @@ import type { VerifiedToken } from '../auth/jwt-verifier.js';
 import type { BackendClient } from '../http/backend-client.js';
 import { searchPatientsHandler } from './patients/search-patients.js';
 import { getPatientHandler } from './patients/get-patient.js';
+import { getPatientPdfHandler } from './patients/get-patient-pdf.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -38,7 +39,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'update_patient', description: 'Actualiza datos demográficos de un paciente existente. Solicita campos a modificar vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }).passthrough(), handler: stub },
   { name: 'discharge_patient', description: 'Da de alta a un paciente. Acción destructiva: detiene seguimiento clínico.', requiredScope: 'patients:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int(), cancelAppointment: z.boolean().optional() }), handler: stub },
   { name: 'readmit_patient', description: 'Reingresa a un paciente previamente dado de alta.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: stub },
-  { name: 'get_patient_pdf', description: 'Devuelve el PDF de la ficha clínica del paciente como recurso descargable.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: stub },
+  { name: 'get_patient_pdf', description: 'Devuelve el PDF de la ficha clínica del paciente como recurso descargable.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => getPatientPdfHandler(input as any, ctx) },
   // agenda
   { name: 'list_patient_appointments', description: 'Lista las citas agendadas de un paciente específico.', requiredScope: 'agenda:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int() }), handler: stub },
   { name: 'get_agenda_by_date_range', description: 'Devuelve la agenda de curaciones planeadas en un rango de fechas (formato YYYY-MM-DD).', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ from: z.string(), to: z.string() }), handler: stub },
