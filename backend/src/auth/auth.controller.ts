@@ -18,12 +18,14 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { InvitationsService } from './invitations.service';
 import { InvitationPreviewDto } from './dto/invitation-preview.dto';
 import { InvitationAcceptDto } from './dto/invitation-accept.dto';
+import { NoOAuthAccess } from '../oauth/decorators/no-oauth-access.decorator';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
   10,
 );
 
+@NoOAuthAccess()
 @ApiTags('Auth')
 @Controller('api/auth')
 export class AuthController {
