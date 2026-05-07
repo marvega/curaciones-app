@@ -1,13 +1,16 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { MultiAuthGuard } from '../oauth/guards/multi-auth.guard';
+import { OAuthScopeGuard } from '../oauth/guards/oauth-scope.guard';
+import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
 import { AuditLogService } from './audit-log.service';
 
 @ApiTags('Audit Log')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(MultiAuthGuard, OAuthScopeGuard, RolesGuard)
+@RequiredScopes('org:admin')
 @Controller('api/audit-logs')
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
