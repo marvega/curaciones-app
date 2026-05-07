@@ -11,6 +11,7 @@ import { readmitPatientHandler } from './patients/readmit-patient.js';
 import { listPatientAppointmentsHandler } from './agenda/list-patient-appointments.js';
 import { getAgendaByDateRangeHandler } from './agenda/get-agenda-by-date-range.js';
 import { cancelAppointmentHandler } from './agenda/cancel-appointment.js';
+import { createAppointmentHandler } from './agenda/create-appointment.js';
 import { listCuracionesHandler } from './curaciones/list-curaciones.js';
 import { registerCuracionHandler } from './curaciones/register-curacion.js';
 import { listWoundNotesHandler } from './wound-notes/list-wound-notes.js';
@@ -56,7 +57,7 @@ export const TOOLS: ToolDef[] = [
   // agenda
   { name: 'list_patient_appointments', description: 'Lista las citas agendadas de un paciente específico.', requiredScope: 'agenda:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int() }), handler: (input, ctx) => listPatientAppointmentsHandler(input as any, ctx) },
   { name: 'get_agenda_by_date_range', description: 'Devuelve la agenda de curaciones planeadas en un rango de fechas (formato YYYY-MM-DD).', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ from: z.string(), to: z.string() }), handler: (input, ctx) => getAgendaByDateRangeHandler(input as any, ctx) },
-  { name: 'create_appointment', description: 'Agenda una nueva cita. Solicita paciente, fecha y hora vía elicitation.', requiredScope: 'agenda:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
+  { name: 'create_appointment', description: 'Agenda una nueva cita. Solicita paciente, fecha y hora vía elicitation.', requiredScope: 'agenda:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: (input, ctx) => createAppointmentHandler(input, ctx) },
   { name: 'cancel_appointment', description: 'Cancela una cita agendada por id. Acción destructiva.', requiredScope: 'agenda:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => cancelAppointmentHandler(input as any, ctx) },
   // curaciones
   { name: 'list_curaciones', description: 'Lista curaciones de un paciente, paginadas con cursor.', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => listCuracionesHandler(input as any, ctx) },
