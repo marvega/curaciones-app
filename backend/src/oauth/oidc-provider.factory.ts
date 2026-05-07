@@ -72,11 +72,6 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
       revocation: '/oauth/revoke',
       userinfo: '/oauth/userinfo',
       end_session: '/oauth/logout',
-      introspection: '/oauth/introspect',
-      backchannel_authentication: '/oauth/backchannel',
-      code_verification: '/oauth/device',
-      device_authorization: '/oauth/device/auth',
-      pushed_authorization_request: '/oauth/par',
     },
     ttl: {
       AccessToken: 10 * 60,

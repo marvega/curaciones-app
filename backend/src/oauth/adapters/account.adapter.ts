@@ -30,11 +30,11 @@ export class AccountAdapterService {
     const claims = {
       sub: String(userId),
       username: user.username,
-      name: (user as any).fullName ?? user.username,
+      name: user.username,
       org_id: grantOrgId,
       org_name: org?.name ?? '',
       role: membership.role,
-      establishment_ids: ueas.map((u) => u.establishmentId),
+      establishment_ids: ueas.map((u) => String(u.establishmentId)),
     };
     return {
       accountId: String(userId),
