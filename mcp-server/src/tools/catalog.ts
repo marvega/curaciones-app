@@ -8,6 +8,7 @@ import { listPatientAppointmentsHandler } from './agenda/list-patient-appointmen
 import { getAgendaByDateRangeHandler } from './agenda/get-agenda-by-date-range.js';
 import { listCuracionesHandler } from './curaciones/list-curaciones.js';
 import { listWoundNotesHandler } from './wound-notes/list-wound-notes.js';
+import { searchInventoryHandler } from './inventory/search-inventory.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -56,7 +57,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'add_wound_note', description: 'Agrega una nota de evolución a una curación o paciente.', requiredScope: 'clinical:write', readOnly: false, destructive: false, inputSchema: z.object({ patientId: z.number().int().optional(), curacionId: z.number().int().optional(), content: z.string().min(1) }), handler: stub },
   { name: 'list_wound_notes', description: 'Lista las notas de evolución de un paciente.', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => listWoundNotesHandler(input as any, ctx) },
   // inventory
-  { name: 'search_inventory', description: 'Busca productos del inventario por nombre o código.', requiredScope: 'inventory:read', readOnly: true, destructive: false, inputSchema: z.object({ q: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: stub },
+  { name: 'search_inventory', description: 'Busca productos del inventario por nombre o código.', requiredScope: 'inventory:read', readOnly: true, destructive: false, inputSchema: z.object({ q: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => searchInventoryHandler(input as any, ctx) },
   { name: 'list_lots_expiring', description: 'Lista lotes de inventario próximos a vencer en N días (default 30).', requiredScope: 'inventory:read', readOnly: true, destructive: false, inputSchema: z.object({ days: z.number().int().min(1).max(365).optional() }), handler: stub },
   { name: 'register_canasta_consumption', description: 'Registra consumo de insumos en una curación o canasta. Solicita productos y cantidades vía elicitation.', requiredScope: 'inventory:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   // reports
