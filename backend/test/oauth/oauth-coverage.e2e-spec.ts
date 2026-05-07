@@ -17,13 +17,13 @@ import { NO_OAUTH_ACCESS_KEY } from '../../src/oauth/decorators/no-oauth-access.
 //   /api/auth/   — first-party SPA login/refresh/invite/password endpoints
 //                  (whole AuthController is @NoOAuthAccess)
 //   /api/health  — liveness probe; returns no tenant data
-//   /api/account/connected-apps — user-scoped IAM surface (Phase 9)
 //   /oauth/      — the OAuth Authorization Server endpoints themselves
 //   /.well-known/, /jwks.json — OIDC discovery (publicly readable)
+//
+// NOTE: `/api/account/connected-apps` will be added back when Phase 9 lands.
 const EXEMPT_PATH_PREFIXES = [
   '/api/auth/',
   '/api/health',
-  '/api/account/connected-apps',
   '/oauth/',
   '/.well-known/',
   '/jwks.json',

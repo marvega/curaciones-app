@@ -49,9 +49,11 @@ export class UsersController {
     return this.usersService.create(dto, user);
   }
 
-  // Anonymous bootstrap endpoint — never OAuth-accessible. Marked with
-  // @NoOAuthAccess so the OAuth scope-coverage governance test treats this
-  // explicitly as "not exposed via OAuth tokens" rather than missing a marker.
+  // Dev-only bootstrap endpoint: intentionally anonymous (no auth guard).
+  // @NoOAuthAccess suppresses governance lint only — it does NOT restrict
+  // access. The endpoint is reachable by any unauthenticated caller; the
+  // decorator merely tells the OAuth scope-coverage governance test that
+  // this surface is intentionally not exposed via OAuth tokens.
   @NoOAuthAccess()
   @Post('seed')
   async seed() {

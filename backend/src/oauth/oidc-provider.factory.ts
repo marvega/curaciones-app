@@ -104,7 +104,7 @@ export async function buildOidcProvider(
       //   echo the resource back. The granted resource (== issuer) is used.
       // - `getResourceServerInfo` advertises every supported scope as
       //   belonging to this single resource server, with `accessTokenFormat
-      //   = 'jwt'` and ES256 signing. ttl matches our top-level
+      //   = 'jwt'` and RS256 signing. ttl matches our top-level
       //   `ttl.AccessToken` for consistency.
       resourceIndicators: {
         enabled: true,
