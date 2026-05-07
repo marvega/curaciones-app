@@ -76,3 +76,26 @@ describe('OAuth DCR (e2e)', () => {
       .expect(204);
   });
 });
+
+describe('OAuth DCR rate limiting (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+  });
+
+  afterAll(async () => { await app.close(); });
+
+  it('rate limits DCR after 10 registrations from same IP/hour', async () => {
+    for (let i = 0; i < 10; i++) {
+      await request(app.getHttpServer())
+        .post('/oauth/register')
+        .send({ client_name: `c${i}`, redirect_uris: [`https://c${i}.example/cb`] })
+        .expect(201);
+    }
+    await request(app.getHttpServer())
+      .post('/oauth/register')
+      .send({ client_name: 'overflow', redirect_uris: ['https://o.example/cb'] })
+      .expect(429);
+  });
+});
