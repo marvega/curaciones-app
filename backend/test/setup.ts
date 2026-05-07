@@ -2,6 +2,13 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
 
+// AppModule eagerly instantiates ResendEmailService which throws on a
+// missing key. Tests don't actually send mail, so a placeholder is fine
+// — set it before any module loads if not already provided by .env.test.
+if (!process.env.RESEND_API_KEY) {
+  process.env.RESEND_API_KEY = 'test_dummy_resend_key';
+}
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';

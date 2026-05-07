@@ -16,6 +16,7 @@ import { OAuthGrantService } from './services/oauth-grant.service';
 import { AccountAdapterService } from './adapters/account.adapter';
 import { OidcProviderSingleton } from './oidc-provider.singleton';
 import { OAuthDiscoveryController } from './controllers/oauth-discovery.controller';
+import { OAuthRegisterController } from './controllers/oauth-register.controller';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { OAuthDiscoveryController } from './controllers/oauth-discovery.controll
     ]),
     KmsModule,
   ],
-  controllers: [OAuthDiscoveryController],
+  controllers: [OAuthDiscoveryController, OAuthRegisterController],
   providers: [
     OAuthBootstrapService, OAuthSigningKeyService, OAuthGrantService,
     AccountAdapterService, OidcProviderSingleton,

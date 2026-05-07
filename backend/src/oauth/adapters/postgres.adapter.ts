@@ -28,8 +28,15 @@ export class PostgresAdapter {
     return k;
   }
 
-  async upsert(id: string, payload: AdapterPayload, expiresIn: number): Promise<void> {
-    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+  async upsert(id: string, payload: AdapterPayload, expiresIn?: number): Promise<void> {
+    // RegistrationAccessToken (when rotateRegistrationAccessToken=false)
+    // is saved without a ttl — oidc-provider expects it to never expire.
+    // Use a sentinel far-future date so the NOT NULL `expiresAt` column
+    // accepts the row and `find` doesn't reject it.
+    const FAR_FUTURE = new Date('9999-12-31T23:59:59Z');
+    const expiresAt = typeof expiresIn === 'number' && Number.isFinite(expiresIn)
+      ? new Date(Date.now() + expiresIn * 1000)
+      : FAR_FUTURE;
     await this.repo.upsert(
       {
         id,
