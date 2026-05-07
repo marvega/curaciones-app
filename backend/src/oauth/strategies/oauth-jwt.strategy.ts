@@ -1,11 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import * as jwt from 'jsonwebtoken';
 import { OAuthSigningKeyService } from '../services/oauth-signing-key.service';
 import { User } from '../../users/user.entity';
 import { OrganizationMembership, MembershipStatus } from '../../organizations/organization-membership.entity';
 import { OAuthRevocation } from '../entities/oauth-revocation.entity';
+import { OAuthGrant } from '../entities/oauth-grant.entity';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -24,6 +25,7 @@ export class OAuthJwtStrategy {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(OrganizationMembership) private readonly memRepo: Repository<OrganizationMembership>,
     @InjectRepository(OAuthRevocation) private readonly revocationRepo: Repository<OAuthRevocation>,
+    @InjectRepository(OAuthGrant) private readonly grantRepo: Repository<OAuthGrant>,
   ) {}
 
   async validate(token: string, httpMethod: string): Promise<any> {
@@ -60,9 +62,37 @@ export class OAuthJwtStrategy {
     });
     if (!membership) throw new UnauthorizedException('Membership inactive');
 
-    if (WRITE_METHODS.has(httpMethod) && payload.jti) {
-      const revoked = await this.revocationRepo.findOne({ where: { jti: payload.jti } });
-      if (revoked) throw new UnauthorizedException('Token revoked');
+    if (WRITE_METHODS.has(httpMethod)) {
+      // Two layers of revocation defense, both write-only by design (reads
+      // continue to work until natural `exp` to keep MCP-style read-only
+      // tooling responsive immediately after a user revokes a grant):
+      //
+      // 1. Per-JTI denylist row in `oauth_revocation` — populated when an
+      //    opaque AT row in `oauth_token` is revoked (e.g. via /oauth/revoke
+      //    or by future code paths that persist AT JTIs).
+      // 2. Grant-level revocation check — required because JWT-format ATs
+      //    are stateless and never persisted to `oauth_token`, so the
+      //    per-JTI denylist would be empty after `ConnectedAppsService.revoke`.
+      //    We instead resolve the AT back to its `OAuthGrant` row by
+      //    `(userId, clientId, organizationId)` and reject if `revokedAt` is
+      //    set. The unique active-grant index guarantees at most one row
+      //    matches the (sub, client_id, org_id) tuple at any time.
+      if (payload.jti) {
+        const revoked = await this.revocationRepo.findOne({ where: { jti: payload.jti } });
+        if (revoked) throw new UnauthorizedException('Token revoked');
+      }
+      const clientId = (payload as any).client_id;
+      if (clientId) {
+        const grant = await this.grantRepo.findOne({
+          where: {
+            userId,
+            clientId,
+            organizationId: orgId,
+            revokedAt: Not(IsNull()),
+          },
+        });
+        if (grant) throw new UnauthorizedException('Token revoked');
+      }
     }
 
     const scopes = String(payload.scope || '').split(/\s+/).filter(Boolean);
