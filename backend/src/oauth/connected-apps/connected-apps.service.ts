@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, IsNull, In } from 'typeorm';
 import { OAuthGrant } from '../entities/oauth-grant.entity';
@@ -6,6 +10,9 @@ import { OAuthClient } from '../entities/oauth-client.entity';
 import { OAuthToken } from '../entities/oauth-token.entity';
 import { OAuthRevocation } from '../entities/oauth-revocation.entity';
 import { Organization } from '../../organizations/organization.entity';
+import { User } from '../../users/user.entity';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import { AuditAction } from '../../audit-log/audit-log.entity';
 
 /**
  * Connected apps surface for the user-facing settings page.
@@ -23,12 +30,19 @@ import { Organization } from '../../organizations/organization.entity';
 @Injectable()
 export class ConnectedAppsService {
   constructor(
-    @InjectRepository(OAuthGrant) private readonly grantRepo: Repository<OAuthGrant>,
-    @InjectRepository(OAuthClient) private readonly clientRepo: Repository<OAuthClient>,
-    @InjectRepository(OAuthToken) private readonly tokenRepo: Repository<OAuthToken>,
-    @InjectRepository(OAuthRevocation) private readonly revocationRepo: Repository<OAuthRevocation>,
-    @InjectRepository(Organization) private readonly orgRepo: Repository<Organization>,
+    @InjectRepository(OAuthGrant)
+    private readonly grantRepo: Repository<OAuthGrant>,
+    @InjectRepository(OAuthClient)
+    private readonly clientRepo: Repository<OAuthClient>,
+    @InjectRepository(OAuthToken)
+    private readonly tokenRepo: Repository<OAuthToken>,
+    @InjectRepository(OAuthRevocation)
+    private readonly revocationRepo: Repository<OAuthRevocation>,
+    @InjectRepository(Organization)
+    private readonly orgRepo: Repository<Organization>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async listForUser(userId: number) {
@@ -68,7 +82,8 @@ export class ConnectedAppsService {
   async revoke(userId: number, grantId: string): Promise<void> {
     const grant = await this.grantRepo.findOne({ where: { id: grantId } });
     if (!grant) throw new NotFoundException('Grant not found');
-    if (grant.userId !== userId) throw new ForbiddenException('Grant not owned by user');
+    if (grant.userId !== userId)
+      throw new ForbiddenException('Grant not owned by user');
 
     // Idempotent: if the grant is already revoked, there is nothing to do.
     // A second call must not re-run the cascade (which would re-insert
@@ -123,5 +138,26 @@ export class ConnectedAppsService {
         await em.insert(OAuthRevocation, revocations);
       }
     });
+
+    // Audit log AFTER the transaction commits — fire-and-forget so a failure
+    // in the audit chain never rolls back the revocation cascade.
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    // TS narrows `grant.revokedAt` to `null` from the early-return guard
+    // above, but the transaction callback assigns it a Date. Cast for the
+    // ISO serialization in the audit payload.
+    const revokedAtIso =
+      (grant.revokedAt as Date | null)?.toISOString() ?? null;
+    void this.auditLog
+      .log({
+        userId,
+        username: user?.username ?? 'unknown',
+        organizationId: String(grant.organizationId),
+        action: AuditAction.EVENT,
+        entity: 'oauth.grant.revoked',
+        entityId: 0,
+        beforeJson: { scopes: grant.scopes, clientId: grant.clientId },
+        afterJson: { revokedAt: revokedAtIso },
+      })
+      .catch(() => {});
   }
 }

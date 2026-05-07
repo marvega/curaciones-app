@@ -6,11 +6,15 @@ import {
   Body,
   BadRequestException,
   All,
+  OnApplicationBootstrap,
+  Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from '../../auth/public.decorator';
 import { OidcProviderSingleton } from '../oidc-provider.singleton';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import { AuditAction } from '../../audit-log/audit-log.entity';
 
 const ALLOWED_LOOPBACK = ['localhost', '127.0.0.1', '[::1]'];
 
@@ -32,8 +36,56 @@ function validateRedirectUri(uri: string): void {
 }
 
 @Controller('oauth/register')
-export class OAuthRegisterController {
-  constructor(private readonly oidc: OidcProviderSingleton) {}
+export class OAuthRegisterController implements OnApplicationBootstrap {
+  private readonly logger = new Logger(OAuthRegisterController.name);
+
+  constructor(
+    private readonly oidc: OidcProviderSingleton,
+    private readonly auditLog: AuditLogService,
+  ) {}
+
+  /**
+   * Hook into oidc-provider's `registration_create.success` event after the
+   * provider has been built (it doesn't exist at construction time — see
+   * OidcProviderSingleton.onApplicationBootstrap). DCR is `@Public()` so we
+   * have no authenticated user — log under a `system` placeholder.
+   */
+  onApplicationBootstrap(): void {
+    try {
+      const provider = this.oidc.get() as unknown as {
+        on: (event: string, listener: (...args: any[]) => void) => void;
+      };
+      provider.on('registration_create.success', (ctx: any, client: any) => {
+        /* eslint-disable @typescript-eslint/no-unsafe-member-access,
+                          @typescript-eslint/no-unsafe-assignment */
+        const clientId: string | null =
+          client?.clientId ?? ctx?.oidc?.body?.client_id ?? null;
+        const clientName: string | null =
+          client?.clientName ?? ctx?.oidc?.body?.client_name ?? null;
+        const ipAddress: string | undefined = ctx?.request?.ip;
+        /* eslint-enable @typescript-eslint/no-unsafe-member-access,
+                         @typescript-eslint/no-unsafe-assignment */
+        void this.auditLog
+          .log({
+            userId: 0,
+            username: 'system',
+            organizationId: '0',
+            action: AuditAction.EVENT,
+            entity: 'oauth.client.registered',
+            entityId: 0,
+            afterJson: { clientId, clientName },
+            ipAddress,
+          })
+          .catch(() => {});
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not attach registration_create.success listener: ${
+          (err as Error).message
+        }`,
+      );
+    }
+  }
 
   @Public()
   @Throttle({ default: { ttl: 60 * 60 * 1000, limit: 10 } })

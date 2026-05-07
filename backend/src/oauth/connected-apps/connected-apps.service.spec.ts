@@ -6,6 +6,8 @@ import { OAuthClient } from '../entities/oauth-client.entity';
 import { OAuthToken } from '../entities/oauth-token.entity';
 import { OAuthRevocation } from '../entities/oauth-revocation.entity';
 import { Organization } from '../../organizations/organization.entity';
+import { User } from '../../users/user.entity';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { ConnectedAppsService } from './connected-apps.service';
 
 describe('ConnectedAppsService', () => {
@@ -15,6 +17,8 @@ describe('ConnectedAppsService', () => {
   let tokenRepo: any;
   let revocationRepo: any;
   let orgRepo: any;
+  let userRepo: any;
+  let auditLog: any;
   let entityManager: any;
   let dataSource: any;
 
@@ -24,6 +28,10 @@ describe('ConnectedAppsService', () => {
     tokenRepo = { find: jest.fn(), update: jest.fn() };
     revocationRepo = { save: jest.fn(), insert: jest.fn() };
     orgRepo = { findOne: jest.fn(), find: jest.fn().mockResolvedValue([]) };
+    userRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, username: 'alice' }),
+    };
+    auditLog = { log: jest.fn().mockResolvedValue(undefined) };
 
     // Mock EntityManager to forward calls to the per-repo mocks above so
     // assertions on the repo mocks keep working under the transaction wrapper.
@@ -34,15 +42,19 @@ describe('ConnectedAppsService', () => {
       find: jest.fn(async (_entity: unknown, options: unknown) => {
         return tokenRepo.find(options);
       }),
-      update: jest.fn(async (_entity: unknown, where: unknown, partial: unknown) => {
-        return tokenRepo.update(where, partial);
-      }),
+      update: jest.fn(
+        async (_entity: unknown, where: unknown, partial: unknown) => {
+          return tokenRepo.update(where, partial);
+        },
+      ),
       insert: jest.fn(async (_entity: unknown, payload: unknown) => {
         return revocationRepo.insert(payload);
       }),
     };
     dataSource = {
-      transaction: jest.fn(async (cb: (em: any) => Promise<unknown>) => cb(entityManager)),
+      transaction: jest.fn(async (cb: (em: any) => Promise<unknown>) =>
+        cb(entityManager),
+      ),
     };
     const m = await Test.createTestingModule({
       providers: [
@@ -50,9 +62,14 @@ describe('ConnectedAppsService', () => {
         { provide: getRepositoryToken(OAuthGrant), useValue: grantRepo },
         { provide: getRepositoryToken(OAuthClient), useValue: clientRepo },
         { provide: getRepositoryToken(OAuthToken), useValue: tokenRepo },
-        { provide: getRepositoryToken(OAuthRevocation), useValue: revocationRepo },
+        {
+          provide: getRepositoryToken(OAuthRevocation),
+          useValue: revocationRepo,
+        },
         { provide: getRepositoryToken(Organization), useValue: orgRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: DataSource, useValue: dataSource },
+        { provide: AuditLogService, useValue: auditLog },
       ],
     }).compile();
     service = m.get(ConnectedAppsService);
