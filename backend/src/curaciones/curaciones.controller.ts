@@ -43,7 +43,7 @@ export class CuracionesController {
 
   @RequiredScopes('clinical:write')
   @Put(':id')
-  @UseGuards(MultiAuthGuard, OAuthScopeGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('admin')
   async update(
     @Param('id', ParseIntPipe) id: number,
