@@ -1,14 +1,19 @@
 import { TOOLS, type ToolContext } from './catalog.js';
 import { hasScope } from '../auth/scope-check.js';
 
+/**
+ * Minimal subset of the SDK's McpServer surface that registerTools requires.
+ * We use `registerTool` (the non-deprecated API) which accepts a config
+ * object containing description, inputSchema, and annotations.
+ */
 export interface RegisterDeps {
-  server: { tool: (name: string, meta: any, handler: any) => void };
+  server: { registerTool: (name: string, config: any, handler: any) => void };
   getContext: () => ToolContext;
 }
 
 export function registerTools(deps: RegisterDeps): void {
   for (const def of TOOLS) {
-    deps.server.tool(
+    deps.server.registerTool(
       def.name,
       {
         description: def.description,

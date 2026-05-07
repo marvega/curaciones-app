@@ -4,17 +4,17 @@ import { TOOLS } from './catalog.js';
 
 describe('registerTools', () => {
   it('registers all 20 tools on the MCP server', () => {
-    const server: any = { tool: vi.fn() };
+    const server: any = { registerTool: vi.fn() };
     registerTools({ server, getContext: () => null as any });
-    expect(server.tool).toHaveBeenCalledTimes(TOOLS.length);
-    const names = (server.tool as any).mock.calls.map((c: any) => c[0]);
+    expect(server.registerTool).toHaveBeenCalledTimes(TOOLS.length);
+    const names = (server.registerTool as any).mock.calls.map((c: any) => c[0]);
     expect(new Set(names).size).toBe(TOOLS.length);
   });
 
   it('wraps handler with scope check (returns insufficient_scope error)', async () => {
     const handlers: Record<string, any> = {};
     const server: any = {
-      tool: (name: string, _meta: any, handler: any) => { handlers[name] = handler; },
+      registerTool: (name: string, _config: any, handler: any) => { handlers[name] = handler; },
     };
     const ctx = {
       token: { sub: '1', scope: 'patients:read', org_id: '1', exp: 999 } as any,
