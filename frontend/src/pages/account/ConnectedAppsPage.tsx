@@ -10,6 +10,7 @@ import {
 
 export default function ConnectedAppsPage() {
   const [apps, setApps] = useState<ConnectedApp[] | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
   const confirm = useConfirm();
 
@@ -18,11 +19,15 @@ export default function ConnectedAppsPage() {
   }
 
   useEffect(() => {
-    load().catch(() => showError('Error al cargar las apps.'));
+    load().catch(() => {
+      setApps([]);
+      showError('Error al cargar las apps.');
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onRevoke(app: ConnectedApp) {
+    if (revoking) return;
     const ok = await confirm({
       title: 'Revocar acceso',
       message: `Vas a revocar el acceso de ${app.client.name} a ${app.organizationName}. Esto cierra cualquier sesión activa de la app inmediatamente.`,
@@ -31,13 +36,20 @@ export default function ConnectedAppsPage() {
       variant: 'destructive',
     });
     if (!ok) return;
+    setRevoking(app.grantId);
     try {
       await revokeConnectedApp(app.grantId);
       showSuccess('Acceso revocado.');
-      await load();
+      try {
+        await load();
+      } catch {
+        // reload failed but revoke succeeded — silently ignore
+      }
     } catch (e) {
       const err = e as { response?: { data?: { message?: string } } };
       showError(err?.response?.data?.message ?? 'No pudimos revocar.');
+    } finally {
+      setRevoking(null);
     }
   }
 
@@ -95,7 +107,12 @@ export default function ConnectedAppsPage() {
                     {new Date(a.createdAt).toLocaleDateString('es-CL')}
                   </p>
                 </div>
-                <Button variant="danger" onClick={() => onRevoke(a)}>
+                <Button
+                  variant="danger"
+                  onClick={() => onRevoke(a)}
+                  loading={revoking === a.grantId}
+                  disabled={revoking !== null}
+                >
                   Revocar
                 </Button>
               </div>
