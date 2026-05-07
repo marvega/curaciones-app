@@ -7,27 +7,29 @@ const meta: Meta<typeof Modal> = { title: 'UI/Modal', component: Modal, tags: ['
 export default meta;
 type Story = StoryObj<typeof Modal>;
 
+function ModalDefaultStory() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Abrir modal</Button>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Confirmar acción"
+        subtitle="Esta acción no se puede deshacer"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button onClick={() => setOpen(false)}>Confirmar</Button>
+          </>
+        }
+      >
+        <p>¿Estás seguro de continuar?</p>
+      </Modal>
+    </>
+  );
+}
+
 export const Default: Story = {
-  render: () => {
-    const [open, setOpen] = useState(false);
-    return (
-      <>
-        <Button onClick={() => setOpen(true)}>Abrir modal</Button>
-        <Modal
-          open={open}
-          onClose={() => setOpen(false)}
-          title="Confirmar acción"
-          subtitle="Esta acción no se puede deshacer"
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={() => setOpen(false)}>Confirmar</Button>
-            </>
-          }
-        >
-          <p>¿Estás seguro de continuar?</p>
-        </Modal>
-      </>
-    );
-  },
+  render: () => <ModalDefaultStory />,
 };

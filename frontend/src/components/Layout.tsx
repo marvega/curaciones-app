@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/useAuth';
+import { useTheme } from '../contexts/useTheme';
 import AlertBanner from './AlertBanner';
 import ExpiringLotsBanner from './ExpiringLotsBanner';
 import { OrgSwitcher } from './OrgSwitcher';
@@ -23,6 +23,7 @@ import {
   Building2,
   AppWindow,
 } from 'lucide-react';
+import type { AuthUser, OrgSummary } from '../contexts/AuthContext';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -53,36 +54,24 @@ const PAGE_TITLES: Record<string, string> = {
   '/inventory/admin/canasta': 'Canasta CAPD',
 };
 
-export default function Layout() {
-  const { user, isAdmin, logout, currentOrg } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
+interface SidebarContentProps {
+  mobile?: boolean;
+  collapsed: boolean;
+  isAdmin: boolean;
+  currentOrg: OrgSummary | null;
+  user: AuthUser | null;
+  logout: () => void;
+}
 
-  const pageTitle = PAGE_TITLES[location.pathname] || (location.pathname.startsWith('/paciente/') ? 'Ficha Paciente' : '');
-
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
-
-  // Close mobile sidebar on outside click
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
-        setSidebarOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [sidebarOpen]);
-
-  const sidebarWidth = collapsed ? 'w-[72px]' : 'w-64';
-
-  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+function SidebarContent({
+  mobile = false,
+  collapsed,
+  isAdmin,
+  currentOrg,
+  user,
+  logout,
+}: SidebarContentProps) {
+  return (
     <>
       {/* Logo */}
       <div className={`h-16 flex items-center border-b border-slate-700/50 shrink-0 ${collapsed && !mobile ? 'justify-center px-0' : 'px-5 gap-3'}`}>
@@ -268,12 +257,46 @@ export default function Layout() {
       </div>
     </>
   );
+}
+
+export default function Layout() {
+  const { user, isAdmin, logout, currentOrg } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  const pageTitle = PAGE_TITLES[location.pathname] || (location.pathname.startsWith('/paciente/') ? 'Ficha Paciente' : '');
+
+  // Close mobile sidebar on route change. setState here is the documented pattern of
+  // resetting a piece of UI state in response to an external input (the URL).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Close mobile sidebar on outside click
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setSidebarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [sidebarOpen]);
+
+  const sidebarWidth = collapsed ? 'w-[72px]' : 'w-64';
+
+  const sidebarCommon = { collapsed, isAdmin, currentOrg, user, logout };
 
   return (
     <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950">
       {/* Desktop sidebar */}
       <aside className={`hidden lg:flex lg:flex-col ${sidebarWidth} bg-slate-900 fixed inset-y-0 left-0 z-30 transition-all duration-200`}>
-        <SidebarContent />
+        <SidebarContent {...sidebarCommon} />
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -288,7 +311,7 @@ export default function Layout() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <aside ref={sidebarRef} className="relative w-64 h-full bg-slate-900 flex flex-col shadow-2xl">
-            <SidebarContent mobile />
+            <SidebarContent {...sidebarCommon} mobile />
           </aside>
         </div>
       )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { listSessions, revokeSession, logoutAll } from '../../services/api';
 import { Button, DataTable, PageHeader } from '../../components/ui';
 import type { ColumnDef } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
 
 interface Row {
   jti: string;
@@ -29,6 +29,8 @@ export default function SessionsPage() {
   };
 
   useEffect(() => {
+    // Initial mount-only fetch; setState fires inside reload() after the async API call resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

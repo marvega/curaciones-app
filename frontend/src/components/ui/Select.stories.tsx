@@ -11,9 +11,11 @@ const options = [
   { value: 'masculino', label: 'Masculino' },
 ];
 
+function SelectDefaultStory() {
+  const [v, setV] = useState('');
+  return <div className="w-64"><Select label="Género" options={options} value={v} onChange={setV} placeholder="Todos" /></div>;
+}
+
 export const Default: Story = {
-  render: () => {
-    const [v, setV] = useState('');
-    return <div className="w-64"><Select label="Género" options={options} value={v} onChange={setV} placeholder="Todos" /></div>;
-  },
+  render: () => <SelectDefaultStory />,
 };

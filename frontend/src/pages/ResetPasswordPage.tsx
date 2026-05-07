@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { resetPassword } from '../services/api';
 import { Button, Input, Card, PageHeader } from '../components/ui';
-import { useToast } from '../contexts/ToastContext';
+import { useToast } from '../contexts/useToast';
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();

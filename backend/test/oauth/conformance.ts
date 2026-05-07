@@ -175,7 +175,7 @@ async function main() {
   {
     const r = await postJson('/api/auth/login', { usernameOrEmail: username, password });
     const b = (await r.json()) as Record<string, unknown> & { accessToken?: string; organizations?: { id: string }[] };
-    if (r.status === 200 && b.accessToken) {
+    if ((r.status === 200 || r.status === 201) && b.accessToken) {
       internalJwt = b.accessToken;
       orgId = b.organizations?.[0]?.id ?? '';
       ok('Login: obtained internal JWT');
@@ -263,14 +263,52 @@ async function main() {
   }
 
   // ── 11. Userinfo ──────────────────────────────────────────────────────────
-  if (accessToken) {
-    const r = await get('/oauth/userinfo', { Authorization: `Bearer ${accessToken}` });
+  // Userinfo requires an opaque AT (no `aud` claim). Our resource-indicators
+  // config binds ATs to `aud=issuer` whenever a domain scope is requested
+  // (oidc-provider.factory.ts:124-145), and oidc-provider's userinfo endpoint
+  // rejects ATs with non-self audience. So we run a SECOND authorize flow
+  // with scope=`openid` only to obtain an opaque AT for this test.
+  let openidAccessToken = '';
+  if (clientId && internalJwt && orgId) {
+    const { verifier, challenge } = pkce();
+    const p = new URLSearchParams({
+      client_id: clientId, redirect_uri: 'https://conformance.test/callback',
+      response_type: 'code', scope: 'openid',
+      state: randomBytes(8).toString('hex'),
+      code_challenge: challenge, code_challenge_method: 'S256',
+      prompt: 'consent',
+    });
+    const aR = await get(`/oauth/authorize?${p.toString()}`);
+    const jar = getCookies(aR);
+    const uid = new URL(aR.headers.get('location') ?? '', BASE).searchParams.get('interaction');
+    if (uid) {
+      const cR = await postJson(`/oauth/consent/${uid}`, { approved: true, organizationId: orgId },
+        { Authorization: `Bearer ${internalJwt}` });
+      const cB = (await cR.json()) as { redirectTo?: string };
+      const resumePath = cB.redirectTo ? new URL(cB.redirectTo).pathname : '';
+      if (resumePath) {
+        const rR = await get(resumePath, { Cookie: jar });
+        const code = new URL(rR.headers.get('location') ?? '', BASE).searchParams.get('code') ?? '';
+        if (code) {
+          const tR = await postForm('/oauth/token', {
+            grant_type: 'authorization_code', code,
+            redirect_uri: 'https://conformance.test/callback',
+            client_id: clientId, code_verifier: verifier,
+          });
+          const tB = (await tR.json()) as Record<string, unknown>;
+          if (typeof tB.access_token === 'string') openidAccessToken = tB.access_token;
+        }
+      }
+    }
+  }
+  if (openidAccessToken) {
+    const r = await get('/oauth/userinfo', { Authorization: `Bearer ${openidAccessToken}` });
     const b = (await r.json()) as Record<string, unknown>;
     r.status === 200 && b.sub
       ? ok(`Userinfo: 200 with sub="${b.sub}"`)
       : fail('Userinfo: unexpected response', `${r.status} ${JSON.stringify(b)}`);
   } else {
-    skip('Userinfo (no access_token from flow above)');
+    skip('Userinfo (could not obtain openid-only AT)');
   }
 
   // ── 12. Revocation ────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Card, EmptyState, PageHeader, Skeleton } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
-import { useConfirm } from '../../contexts/ConfirmContext';
+import { useToast } from '../../contexts/useToast';
+import { useConfirm } from '../../contexts/useConfirm';
 import {
   listConnectedApps,
   revokeConnectedApp,
@@ -19,6 +19,8 @@ export default function ConnectedAppsPage() {
   }
 
   useEffect(() => {
+    // Initial mount-only fetch; setState fires inside load() after the async API call resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load().catch(() => {
       setApps([]);
       showError('Error al cargar las apps.');

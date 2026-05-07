@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getOrgSettings, updateOrgSettings } from '../../services/api';
 import { Button, Input, PageHeader, Card } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
 
 export default function OrgSettingsPage() {
   const [name, setName] = useState('');

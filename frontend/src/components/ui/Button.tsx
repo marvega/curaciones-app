@@ -69,7 +69,8 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonPr
     );
 
     if ((rest as { as?: string }).as === 'a') {
-      const { as: _as, ...anchorProps } = rest as AnchorHTMLAttributes<HTMLAnchorElement> & { as: 'a' };
+      const { as: _asAnchor, ...anchorProps } = rest as AnchorHTMLAttributes<HTMLAnchorElement> & { as: 'a' };
+      void _asAnchor;
       return (
         <a
           {...anchorProps}
@@ -82,7 +83,8 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonPr
       );
     }
 
-    const { as: _as, disabled, ...buttonProps } = rest as ButtonHTMLAttributes<HTMLButtonElement> & { as?: 'button' };
+    const { as: _asButton, disabled, ...buttonProps } = rest as ButtonHTMLAttributes<HTMLButtonElement> & { as?: 'button' };
+    void _asButton;
     return (
       <button
         {...buttonProps}

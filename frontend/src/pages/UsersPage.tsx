@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { getUsers, createUser } from '../services/api';
 import { Navigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
@@ -35,6 +35,9 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (isAdmin) {
+      // Initial data fetch on mount; setState happens inside loadUsers via async callback,
+      // which is the documented pattern for syncing with an external system (the backend API).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadUsers();
     }
   }, [isAdmin, loadUsers]);
@@ -48,8 +51,9 @@ export default function UsersPage() {
       setForm({ username: '', password: '', role: 'user' });
       setShowForm(false);
       await loadUsers();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al crear usuario');
+    } catch (err) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setError(apiErr.response?.data?.message || 'Error al crear usuario');
     } finally {
       setSaving(false);
     }

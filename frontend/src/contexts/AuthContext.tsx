@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState, useEffect, useCallback } from 'react';
 import { login as apiLogin, switchOrg as apiSwitchOrg } from '../services/api';
 
 const ACCESS_KEY = 'curaciones_access_token';
@@ -21,7 +21,7 @@ export interface OrgSummary {
   role: string;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
@@ -36,7 +36,8 @@ interface AuthContextType {
   isAdmin: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 function isAdminRole(role?: string | null): boolean {
   return role === 'owner' || role === 'admin';
@@ -51,6 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Mount-only hydration of auth state from localStorage. setState calls here are
+    // synchronizing React with an external persistent store (the browser's localStorage),
+    // which is the documented correct use of useEffect.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const a = localStorage.getItem(ACCESS_KEY) ?? localStorage.getItem(LEGACY_TOKEN_KEY);
     const r = localStorage.getItem(REFRESH_KEY);
     const u = localStorage.getItem(USER_KEY);
@@ -76,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setLoading(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const login = useCallback(async (usernameOrEmail: string, password: string) => {
@@ -160,8 +166,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider');
-  return ctx;
-}

@@ -119,6 +119,9 @@ export default function PatientsListPage() {
   }, []);
 
   useEffect(() => {
+    // Pagination/filter side-effect: setState fires inside loadPatients() after the
+    // async API call resolves with new page/filter results — documented external sync.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadPatients(currentPage, appliedFilters, debouncedQuery);
   }, [currentPage, appliedFilters, debouncedQuery, loadPatients]);
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { Loader2 } from 'lucide-react';
 import { Button, Input } from '../components/ui';
 

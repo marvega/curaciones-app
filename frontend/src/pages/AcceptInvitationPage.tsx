@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { previewInvitation, acceptInvitation } from '../services/api';
 import { Button, Input, PageHeader, Card } from '../components/ui';
-import { useToast } from '../contexts/ToastContext';
+import { useToast } from '../contexts/useToast';
 
 interface InvitationPreview {
   valid: boolean;
@@ -24,6 +24,8 @@ export default function AcceptInvitationPage() {
 
   useEffect(() => {
     if (!token) {
+      // Synchronously mark invitation invalid when no token is present in URL.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreview({ valid: false });
       return;
     }

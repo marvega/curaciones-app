@@ -12,7 +12,7 @@ describe('InventoryListPage', () => {
   });
 
   it('renders lots with expiring highlights', async () => {
-    (api.listLots as any) = vi.fn().mockResolvedValue([
+    vi.mocked(api.listLots).mockResolvedValue([
       { id: 1, productId: 1, establishmentId: 1, lotCode: 'L1', expiresAt: '2027-01-01', receivedAt: '2026-04-01', createdAt: '', currentStock: 10, daysToExpiry: 90, product: { id: 1, name: 'APOSITO HIDROCOLOIDE', codes: [] } },
       { id: 2, productId: 2, establishmentId: 1, lotCode: 'L2', expiresAt: '2026-05-15', receivedAt: '2026-04-01', createdAt: '', currentStock: 5, daysToExpiry: 18, product: { id: 2, name: 'APOSITO ESPUMA', codes: [] } },
     ]);

@@ -261,7 +261,13 @@ export const getAgenda = async (
   return data;
 };
 
-export const getAvailability = async (date: string): Promise<any[]> => {
+export interface AvailabilitySlot {
+  time: string;
+  available: boolean;
+  patient?: { firstName: string; lastName: string };
+}
+
+export const getAvailability = async (date: string): Promise<AvailabilitySlot[]> => {
   const { data } = await api.get('/curaciones/availability', {
     params: { date },
   });

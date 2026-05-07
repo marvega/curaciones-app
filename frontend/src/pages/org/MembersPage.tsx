@@ -14,8 +14,8 @@ import {
   Modal,
 } from '../../components/ui';
 import type { ColumnDef } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
-import { useConfirm } from '../../contexts/ConfirmContext';
+import { useToast } from '../../contexts/useToast';
+import { useConfirm } from '../../contexts/useConfirm';
 
 interface Member {
   userId: number;
@@ -56,6 +56,8 @@ export default function MembersPage() {
   };
 
   useEffect(() => {
+    // Initial mount-only fetch; setState fires inside reload() after the async API call resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

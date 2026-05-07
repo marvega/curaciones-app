@@ -26,6 +26,11 @@ export class OAuthDiscoveryController {
   @Public()
   @All('/jwks.json')
   jwks(@Req() req: Request, @Res() res: Response) {
+    // RFC 7517 §8.5.1 recommends caching JWKS responses. 1h matches common
+    // practice and is safe under our retire-window rotation policy: rotated
+    // keys remain published until their retire deadline, so 1h of staleness
+    // never leaves a client unable to verify a current token.
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     return this.oidc.get().callback()(req, res);
   }
 }

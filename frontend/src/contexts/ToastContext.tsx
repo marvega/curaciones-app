@@ -1,21 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { Toast, type ToastItem, type ToastType } from '../components/Toast';
 
-interface ShowToastOptions {
+export interface ShowToastOptions {
   type?: ToastType;
   duration?: number; // ms; 0 = persistent
 }
 
-type ShowToastFn = (message: string, options?: ShowToastOptions) => void;
+export type ShowToastFn = (message: string, options?: ShowToastOptions) => void;
 
-interface ToastContextValue {
+export interface ToastContextValue {
   showToast: ShowToastFn;
   showSuccess: (message: string, duration?: number) => void;
   showError: (message: string, duration?: number) => void;
   showWarning: (message: string, duration?: number) => void;
 }
 
-const ToastContext = createContext<ToastContextValue | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const ToastContext = createContext<ToastContextValue | null>(null);
 
 let nextId = 1;
 
@@ -45,8 +46,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
+    const t = timers.current;
     return () => {
-      Object.values(timers.current).forEach(clearTimeout);
+      Object.values(t).forEach(clearTimeout);
     };
   }, []);
 
@@ -74,8 +76,3 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within ToastProvider');
-  return ctx;
-}

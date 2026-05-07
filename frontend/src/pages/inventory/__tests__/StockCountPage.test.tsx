@@ -13,7 +13,7 @@ function renderWithProviders(ui: React.ReactElement) {
 describe('StockCountPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.openStockCount as any) = vi.fn().mockResolvedValue({
+    vi.mocked(api.openStockCount).mockResolvedValue({
       id: 1,
       countDate: '2026-04-27',
       status: 'DRAFT',
@@ -22,7 +22,7 @@ describe('StockCountPage', () => {
       closedAt: null,
       createdAt: '',
     });
-    (api.listLots as any) = vi.fn().mockResolvedValue([
+    vi.mocked(api.listLots).mockResolvedValue([
       {
         id: 10,
         productId: 1,
@@ -35,7 +35,7 @@ describe('StockCountPage', () => {
         product: { id: 1, name: 'A' },
       },
     ]);
-    (api.patchStockCountEntry as any) = vi.fn().mockResolvedValue({});
+    vi.mocked(api.patchStockCountEntry).mockResolvedValue({});
   });
 
   afterEach(() => {

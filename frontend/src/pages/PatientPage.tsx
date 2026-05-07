@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
-import { useConfirm } from '../contexts/ConfirmContext';
+import { useAuth } from '../contexts/useAuth';
+import { useToast } from '../contexts/useToast';
+import { useConfirm } from '../contexts/useConfirm';
 import { getPatient, createCuracion, updatePatient, deletePatient, getAvailability, createAppointment, deleteAppointment, getPatientAppointments, dischargePatient, readmitPatient, getPatientStatusHistory, updateCuracion, downloadPatientPdf, getWoundPhotos, uploadWoundPhoto, deleteWoundPhoto, getWoundPhotoUrl, createWoundNote, getWoundNotesByPatient, saveConsentSignature, getConsentSignatures, getConsentSignatureUrl } from '../services/api';
-import type { Patient, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage, ConsentSignature } from '../types';
+import type { Patient, Curacion, CuracionType, Appointment, PatientStatusChange, WoundPhoto, WoundNote, WoundColor, ExudateLevel, HealingStage, ConsentSignature } from '../types';
 import { Pencil, Trash2, Plus, CalendarPlus, UserCheck, RotateCcw, X, Loader2, FileText, FileDown, Camera, ChevronDown, ChevronUp, ClipboardList, PenTool, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import WoundEvolutionChart from '../components/WoundEvolutionChart';
@@ -49,6 +49,12 @@ const CURACION_LABELS: Record<CuracionType, string> = {
   ulcera_venosa: 'Curación Avanzada - Úlcera Venosa',
 };
 
+interface AvailabilitySlot {
+  time: string;
+  available: boolean;
+  patient?: { firstName: string; lastName: string };
+}
+
 export default function PatientPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -73,13 +79,13 @@ export default function PatientPage() {
     quantity: 1,
     observations: '',
   });
-  const [availability, setAvailability] = useState<any[]>([]);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentForm, setAppointmentForm] = useState({ date: '', time: '' });
-  const [appointmentAvailability, setAppointmentAvailability] = useState<any[]>([]);
+  const [appointmentAvailability, setAppointmentAvailability] = useState<AvailabilitySlot[]>([]);
   const [loadingAppointmentAvailability, setLoadingAppointmentAvailability] = useState(false);
   const [savingAppointment, setSavingAppointment] = useState(false);
 
@@ -188,7 +194,7 @@ export default function PatientPage() {
     setHasSignature(false);
   }, []);
 
-  const [editingCuracion, setEditingCuracion] = useState<any>(null);
+  const [editingCuracion, setEditingCuracion] = useState<Curacion | null>(null);
   const [curacionEditForm, setCuracionEditForm] = useState({
     type: '' as CuracionType,
     quantity: 1,
@@ -197,7 +203,7 @@ export default function PatientPage() {
     reason: '',
     bootDelivered: false,
   });
-  const [editAvailability, setEditAvailability] = useState<any[]>([]);
+  const [editAvailability, setEditAvailability] = useState<AvailabilitySlot[]>([]);
   const [loadingEditAvailability, setLoadingEditAvailability] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -278,12 +284,16 @@ export default function PatientPage() {
   };
 
   useEffect(() => {
+    // ID-driven side-effect: setState fires inside each loader after the async API call resolves.
+    /* eslint-disable react-hooks/set-state-in-effect */
     loadPatient();
     loadAppointments();
     loadStatusHistory();
     loadWoundPhotos();
     loadWoundNotes();
     loadConsentSignatures();
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -306,7 +316,12 @@ export default function PatientPage() {
   }, [curacionForm.appointmentDate]);
 
   useEffect(() => {
+    // Reset bootDelivered when curacion type changes away from pie_diabetico. The reset
+    // is guarded by the type check so it cannot loop. Could be inlined into the type
+    // selector's onChange, but keeping the effect avoids missing edge cases when the form
+    // type changes via setCuracionForm in other code paths (e.g. resetting after submit).
     if (curacionForm.type !== 'pie_diabetico') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBootDelivered(false);
     }
   }, [curacionForm.type]);
@@ -350,9 +365,13 @@ export default function PatientPage() {
   }, [curacionEditForm.appointmentDate]);
 
   useEffect(() => {
+    // Reset bootDelivered when edit-form type changes away from pie_diabetico. Guarded
+    // by both the type check and the existing bootDelivered value, so it cannot loop.
     if (curacionEditForm.type !== 'pie_diabetico' && curacionEditForm.bootDelivered) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCuracionEditForm(prev => ({ ...prev, bootDelivered: false }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curacionEditForm.type]);
 
   const handleToggleNoteForm = (curacionId: number) => {
@@ -375,7 +394,15 @@ export default function PatientPage() {
     e.preventDefault();
     setSavingNote(true);
     try {
-      const payload: any = { curacionId };
+      const payload: {
+        curacionId: number;
+        woundWidth?: number;
+        woundLength?: number;
+        woundColor?: string;
+        exudateLevel?: string;
+        healingStage?: string;
+        notes?: string;
+      } = { curacionId };
       if (noteForm.woundWidth) payload.woundWidth = parseFloat(noteForm.woundWidth);
       if (noteForm.woundLength) payload.woundLength = parseFloat(noteForm.woundLength);
       if (noteForm.woundColor) payload.woundColor = noteForm.woundColor;
@@ -392,7 +419,7 @@ export default function PatientPage() {
     }
   };
 
-  const handleOpenEdit = (curacion: any) => {
+  const handleOpenEdit = (curacion: Curacion) => {
     setEditingCuracion(curacion);
     setCuracionEditForm({
       type: curacion.type,
@@ -434,7 +461,7 @@ export default function PatientPage() {
     if (curacionForm.appointmentDate && curacionForm.appointmentTime) {
       const slot = availability.find(s => s.time === curacionForm.appointmentTime);
       if (slot && !slot.available) {
-        showError(`El horario ${curacionForm.appointmentTime} ya está ocupado por ${slot.patient.firstName} ${slot.patient.lastName}.`);
+        showError(`El horario ${curacionForm.appointmentTime} ya está ocupado por ${slot.patient?.firstName ?? ''} ${slot.patient?.lastName ?? ''}.`);
         return;
       }
     }
@@ -891,7 +918,7 @@ export default function PatientPage() {
                   <option value="">{loadingAppointmentAvailability ? 'Cargando...' : 'Seleccionar hora'}</option>
                   {appointmentAvailability.map((slot) => (
                     <option key={slot.time} value={slot.time} disabled={!slot.available}>
-                      {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient.firstName} ${slot.patient.lastName})`}
+                      {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient?.firstName ?? ''} ${slot.patient?.lastName ?? ''})`}
                     </option>
                   ))}
                 </select>
@@ -996,7 +1023,7 @@ export default function PatientPage() {
                         disabled={!slot.available}
                         className={!slot.available ? 'text-rose-500' : ''}
                       >
-                        {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient.firstName} ${slot.patient.lastName})`}
+                        {slot.time} {slot.available ? '(Disponible)' : `(Ocupado: ${slot.patient?.firstName ?? ''} ${slot.patient?.lastName ?? ''})`}
                       </option>
                     ))}
                   </select>

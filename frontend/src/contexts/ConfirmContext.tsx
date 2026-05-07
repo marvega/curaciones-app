@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useState } from 'react';
 import ConfirmDialog, { type ConfirmVariant } from '../components/ConfirmDialog';
 
-interface ConfirmOptions {
+export interface ConfirmOptions {
   title: string;
   message: string;
   confirmText?: string;
@@ -9,9 +9,10 @@ interface ConfirmOptions {
   variant?: ConfirmVariant;
 }
 
-type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
+export type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
 
-const ConfirmContext = createContext<ConfirmFn | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 interface PendingState extends ConfirmOptions {
   resolve: (value: boolean) => void;
@@ -52,8 +53,3 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useConfirm(): ConfirmFn {
-  const ctx = useContext(ConfirmContext);
-  if (!ctx) throw new Error('useConfirm must be used within ConfirmProvider');
-  return ctx;
-}

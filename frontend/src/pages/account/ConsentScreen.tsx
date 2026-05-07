@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Card, PageHeader, Select, Skeleton } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
 import {
   fetchConsentInteraction,
   submitConsent,

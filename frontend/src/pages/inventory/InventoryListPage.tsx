@@ -31,6 +31,10 @@ export default function InventoryListPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Filter-driven side-effect: setLoading(true) toggles a UI flag while we fetch lots
+    // matching the current expiringFilter; results are applied in the .then callback,
+    // which is the documented "subscribe to external system" pattern.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const params: { establishmentId: number; active: boolean; expiringInDays?: number } = {
       establishmentId: 1,

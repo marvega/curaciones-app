@@ -23,6 +23,33 @@ const stageLabels: Record<string, string> = {
   chronic: 'Crónica',
 };
 
+interface TooltipPayloadItem {
+  payload: {
+    area: number;
+    color: string | null;
+    stage: string | null;
+  };
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
+      <p className="font-medium text-slate-800">{label}</p>
+      <p className="text-blue-600">Área: {point.area} cm²</p>
+      {point.color && <p className="text-slate-600">Color: {point.color}</p>}
+      {point.stage && <p className="text-slate-600">Etapa: {point.stage}</p>}
+    </div>
+  );
+}
+
 export default function WoundEvolutionChart({ patientId }: Props) {
   const [data, setData] = useState<WoundEvolutionPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,19 +105,6 @@ export default function WoundEvolutionChart({ patientId }: Props) {
   const lastArea = chartData[chartData.length - 1].area;
   const percentChange = ((lastArea - firstArea) / firstArea * 100).toFixed(1);
   const isImproving = lastArea < firstArea;
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload?.length) return null;
-    const point = payload[0].payload;
-    return (
-      <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
-        <p className="font-medium text-slate-800">{label}</p>
-        <p className="text-blue-600">Área: {point.area} cm²</p>
-        {point.color && <p className="text-slate-600">Color: {point.color}</p>}
-        {point.stage && <p className="text-slate-600">Etapa: {point.stage}</p>}
-      </div>
-    );
-  };
 
   return (
     <div className="card p-6">

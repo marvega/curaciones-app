@@ -7,6 +7,7 @@ import { OAuthClient } from './entities/oauth-client.entity';
 import { OAuthGrant } from './entities/oauth-grant.entity';
 import { OrganizationMembership } from '../organizations/organization-membership.entity';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
+import { OAuthBootstrapService } from './services/oauth-bootstrap.service';
 import { AccountAdapterService } from './adapters/account.adapter';
 import { OAuthGrantService } from './services/oauth-grant.service';
 import { buildOidcProvider } from './oidc-provider.factory';
@@ -24,12 +25,21 @@ export class OidcProviderSingleton implements OnApplicationBootstrap {
     @InjectRepository(OAuthGrant) private readonly grantRepo: Repository<OAuthGrant>,
     @InjectRepository(OrganizationMembership) private readonly memRepo: Repository<OrganizationMembership>,
     private readonly signingKeys: OAuthSigningKeyService,
+    private readonly bootstrap: OAuthBootstrapService,
     private readonly accountAdapter: AccountAdapterService,
     private readonly grantService: OAuthGrantService,
     private readonly auditLog: AuditLogService,
   ) {}
 
   async onApplicationBootstrap() {
+    // Sequence dependency: NestJS runs onApplicationBootstrap hooks in
+    // parallel via Promise.all, so OAuthBootstrapService and this singleton
+    // race. On a cold-start with an empty `oauth_signing_key` table, the
+    // singleton can call `getAllPublishableKeys()` before bootstrap has
+    // generated the initial key — leaving the in-memory JWKS empty for the
+    // process lifetime. Awaiting `ensureActiveKey()` here makes the
+    // dependency explicit and idempotent (no-op if a key already exists).
+    await this.bootstrap.ensureActiveKey();
     const issuer = process.env.OAUTH_ISSUER || 'http://localhost:3000';
     this.provider = await buildOidcProvider({
       issuer,
