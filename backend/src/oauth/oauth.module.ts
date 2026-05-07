@@ -27,6 +27,8 @@ import { OAuthJwtStrategy } from './strategies/oauth-jwt.strategy';
 import { OAuthJwtGuard } from './guards/oauth-jwt.guard';
 import { OAuthScopeGuard } from './guards/oauth-scope.guard';
 import { MultiAuthGuard } from './guards/multi-auth.guard';
+import { ConnectedAppsController } from './connected-apps/connected-apps.controller';
+import { ConnectedAppsService } from './connected-apps/connected-apps.service';
 
 @Global()
 @Module({
@@ -44,11 +46,13 @@ import { MultiAuthGuard } from './guards/multi-auth.guard';
     OAuthAuthorizeController,
     OAuthTokenController,
     ConsentController,
+    ConnectedAppsController,
   ],
   providers: [
     OAuthBootstrapService, OAuthSigningKeyService, OAuthGrantService,
     AccountAdapterService, OidcProviderSingleton,
     ConsentService,
+    ConnectedAppsService,
     OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
     JwtAuthGuard, MultiAuthGuard,
   ],
