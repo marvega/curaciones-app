@@ -25,14 +25,42 @@ export class ProductsController {
     private readonly importer: ExcelImportService,
   ) {}
 
+  /**
+   * Parse the ?limit= query param for the cursor branch with safe bounds.
+   * Mirrors PatientsController.parseLimit — fallback 20, cap 100.
+   */
+  private parseLimit(raw: string | undefined): number {
+    const n = parseInt(raw || '20', 10);
+    if (!Number.isFinite(n) || n <= 0) return 20;
+    return Math.min(n, 100);
+  }
+
   @RequiredScopes('inventory:read')
   @Get()
-  list(
+  async list(
     @Query('search') search?: string,
     @Query('type') type?: ProductType,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+    @Query('q') q?: string,
   ) {
+    // Cursor branch: when ?cursor= is present (even empty) the client opts
+    // into the cursor-paginated contract and `page` / `search` are ignored.
+    if (cursor !== undefined) {
+      try {
+        return await this.products.findByCursor({
+          cursor: cursor || undefined,
+          limit: this.parseLimit(limit),
+          q: q?.trim().slice(0, 100) || undefined,
+        });
+      } catch (e) {
+        if ((e as Error).message?.toLowerCase().includes('invalid cursor')) {
+          throw new BadRequestException('invalid cursor');
+        }
+        throw e;
+      }
+    }
     return this.products.list({
       search,
       type,

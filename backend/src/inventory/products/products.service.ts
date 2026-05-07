@@ -7,6 +7,7 @@ import { CreateProductDto } from './create-product.dto';
 import { UpdateProductDto } from './update-product.dto';
 import { findScoped, findOneScoped } from '../../common/org-scoped.repository';
 import { getCurrentOrgId } from '../../common/org-context';
+import { encodeCursor, decodeCursor } from '../../common/cursor-pagination';
 
 interface UpsertResult {
   action: 'created' | 'updated' | 'unchanged';
@@ -62,6 +63,58 @@ export class ProductsService {
 
   async listAll(): Promise<Product[]> {
     return findScoped(this.productRepo, { order: { name: 'ASC' }, relations: ['codes'] });
+  }
+
+  /**
+   * Cursor-paginated listing for stable iteration (used by the MCP server).
+   * Orders by (createdAt DESC, id DESC) so the cursor tuple is unique.
+   *
+   * The existing `list()` method uses `name ASC` and supports `?search=`. The
+   * cursor branch instead orders by (createdAt, id) — name is not unique
+   * enough to form a stable total order. Search continues to ILIKE on `name`
+   * (the only plaintext text column on Product).
+   *
+   * Contract: returns `{ items, nextCursor }`. `nextCursor` is `undefined`
+   * when there are no more rows.
+   */
+  async findByCursor(args: {
+    cursor?: string;
+    limit: number;
+    q?: string;
+  }): Promise<{ items: Product[]; nextCursor?: string }> {
+    const orgId = getCurrentOrgId();
+    if (!orgId) throw new Error('No org context');
+    const cappedLimit = Math.max(1, Math.min(args.limit, 100));
+    const decoded = decodeCursor(args.cursor);
+
+    const qb = this.productRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.codes', 'codes')
+      .where('p."organizationId" = :orgId', { orgId })
+      .orderBy('p."createdAt"', 'DESC')
+      .addOrderBy('p.id', 'DESC')
+      .take(cappedLimit + 1);
+
+    if (decoded) {
+      qb.andWhere(
+        '(p."createdAt", p.id) < (:cursorCreatedAt, :cursorId)',
+        { cursorCreatedAt: decoded.createdAt, cursorId: decoded.id },
+      );
+    }
+    if (args.q) {
+      qb.andWhere('p.name ILIKE :q', { q: `%${args.q}%` });
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > cappedLimit;
+    const items = hasMore ? rows.slice(0, cappedLimit) : rows;
+    const last = items[items.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        : undefined;
+
+    return { items, nextCursor };
   }
 
   async update(id: number, dto: UpdateProductDto): Promise<Product> {
