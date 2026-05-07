@@ -24,6 +24,7 @@ export class OAuthGrant {
   @Column({ type: 'timestamptz', nullable: true })
   revokedAt!: Date | null;
 
+  @Index('IDX_oauth_grant_oidc_grant_id')
   @Column({ type: 'text', nullable: true })
   oidcGrantId!: string | null;
 
