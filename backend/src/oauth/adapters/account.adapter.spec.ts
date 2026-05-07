@@ -31,10 +31,10 @@ describe('AccountAdapterService', () => {
   });
 
   it('findAccount returns claims with org bound from grant context', async () => {
-    userRepo.findOne.mockResolvedValue({ id: 12, username: 'marcelo', fullName: 'Marcelo' });
+    userRepo.findOne.mockResolvedValue({ id: 12, username: 'marcelo' });
     memRepo.findOne.mockResolvedValue({ userId: 12, organizationId: 'uuid-acme', role: OrgRole.ADMIN, status: MembershipStatus.ACTIVE });
     orgRepo.findOne.mockResolvedValue({ id: 'uuid-acme', name: 'CESFAM Acme' });
-    ueaRepo.find.mockResolvedValue([{ establishmentId: 'est-1' }]);
+    ueaRepo.find.mockResolvedValue([{ establishmentId: 7 }]);
 
     const ctx = { oidc: { entities: { Grant: { organizationId: 'uuid-acme' } } } } as any;
     const account = await service.findAccount(ctx, '12');
@@ -44,10 +44,11 @@ describe('AccountAdapterService', () => {
     expect(claims).toMatchObject({
       sub: '12',
       username: 'marcelo',
-      name: 'Marcelo',
+      name: 'marcelo',
       org_id: 'uuid-acme',
       org_name: 'CESFAM Acme',
       role: OrgRole.ADMIN,
+      establishment_ids: ['7'],
     });
   });
 

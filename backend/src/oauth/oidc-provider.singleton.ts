@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import type { Provider as OidcProvider } from 'oidc-provider';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,7 +10,7 @@ import { OAuthGrantService } from './services/oauth-grant.service';
 import { buildOidcProvider } from './oidc-provider.factory';
 
 @Injectable()
-export class OidcProviderSingleton implements OnModuleInit {
+export class OidcProviderSingleton implements OnApplicationBootstrap {
   private readonly logger = new Logger(OidcProviderSingleton.name);
   private provider!: OidcProvider;
 
@@ -22,7 +22,7 @@ export class OidcProviderSingleton implements OnModuleInit {
     private readonly grantService: OAuthGrantService,
   ) {}
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
     const issuer = process.env.OAUTH_ISSUER || 'http://localhost:3000';
     this.provider = await buildOidcProvider({
       issuer,
