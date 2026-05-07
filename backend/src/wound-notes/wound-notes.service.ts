@@ -7,6 +7,7 @@ import { KMS_SERVICE } from '../kms/kms.service';
 import type { KmsService } from '../kms/kms.service';
 import { getCurrentOrgId } from '../common/org-context';
 import { findOneScoped } from '../common/org-scoped.repository';
+import { encodeCursor, decodeCursor } from '../common/cursor-pagination';
 
 @Injectable()
 export class WoundNotesService {
@@ -82,6 +83,58 @@ export class WoundNotesService {
       .getMany();
     await Promise.all(notes.map((n) => this.decryptNotes(n)));
     return notes;
+  }
+
+  /**
+   * Cursor-paginated listing of a patient's wound-notes for stable iteration
+   * (used by the MCP server). Orders by (wn.createdAt DESC, wn.id DESC) — note
+   * the existing `findByPatient` orders by `c.date DESC`, but `c.date` is a
+   * date-only column with frequent ties; the wound-note's own `createdAt` is
+   * a unique-enough timestamp that combined with the id forms a strict total
+   * order, which the cursor protocol requires.
+   *
+   * Decryption of `notes` mirrors `findByPatient`.
+   *
+   * Contract: returns `{ items, nextCursor }`. `nextCursor` is `undefined`
+   * when there are no more rows.
+   */
+  async findByPatientCursor(args: {
+    patientId: number;
+    limit: number;
+    cursor?: string;
+  }): Promise<{ items: WoundNote[]; nextCursor?: string }> {
+    const orgId = this.requireOrgId();
+    const cappedLimit = Math.max(1, Math.min(args.limit, 100));
+    const decoded = decodeCursor(args.cursor);
+
+    const qb = this.repo
+      .createQueryBuilder('wn')
+      .innerJoinAndSelect('wn.curacion', 'c')
+      .innerJoinAndSelect('wn.recordedBy', 'u')
+      .where('c.patientId = :patientId', { patientId: args.patientId })
+      .andWhere('wn.organizationId = :orgId', { orgId })
+      .orderBy('wn."createdAt"', 'DESC')
+      .addOrderBy('wn.id', 'DESC')
+      .take(cappedLimit + 1);
+
+    if (decoded) {
+      qb.andWhere(
+        '(wn."createdAt", wn.id) < (:cursorCreatedAt, :cursorId)',
+        { cursorCreatedAt: decoded.createdAt, cursorId: decoded.id },
+      );
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > cappedLimit;
+    const items = hasMore ? rows.slice(0, cappedLimit) : rows;
+    await Promise.all(items.map((n) => this.decryptNotes(n)));
+    const last = items[items.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        : undefined;
+
+    return { items, nextCursor };
   }
 
   // The encrypted-column transformer is a passthrough; raw EncryptedField
