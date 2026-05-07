@@ -34,14 +34,16 @@ export class PostgresAdapter {
       {
         id,
         kind: this.kind,
-        payload: payload as Record<string, unknown>,
+        // typeorm's QueryDeepPartialEntity types Record<string, unknown> as a
+        // recursive query expression; cast to silence the false positive.
+        payload: payload as unknown as OAuthToken['payload'],
         grantId: (payload.grantId as string) ?? null,
         clientId: (payload.clientId as string) ?? null,
         userId: payload.accountId ? Number(payload.accountId) : null,
         organizationId: (payload as any).organizationId ?? null,
         expiresAt,
         consumed: Boolean(payload.consumed),
-      },
+      } as any,
       ['id'],
     );
   }
