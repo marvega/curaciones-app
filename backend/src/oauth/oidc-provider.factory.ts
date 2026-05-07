@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { Provider as OidcProvider, Configuration } from 'oidc-provider';
+import type { Provider as OidcProvider, Configuration } from 'oidc-provider';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
 import { Repository } from 'typeorm';
 import { OAuthToken } from './entities/oauth-token.entity';
@@ -64,6 +64,20 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
     clients: [],
     findAccount: deps.findAccount,
     loadExistingGrant: deps.loadExistingGrant,
+    routes: {
+      authorization: '/oauth/authorize',
+      token: '/oauth/token',
+      jwks: '/jwks.json',
+      registration: '/oauth/register',
+      revocation: '/oauth/revoke',
+      userinfo: '/oauth/userinfo',
+      end_session: '/oauth/logout',
+      introspection: '/oauth/introspect',
+      backchannel_authentication: '/oauth/backchannel',
+      code_verification: '/oauth/device',
+      device_authorization: '/oauth/device/auth',
+      pushed_authorization_request: '/oauth/par',
+    },
     ttl: {
       AccessToken: 10 * 60,
       AuthorizationCode: 60,
@@ -95,7 +109,10 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
     },
   };
 
-  return new OidcProvider(deps.issuer, config);
+  // oidc-provider v8 is ESM-only — use dynamic import so this module remains
+  // CommonJS-loadable from ts-jest e2e specs (which transpile to commonjs).
+  const { default: ProviderCtor } = (await import('oidc-provider')) as any;
+  return new ProviderCtor(deps.issuer, config);
 }
 
 function randomClientId(): string {
