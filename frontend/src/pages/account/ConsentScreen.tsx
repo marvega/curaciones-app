@@ -26,7 +26,7 @@ export function ConsentScreen() {
     fetchConsentInteraction(uid)
       .then((d) => {
         setData(d);
-        setOrgId(d.preselectedOrganizationId);
+        setOrgId(d.preselectedOrganizationId ?? '');
       })
       .catch(() =>
         showError('No pudimos cargar la solicitud de autorización.'),

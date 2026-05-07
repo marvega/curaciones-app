@@ -22,13 +22,17 @@ import { CurrentUser } from '../../auth/current-user.decorator';
 import { OidcProviderSingleton } from '../oidc-provider.singleton';
 import { ConsentService } from './consent.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { OAuthClient } from '../entities/oauth-client.entity';
+import { OAuthGrant } from '../entities/oauth-grant.entity';
 import {
   OrganizationMembership,
   MembershipStatus,
 } from '../../organizations/organization-membership.entity';
-import { Organization } from '../../organizations/organization.entity';
+import {
+  Organization,
+  OrganizationStatus,
+} from '../../organizations/organization.entity';
 
 const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
   'patients:read': {
@@ -85,6 +89,8 @@ export class ConsentController {
     private readonly memRepo: Repository<OrganizationMembership>,
     @InjectRepository(Organization)
     private readonly orgRepo: Repository<Organization>,
+    @InjectRepository(OAuthGrant)
+    private readonly oauthGrantRepo: Repository<OAuthGrant>,
   ) {}
 
   @Get(':uid')
@@ -111,7 +117,9 @@ export class ConsentController {
     });
     const orgIds = memberships.map((m) => m.organizationId);
     const orgs = orgIds.length
-      ? await this.orgRepo.findByIds(orgIds)
+      ? await this.orgRepo.find({
+          where: { id: In(orgIds), status: OrganizationStatus.ACTIVE },
+        })
       : [];
 
     return {
@@ -124,13 +132,13 @@ export class ConsentController {
         verified: client.firstAuthorizedAt !== null,
       },
       scopes: functionalScopes.map((s) => ({ id: s, ...SCOPE_LABELS[s] })),
-      user: { id: user.id, username: user.username, fullName: user.username },
+      user: { id: user.id, username: user.username },
       organizations: orgs.map((o) => {
         const m = memberships.find((mm) => mm.organizationId === o.id)!;
         return { id: o.id, name: o.name, role: m.role };
       }),
       preselectedOrganizationId:
-        user.organizationId ?? (orgs[0]?.id ?? ''),
+        user.organizationId ?? orgs[0]?.id ?? null,
     };
   }
 
@@ -167,7 +175,7 @@ export class ConsentController {
     const requestedScopes: string[] = String(params.scope ?? '')
       .split(/\s+/)
       .filter(Boolean);
-    await this.consent.recordConsent({
+    const oauthGrant = await this.consent.recordConsent({
       clientId,
       userId: user.id,
       organizationId: body.organizationId,
@@ -182,6 +190,12 @@ export class ConsentController {
     requestedScopes.forEach((s: string) => grant.addOIDCScope(s));
     grant.organizationId = body.organizationId;
     const grantId = await grant.save();
+
+    // Persist the oidc-provider runtime grantId on our durable OAuthGrant
+    // row. This is the join used by `extraTokenClaims` to enrich access
+    // tokens with `org_id` / `role` (Grant.organizationId is in-memory only
+    // and is dropped on serialization).
+    await this.oauthGrantRepo.update(oauthGrant.id, { oidcGrantId: grantId });
 
     interaction.result = {
       login: { accountId: String(user.id) },
