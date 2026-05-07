@@ -171,13 +171,13 @@ describe('OAuth happy path (e2e)', () => {
     expect(tokRes.body.refresh_token).toBeTruthy();
     expect(tokRes.body.scope).toEqual(expect.any(String));
     const grantedScopes = String(tokRes.body.scope).split(' ');
+    // With resourceIndicators enabled (so AT is a JWT bound to the issuer),
+    // the AT's `scope` only contains the resource-server scopes — `openid`
+    // and `offline_access` are OIDC-only and stay on the id_token /
+    // refresh_token grant. The durable `oauth_grant` row still records all
+    // requested scopes (asserted below).
     expect(grantedScopes).toEqual(
-      expect.arrayContaining([
-        'openid',
-        'offline_access',
-        'patients:read',
-        'agenda:read',
-      ]),
+      expect.arrayContaining(['patients:read', 'agenda:read']),
     );
 
     // 5. id_token is a JWT and carries the seeded user as `sub`.
