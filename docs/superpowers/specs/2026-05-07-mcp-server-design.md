@@ -29,7 +29,7 @@ Este sub-spec define el servicio MCP que un cliente Claude conecta vía OAuth, v
 | D7 | Paginación | Cursor-based en todas las tools de listado | Estable bajo writes concurrentes; UX MCP espera "siguiente" no "página N". Requiere agregar soporte cursor en backend como pre-requisito |
 | D8 | Rate limiting en MCP | Ninguno propio | Se confía en rate limit por OAuth client del backend (Sub #2). Si la carga del directorio lo amerita, se agrega después |
 | D9 | Stack runtime | Node 20 + TS + `@modelcontextprotocol/sdk` + Fastify + `undici` + `pino` + `jose` | Liviano, alineado con conventions del SDK MCP, sin frameworks pesados |
-| D10 | Audience claim | OAuth Server (Sub #2) ajusta para emitir `aud=mcp-server` en ATs cuyo grant es para el resource server MCP | Defensa contra token confusion; pre-requisito para validation correcta en MCP |
+| D10 | Audience claim | MCP valida `aud=OAUTH_ISSUER` (lo que el AS ya emite vía resource indicators RFC 8707). No se cambia el AS | Una sola audience entre backend y MCP simplifica la cadena. El MCP es proxy del backend; no hay separación de privilegios entre los dos resources que justifique audiences distintos. Token confusion no aplica en este modelo |
 
 ---
 
@@ -104,14 +104,14 @@ Cero código compartido entre MCP y backend. Solo contrato HTTP. Tipos del API s
 | 4 | `update_patient` | `PATCH /api/patients/:id` | `patients:write` | ✗ | ✗ |
 | 5 | `discharge_patient` | `POST /api/patients/:id/discharge` | `patients:write` | ✗ | ✓ |
 | 6 | `readmit_patient` | `POST /api/patients/:id/readmit` | `patients:write` | ✗ | ✗ |
-| 7 | `list_appointments` | `GET /api/appointments?date=&patientId=&cursor=` | `agenda:rw` | ✓ | ✗ |
-| 8 | `create_appointment` | `POST /api/appointments` | `agenda:rw` | ✗ | ✗ |
-| 9 | `cancel_appointment` | `DELETE /api/appointments/:id` | `agenda:rw` | ✗ | ✓ |
-| 10 | `list_curaciones` | `GET /api/curaciones?patientId=&cursor=` | `clinical:rw` | ✓ | ✗ |
-| 11 | `register_curacion` | `POST /api/curaciones` | `clinical:rw` | ✗ | ✗ |
-| 12 | `get_curacion_pdf` | wrappea `GET /api/curaciones/:id/pdf` (modalidad final — URL temporal vs MCP resource binary — se decide en plan) | `clinical:rw` | ✓ | ✗ |
-| 13 | `add_wound_note` | `POST /api/wound-notes` | `clinical:rw` | ✗ | ✗ |
-| 14 | `list_wound_notes` | `GET /api/wound-notes/patient/:patientId` | `clinical:rw` | ✓ | ✗ |
+| 7 | `list_appointments` | `GET /api/appointments?date=&patientId=&cursor=` | `agenda:read` | ✓ | ✗ |
+| 8 | `create_appointment` | `POST /api/appointments` | `agenda:write` | ✗ | ✗ |
+| 9 | `cancel_appointment` | `DELETE /api/appointments/:id` | `agenda:write` | ✗ | ✓ |
+| 10 | `list_curaciones` | `GET /api/curaciones?patientId=&cursor=` | `clinical:read` | ✓ | ✗ |
+| 11 | `register_curacion` | `POST /api/curaciones` | `clinical:write` | ✗ | ✗ |
+| 12 | `get_curacion_pdf` | wrappea `GET /api/curaciones/:id/pdf` (modalidad final — URL temporal vs MCP resource binary — se decide en plan) | `clinical:read` | ✓ | ✗ |
+| 13 | `add_wound_note` | `POST /api/wound-notes` | `clinical:write` | ✗ | ✗ |
+| 14 | `list_wound_notes` | `GET /api/wound-notes/patient/:patientId` | `clinical:read` | ✓ | ✗ |
 | 15 | `search_inventory` | `GET /api/inventory/products?q=&cursor=` | `inventory:read` | ✓ | ✗ |
 | 16 | `list_lots_expiring` | `GET /api/inventory/lots/expiring?cursor=` | `inventory:read` | ✓ | ✗ |
 | 17 | `register_canasta_consumption` | `POST /api/canasta` | `inventory:write` | ✗ | ✗ |
@@ -179,10 +179,10 @@ Razón: estable bajo writes concurrentes; UX agéntica espera "siguiente página
 ### 5.1 Validación del bearer (en cada MCP request)
 
 1. Extraer `Authorization: Bearer <jwt>` del request.
-2. Verificar firma usando JWKS público publicado por backend en `GET /.well-known/jwks.json` (Sub #2 ya lo expone).
+2. Verificar firma usando JWKS público publicado por backend en `GET /jwks.json` (Sub #2 ya lo expone).
 3. Verificar claims:
    - `iss` == `OAUTH_ISSUER` (env)
-   - `aud` incluye `mcp-server`
+   - `aud` == `OAUTH_ISSUER` (lo que el AS ya emite vía RFC 8707 resource indicators)
    - `exp` > now, `nbf` <= now
 4. JWKS caching: `jose.createRemoteJWKSet` con auto-refresh, TTL 5 min, fetch background si expira durante request.
 5. Si falla cualquier paso → MCP responde con `WWW-Authenticate: Bearer error="invalid_token"` (RFC 6750).
@@ -198,11 +198,13 @@ Razón: estable bajo writes concurrentes; UX agéntica espera "siguiente página
 - El claim `org_id` del JWT se loguea (correlation) y se reenvía implícitamente al backend (vía el bearer mismo).
 - **El MCP NO autoriza por org_id**. El backend ya valida org membership en cada request via `OAuthJwtStrategy` y aplica `OrgScopedQueryFilter`.
 
-### 5.4 Pre-requisito en Sub #2: audience claim
+### 5.4 Audience: por qué `aud=issuer` y no `aud=mcp-server`
 
-Hoy el OAuth Server emite ATs con `aud` ligado al cliente OAuth, no al resource server. Para que el MCP pueda validar que un token está destinado a él (defensa contra token confusion attacks), el AS debe agregar un claim `aud` con resource indicator del MCP cuando el grant es para uso MCP.
+El AS de Sub #2 ya emite ATs en formato JWT con `aud=issuer` vía `oidc-provider` resource indicators (RFC 8707). El backend valida ese mismo `aud=issuer` en `OAuthJwtStrategy`. El MCP hace lo mismo: valida `aud=OAUTH_ISSUER`.
 
-Esto se incluye como **fase 0 del plan de implementación** y toca `backend/src/oauth/oidc-provider.factory.ts` (claim hook) y posiblemente el endpoint `/oauth/register` para que clientes declaren `audience` opcional.
+Razón de no usar `aud=mcp-server` separado: el MCP es solo proxy del backend, no un resource server con privilegios distintos. Cualquier AT válido para el backend (`patients:read` etc.) sirve igual contra el MCP. Token confusion no aplica acá. Mantener una sola audience evita complicar el AS con claims multi-aud y evita el riesgo de degradar la validación en el backend.
+
+**Esto significa que NO hay fase 0 de "ajustar AS" en el plan**: el MCP se acopla al AT que el AS ya emite hoy.
 
 ---
 
@@ -291,8 +293,8 @@ Required check para PRs a `main`.
 | `PORT` | `3001` | provisto por Railway |
 | `BACKEND_URL` | `https://api.<placeholder>` | base URL del backend |
 | `OAUTH_ISSUER` | `https://api.<placeholder>` | claim `iss` esperado |
-| `OAUTH_JWKS_URL` | `https://api.<placeholder>/.well-known/jwks.json` | endpoint JWKS |
-| `OAUTH_AUDIENCE` | `mcp-server` | claim `aud` esperado |
+| `OAUTH_JWKS_URL` | `https://api.<placeholder>/jwks.json` | endpoint JWKS |
+| `OAUTH_AUDIENCE` | `https://api.<placeholder>` | claim `aud` esperado (igual al issuer; el AS lo emite así vía RFC 8707) |
 | `LOG_LEVEL` | `info` | nivel de pino |
 | `NODE_ENV` | `production` | |
 
@@ -330,7 +332,7 @@ Sub #3 cerrado cuando:
 
 1. Servicio `mcp-server` deployado en Railway en `mcp.<placeholder>`, accesible vía streamable-HTTP.
 2. Las 18 tools v1 + `whoami` implementadas, cada una con scope check, mapping al backend, error handling per §7.
-3. JWT validation con JWKS público funcional; OAuth Server ajustado para emitir ATs con claim `aud=mcp-server`.
+3. JWT validation con JWKS público (`/jwks.json` del backend) funcional; MCP valida firma + `iss` + `aud=OAUTH_ISSUER` + `exp/nbf`. Sin cambios en el AS.
 4. Las 5 tools con elicitation funcionan en cliente que la soporta (verificado con MCP Inspector) y degradan correctamente en cliente que no.
 5. Logs estructurados con redaction de PHI; correlation-id propagated end-to-end Claude→MCP→API.
 6. CI passing: unit tests, integration tests contra backend dev, OpenAPI drift check, lint, typecheck.
@@ -346,7 +348,7 @@ Sub #3 cerrado cuando:
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |---|---|---|---|
 | Drift entre tipos del backend (OpenAPI) y MCP | Media | Medio | OpenAPI drift check obligatorio en CI |
-| Token confusion (AT emitido para otro client se usa contra el MCP) | Media | Alto | Audience claim `aud=mcp-server` validado estrictamente |
+| Token confusion (AT emitido para otro client se usa contra el MCP) | Baja | Medio | Por diseño no aplica (MCP es proxy, mismo resource que backend); igual el MCP valida iss + aud + firma + exp |
 | Tool con elicitation falla en cliente sin capability | Media | Bajo | Fallback de texto plano implementado y testeado |
 | Migración a paginación cursor rompe consumidores existentes | Baja | Medio | Cursor agregado como param opcional; offset sigue funcionando para web |
 | Carga del directorio satura el backend | Baja en v1 | Medio | Rate limit por OAuth client (existente) absorbe el primer hit; agregamos MCP-side si no alcanza |
@@ -359,7 +361,7 @@ Sub #3 cerrado cuando:
 
 | Fase | Entregable |
 |---|---|
-| 0 | Pre-requisitos en backend: claim `aud=mcp-server` en AS + paginación cursor en endpoints de listado + OpenAPI export verificado |
+| 0 | Pre-requisitos en backend: paginación cursor en endpoints de listado + OpenAPI export verificado (sin cambios en el AS) |
 | 1 | Bootstrap `mcp-server/`: Fastify + MCP SDK + health endpoint + Dockerfile + CI workflow |
 | 2 | Auth middleware: JWT verification con JWKS + scope catalog + error mapping |
 | 3 | Tools read-only (8 tools): search/get/list para todos los dominios |
