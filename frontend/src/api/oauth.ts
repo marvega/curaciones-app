@@ -69,3 +69,27 @@ export async function submitConsent(
   const { data } = await oauthApi.post(`/oauth/consent/${uid}`, body);
   return data;
 }
+
+export interface ConnectedApp {
+  grantId: string;
+  client: {
+    name: string;
+    logoUri: string | null;
+    policyUri: string | null;
+  };
+  organizationId: string;
+  organizationName: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export async function listConnectedApps(): Promise<ConnectedApp[]> {
+  const { data } = await oauthApi.get('/api/account/connected-apps');
+  return data;
+}
+
+export async function revokeConnectedApp(grantId: string): Promise<void> {
+  await oauthApi.delete(`/api/account/connected-apps/${grantId}`);
+}

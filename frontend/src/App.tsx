@@ -27,6 +27,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SessionsPage from './pages/account/SessionsPage';
 import ChangePasswordPage from './pages/account/ChangePasswordPage';
+import ConnectedAppsPage from './pages/account/ConnectedAppsPage';
 import { ConsentScreen } from './pages/account/ConsentScreen';
 import MembersPage from './pages/org/MembersPage';
 import InvitationsPage from './pages/org/InvitationsPage';
@@ -64,6 +65,7 @@ function App() {
               <Route path="inventory/admin/canasta" element={<CanastaAdminPage />} />
               <Route path="account/sessions" element={<SessionsPage />} />
               <Route path="account/change-password" element={<ChangePasswordPage />} />
+              <Route path="account/connected-apps" element={<ConnectedAppsPage />} />
               <Route path="account/oauth/consent" element={<ConsentScreen />} />
               <Route path="org/members" element={<MembersPage />} />
               <Route path="org/invitations" element={<InvitationsPage />} />
