@@ -139,6 +139,13 @@ describe('ConnectedAppsService', () => {
     expect(revocationRepo.insert).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ jti: 'jti-at' })]),
     );
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'oauth.grant.revoked',
+        userId: 1,
+        action: 'EVENT',
+      }),
+    );
   });
 
   it('revoke is idempotent when the grant is already revoked', async () => {
@@ -154,6 +161,7 @@ describe('ConnectedAppsService', () => {
     expect(tokenRepo.update).not.toHaveBeenCalled();
     expect(revocationRepo.insert).not.toHaveBeenCalled();
     expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(auditLog.log).not.toHaveBeenCalled();
   });
 
   it('revoke skips token cascade when oidcGrantId is null', async () => {
@@ -175,5 +183,6 @@ describe('ConnectedAppsService', () => {
   it('revoke throws if grant not owned by user', async () => {
     grantRepo.findOne.mockResolvedValue({ id: 'g1', userId: 999 });
     await expect(service.revoke(1, 'g1')).rejects.toThrow();
+    expect(auditLog.log).not.toHaveBeenCalled();
   });
 });
