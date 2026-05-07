@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { KmsModule } from '../kms/kms.module';
 import { AuthModule } from '../auth/auth.module';
@@ -28,6 +28,7 @@ import { OAuthJwtGuard } from './guards/oauth-jwt.guard';
 import { OAuthScopeGuard } from './guards/oauth-scope.guard';
 import { MultiAuthGuard } from './guards/multi-auth.guard';
 
+@Global()
 @Module({
   imports: [
     TypeOrmModule.forFeature([
