@@ -82,6 +82,8 @@ export class OAuthJwtStrategy {
         if (revoked) throw new UnauthorizedException('Token revoked');
       }
       const clientId = (payload as any).client_id;
+      // oidc-provider always emits client_id in JWT ATs (RFC 9068 §2.2); guard
+      // is defensive only — missing client_id skips the grant check (fail-open).
       if (clientId) {
         const grant = await this.grantRepo.findOne({
           where: {
