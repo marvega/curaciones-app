@@ -1,9 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any,
-                  @typescript-eslint/no-unsafe-assignment,
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
                   @typescript-eslint/no-unsafe-member-access,
-                  @typescript-eslint/no-unsafe-call,
-                  @typescript-eslint/no-unsafe-return,
-                  @typescript-eslint/no-unsafe-argument */
+                  @typescript-eslint/no-unsafe-call */
 // oidc-provider's runtime models (Interaction, Grant) are not statically
 // typed — every integration point requires `as any`. The casts are localized
 // to this file so the rest of the OAuth code stays strict.
@@ -13,10 +10,12 @@ import {
   Post,
   Param,
   Body,
+  Req,
   UseGuards,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { OidcProviderSingleton } from '../oidc-provider.singleton';
@@ -33,6 +32,8 @@ import {
   Organization,
   OrganizationStatus,
 } from '../../organizations/organization.entity';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import { AuditAction } from '../../audit-log/audit-log.entity';
 
 const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
   'patients:read': {
@@ -91,13 +92,11 @@ export class ConsentController {
     private readonly orgRepo: Repository<Organization>,
     @InjectRepository(OAuthGrant)
     private readonly oauthGrantRepo: Repository<OAuthGrant>,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   @Get(':uid')
-  async getInteraction(
-    @Param('uid') uid: string,
-    @CurrentUser() user: any,
-  ) {
+  async getInteraction(@Param('uid') uid: string, @CurrentUser() user: any) {
     const provider: any = this.oidc.get();
     const interaction = await provider.Interaction.find(uid);
     if (!interaction) throw new NotFoundException('Interaction not found');
@@ -137,8 +136,7 @@ export class ConsentController {
         const m = memberships.find((mm) => mm.organizationId === o.id)!;
         return { id: o.id, name: o.name, role: m.role };
       }),
-      preselectedOrganizationId:
-        user.organizationId ?? orgs[0]?.id ?? null,
+      preselectedOrganizationId: user.organizationId ?? orgs[0]?.id ?? null,
     };
   }
 
@@ -147,6 +145,7 @@ export class ConsentController {
     @Param('uid') uid: string,
     @Body() body: { approved: boolean; organizationId?: string },
     @CurrentUser() user: any,
+    @Req() req: Request,
   ): Promise<{ redirectTo: string }> {
     const provider: any = this.oidc.get();
     const interaction = await provider.Interaction.find(uid);
@@ -164,6 +163,24 @@ export class ConsentController {
         error_description: 'User rejected consent',
       };
       await this.persistInteraction(interaction);
+      const deniedParams = interaction.params ?? {};
+      const deniedClientId: string =
+        deniedParams.client_id ?? deniedParams.clientId;
+      void this.auditLog
+        .log({
+          userId: user.id,
+          username: user.username,
+          organizationId: String(
+            user.organizationId ?? body.organizationId ?? '0',
+          ),
+          action: AuditAction.EVENT,
+          entity: 'oauth.consent.denied',
+          entityId: 0,
+          afterJson: { clientId: deniedClientId, denied: true },
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] ?? null,
+        })
+        .catch(() => {});
       return { redirectTo: interaction.returnTo };
     }
     if (!body.organizationId) {
@@ -220,6 +237,25 @@ export class ConsentController {
       { clientId },
       { firstAuthorizedAt: () => 'COALESCE("firstAuthorizedAt", now())' },
     );
+    void this.auditLog
+      .log({
+        userId: user.id,
+        username: user.username,
+        organizationId: String(
+          user.organizationId ?? body.organizationId ?? '0',
+        ),
+        action: AuditAction.EVENT,
+        entity: 'oauth.consent.granted',
+        entityId: 0,
+        afterJson: {
+          clientId,
+          organizationId: body.organizationId,
+          scopes: requestedScopes,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] ?? null,
+      })
+      .catch(() => {});
     return { redirectTo: interaction.returnTo };
   }
 
