@@ -9,6 +9,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { MultiAuthGuard } from '../oauth/guards/multi-auth.guard';
 import { OAuthScopeGuard } from '../oauth/guards/oauth-scope.guard';
 import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
+import { NoOAuthAccess } from '../oauth/decorators/no-oauth-access.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -48,6 +49,10 @@ export class UsersController {
     return this.usersService.create(dto, user);
   }
 
+  // Anonymous bootstrap endpoint — never OAuth-accessible. Marked with
+  // @NoOAuthAccess so the OAuth scope-coverage governance test treats this
+  // explicitly as "not exposed via OAuth tokens" rather than missing a marker.
+  @NoOAuthAccess()
   @Post('seed')
   async seed() {
     return this.usersService.seed();
