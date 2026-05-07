@@ -1,3 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
+                  @typescript-eslint/no-unsafe-member-access,
+                  @typescript-eslint/no-unsafe-argument,
+                  @typescript-eslint/require-await,
+                  @typescript-eslint/no-unused-vars */
+// oidc-provider's AdapterPayload is intentionally a permissive index type
+// (`{ [key: string]: any }`); narrowing each access at this integration
+// boundary buys little safety while obscuring the mapping. The unused
+// `_expiresIn` param is part of the Adapter signature contract.
 import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { OAuthClient } from '../entities/oauth-client.entity';
@@ -20,11 +29,15 @@ import type { AdapterPayload } from './postgres.adapter';
 export class ClientAdapter {
   constructor(private readonly repo: Repository<OAuthClient>) {}
 
-  async upsert(id: string, payload: AdapterPayload, _expiresIn: number): Promise<void> {
+  async upsert(
+    id: string,
+    payload: AdapterPayload,
+    _expiresIn: number,
+  ): Promise<void> {
     const p: any = payload;
-    const ratHash = p.registration_access_token
+    const ratHash: string | null = p.registration_access_token
       ? createHash('sha256').update(p.registration_access_token).digest('hex')
-      : '';
+      : null;
     await this.repo.upsert(
       {
         clientId: id,
@@ -35,11 +48,15 @@ export class ClientAdapter {
         policyUri: p.policy_uri ?? null,
         tosUri: p.tos_uri ?? null,
         redirectUris: (p.redirect_uris as string[]) ?? [],
-        grantTypes: (p.grant_types as string[]) ?? ['authorization_code', 'refresh_token'],
+        grantTypes: (p.grant_types as string[]) ?? [
+          'authorization_code',
+          'refresh_token',
+        ],
         responseTypes: (p.response_types as string[]) ?? ['code'],
         scope: (p.scope as string) ?? '',
-        tokenEndpointAuthMethod: (p.token_endpoint_auth_method as any) ?? 'client_secret_basic',
-        applicationType: (p.application_type as any) ?? 'web',
+        tokenEndpointAuthMethod:
+          p.token_endpoint_auth_method ?? 'client_secret_basic',
+        applicationType: p.application_type ?? 'web',
         softwareId: p.software_id ?? null,
         softwareVersion: p.software_version ?? null,
         // Stash the raw oidc-provider payload as metadata so `find` can
@@ -66,8 +83,16 @@ export class ClientAdapter {
   }
 
   // Methods required by the Adapter interface but unused for Client model.
-  async findByUserCode(): Promise<AdapterPayload | undefined> { return undefined; }
-  async findByUid(): Promise<AdapterPayload | undefined> { return undefined; }
-  async consume(): Promise<void> { /* no-op for Client */ }
-  async revokeByGrantId(): Promise<void> { /* no-op for Client */ }
+  async findByUserCode(): Promise<AdapterPayload | undefined> {
+    return undefined;
+  }
+  async findByUid(): Promise<AdapterPayload | undefined> {
+    return undefined;
+  }
+  async consume(): Promise<void> {
+    /* no-op for Client */
+  }
+  async revokeByGrantId(): Promise<void> {
+    /* no-op for Client */
+  }
 }

@@ -5,6 +5,19 @@
 
 ---
 
+## Deuda técnica conocida: `client_secret` en plaintext (bloqueante de Phase 7)
+
+`ClientAdapter` persiste el payload completo de oidc-provider en `oauth_client.metadata` (jsonb), incluyendo `client_secret` en plaintext. La columna `clientSecretHash` queda siempre `null` para clientes registrados via DCR.
+
+**Debe resolverse antes de que Phase 7 (token endpoint) llegue a `prd`.** Opciones:
+
+- Hashear el secret en el upsert (bcrypt) y verificarlo externamente — requiere un hook custom `clientAuthCheck` en oidc-provider.
+- Restringir DCR a `token_endpoint_auth_method: 'none'` + PKCE únicamente (clientes públicos), eliminando los shared secrets.
+
+Ver: `backend/src/oauth/adapters/client.adapter.ts` — comentario en el header del archivo.
+
+---
+
 ## Cómo retomar (en una sesión fresca)
 
 1. Abrir Claude Code en `/Users/marcelo/dev/claude/curaciones/`. La memoria de auto-load incluirá el archivo apuntando a este resume.
