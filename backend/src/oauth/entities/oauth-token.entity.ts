@@ -2,7 +2,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, Index } from 'typeorm'
 
 export type OAuthTokenKind =
   | 'access' | 'refresh' | 'authorization_code'
-  | 'interaction' | 'session' | 'registration_access_token';
+  | 'interaction' | 'session' | 'registration_access_token' | 'grant';
 
 @Entity('oauth_token')
 @Index('IDX_oauth_token_kind_expires', ['kind', 'expiresAt'])
@@ -12,13 +12,14 @@ export class OAuthToken {
   @PrimaryColumn({ type: 'text' })
   id!: string;
 
-  @Column({ type: 'enum', enum: ['access', 'refresh', 'authorization_code', 'interaction', 'session', 'registration_access_token'], enumName: 'oauth_token_kind_enum' })
+  @Column({ type: 'enum', enum: ['access', 'refresh', 'authorization_code', 'interaction', 'session', 'registration_access_token', 'grant'], enumName: 'oauth_token_kind_enum' })
   kind!: OAuthTokenKind;
 
   @Column({ type: 'jsonb' })
   payload!: Record<string, unknown>;
 
-  @Column({ type: 'uuid', nullable: true })
+  // text (not uuid) because oidc-provider's Grant ids are nanoids, not UUIDs.
+  @Column({ type: 'text', nullable: true })
   grantId!: string | null;
 
   @Column({ type: 'text', nullable: true })
