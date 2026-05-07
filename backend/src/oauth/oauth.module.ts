@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { KmsModule } from '../kms/kms.module';
+import { AuthModule } from '../auth/auth.module';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OAuthClient } from './entities/oauth-client.entity';
 import { OAuthGrant } from './entities/oauth-grant.entity';
 import { OAuthToken } from './entities/oauth-token.entity';
@@ -24,6 +26,7 @@ import { ConsentService } from './consent/consent.service';
 import { OAuthJwtStrategy } from './strategies/oauth-jwt.strategy';
 import { OAuthJwtGuard } from './guards/oauth-jwt.guard';
 import { OAuthScopeGuard } from './guards/oauth-scope.guard';
+import { MultiAuthGuard } from './guards/multi-auth.guard';
 
 @Module({
   imports: [
@@ -32,6 +35,7 @@ import { OAuthScopeGuard } from './guards/oauth-scope.guard';
       User, OrganizationMembership, Organization, UserEstablishmentAssignment,
     ]),
     KmsModule,
+    AuthModule,
   ],
   controllers: [
     OAuthDiscoveryController,
@@ -45,10 +49,11 @@ import { OAuthScopeGuard } from './guards/oauth-scope.guard';
     AccountAdapterService, OidcProviderSingleton,
     ConsentService,
     OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
+    JwtAuthGuard, MultiAuthGuard,
   ],
   exports: [
     OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService,
-    OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
+    OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard, MultiAuthGuard,
   ],
 })
 export class OAuthModule {}
