@@ -98,6 +98,7 @@ export class OAuthJwtStrategy {
     }
 
     const scopes = String(payload.scope || '').split(/\s+/).filter(Boolean);
+    const clientId = (payload as any).client_id ?? null;
     return {
       id: userId,
       sub: userId,
@@ -107,6 +108,7 @@ export class OAuthJwtStrategy {
       role: (payload as any).role,
       establishmentIds: (payload as any).establishment_ids ?? [],
       scopes,
+      clientId,
       tokenSource: 'oauth',
       jti: payload.jti,
     };

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { PerUserThrottlerGuard } from './common/per-user-throttler.guard';
+import { OAuthClientThrottlerGuard } from './oauth/guards/oauth-client-throttler.guard';
 import { HealthController } from './health.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Patient } from './patients/patient.entity';
@@ -110,7 +110,7 @@ import { OAuthRevocation } from './oauth/entities/oauth-revocation.entity';
   ],
   controllers: [HealthController],
   providers: [
-    { provide: APP_GUARD, useClass: PerUserThrottlerGuard },
+    { provide: APP_GUARD, useClass: OAuthClientThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: OrgContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     BootstrapService,

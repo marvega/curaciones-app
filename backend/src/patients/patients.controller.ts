@@ -18,6 +18,7 @@ import { PatientsService } from './patients.service';
 import { PatientPdfService } from './patient-pdf.service';
 import { CreatePatientDto } from './create-patient.dto';
 import { UpdatePatientDto } from './update-patient.dto';
+import { Throttle } from '@nestjs/throttler';
 import { MultiAuthGuard } from '../oauth/guards/multi-auth.guard';
 import { OAuthScopeGuard } from '../oauth/guards/oauth-scope.guard';
 import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
@@ -32,6 +33,7 @@ export class PatientsController {
     private readonly patientPdfService: PatientPdfService,
   ) {}
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
   @RequiredScopes('patients:read')
   @Get()
   async find(
@@ -80,6 +82,7 @@ export class PatientsController {
     return this.patientsService.findAll();
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
   @RequiredScopes('patients:read')
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Download patient clinical record as PDF' })
@@ -96,24 +99,28 @@ export class PatientsController {
     res.end(buffer);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
   @RequiredScopes('patients:read')
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.patientsService.findById(id);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @RequiredScopes('patients:write')
   @Post()
   async create(@Body() dto: CreatePatientDto) {
     return this.patientsService.create(dto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @RequiredScopes('patients:write')
   @Post('seed')
   async seed() {
     return this.patientsService.seed();
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @RequiredScopes('patients:write')
   @Put(':id')
   async update(
@@ -123,12 +130,14 @@ export class PatientsController {
     return this.patientsService.update(id, dto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @RequiredScopes('patients:write')
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.patientsService.remove(id);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @RequiredScopes('patients:write')
   @Post(':id/discharge')
   async discharge(
@@ -140,6 +149,7 @@ export class PatientsController {
     return this.patientsService.discharge(id, user.id, body.cancelAppointment || false);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   @RequiredScopes('patients:write')
   @Post(':id/readmit')
   async readmit(
@@ -150,6 +160,7 @@ export class PatientsController {
     return this.patientsService.readmit(id, user.id);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
   @RequiredScopes('patients:read')
   @Get(':id/status-history')
   async getStatusHistory(@Param('id', ParseIntPipe) id: number) {
