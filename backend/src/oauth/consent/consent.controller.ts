@@ -16,10 +16,7 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
-  Req,
-  Res,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { OidcProviderSingleton } from '../oidc-provider.singleton';
@@ -142,22 +139,24 @@ export class ConsentController {
     @Param('uid') uid: string,
     @Body() body: { approved: boolean; organizationId?: string },
     @CurrentUser() user: any,
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
+  ): Promise<{ redirectTo: string }> {
     const provider: any = this.oidc.get();
     const interaction = await provider.Interaction.find(uid);
     if (!interaction) throw new NotFoundException('Interaction not found');
 
     if (!body.approved) {
-      const result = {
+      // Manually persist the interaction result rather than calling
+      // `provider.interactionResult(req, res, ...)` — that method reads the
+      // signed `_interaction` cookie from `req`, which the browser does NOT
+      // send to `/oauth/consent/:uid` (the cookie is path-scoped to the SPA
+      // route `/account/oauth/consent`). Saving by uid achieves the same
+      // outcome and keeps the SPA -> API contract clean.
+      interaction.result = {
         error: 'access_denied',
         error_description: 'User rejected consent',
       };
-      const url = await provider.interactionResult(req, res, result, {
-        mergeWithLastSubmission: false,
-      });
-      return res.json({ redirectTo: url });
+      await this.persistInteraction(interaction);
+      return { redirectTo: interaction.returnTo };
     }
     if (!body.organizationId) {
       throw new BadRequestException('organizationId required');
@@ -184,18 +183,24 @@ export class ConsentController {
     grant.organizationId = body.organizationId;
     const grantId = await grant.save();
 
-    const result = {
+    interaction.result = {
       login: { accountId: String(user.id) },
       consent: { grantId, organizationId: body.organizationId },
     };
-    const url = await provider.interactionResult(req, res, result, {
-      mergeWithLastSubmission: false,
-    });
+    await this.persistInteraction(interaction);
 
     await this.clientRepo.update(
       { clientId },
       { firstAuthorizedAt: () => 'COALESCE("firstAuthorizedAt", now())' },
     );
-    return res.json({ redirectTo: url });
+    return { redirectTo: interaction.returnTo };
+  }
+
+  private async persistInteraction(interaction: any): Promise<void> {
+    // `interaction.exp` is an absolute epoch (seconds). Translate to remaining
+    // TTL seconds — same shape the provider's own `interactionResult` uses.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const remaining = Math.max(1, interaction.exp - nowSec);
+    await interaction.save(remaining);
   }
 }
