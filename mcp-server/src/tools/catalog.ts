@@ -6,6 +6,7 @@ import { getPatientHandler } from './patients/get-patient.js';
 import { getPatientPdfHandler } from './patients/get-patient-pdf.js';
 import { listPatientAppointmentsHandler } from './agenda/list-patient-appointments.js';
 import { getAgendaByDateRangeHandler } from './agenda/get-agenda-by-date-range.js';
+import { listCuracionesHandler } from './curaciones/list-curaciones.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -48,7 +49,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'create_appointment', description: 'Agenda una nueva cita. Solicita paciente, fecha y hora vía elicitation.', requiredScope: 'agenda:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   { name: 'cancel_appointment', description: 'Cancela una cita agendada por id. Acción destructiva.', requiredScope: 'agenda:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int() }), handler: stub },
   // curaciones
-  { name: 'list_curaciones', description: 'Lista curaciones de un paciente, paginadas con cursor.', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: stub },
+  { name: 'list_curaciones', description: 'Lista curaciones de un paciente, paginadas con cursor.', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => listCuracionesHandler(input as any, ctx) },
   { name: 'register_curacion', description: 'Registra una nueva curación. Solicita localización, tipo de herida, observaciones y cuidados aplicados vía elicitation.', requiredScope: 'clinical:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   // wound notes
   { name: 'add_wound_note', description: 'Agrega una nota de evolución a una curación o paciente.', requiredScope: 'clinical:write', readOnly: false, destructive: false, inputSchema: z.object({ patientId: z.number().int().optional(), curacionId: z.number().int().optional(), content: z.string().min(1) }), handler: stub },
