@@ -15,9 +15,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags, ApiConsumes } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
+import { MultiAuthGuard } from '../../oauth/guards/multi-auth.guard';
+import { OAuthScopeGuard } from '../../oauth/guards/oauth-scope.guard';
+import { RequiredScopes } from '../../oauth/decorators/required-scopes.decorator';
 import { CanastaService } from './canasta.service';
 import { CanastaImportService } from './canasta-import.service';
 import { CanastaSection } from './canasta-category.entity';
@@ -25,24 +27,27 @@ import { CanastaSection } from './canasta-category.entity';
 @ApiTags('Inventory / Canasta')
 @ApiBearerAuth()
 @Controller('api/inventory/canasta')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(MultiAuthGuard, OAuthScopeGuard, RolesGuard)
 export class CanastaController {
   constructor(
     private readonly canasta: CanastaService,
     private readonly importer: CanastaImportService,
   ) {}
 
+  @RequiredScopes('inventory:read')
   @Get()
   list(@Query('includeArchived') includeArchived?: string) {
     return this.canasta.list(includeArchived === 'true');
   }
 
+  @RequiredScopes('inventory:write')
   @Put(':id/products')
   @Roles('admin')
   replace(@Param('id', ParseIntPipe) id: number, @Body() dto: { productIds: number[] }) {
     return this.canasta.replaceProducts(id, dto.productIds);
   }
 
+  @RequiredScopes('inventory:write')
   @Post('categories')
   @Roles('admin')
   create(
@@ -58,6 +63,7 @@ export class CanastaController {
     return this.canasta.createCategory(dto);
   }
 
+  @RequiredScopes('inventory:write')
   @Patch('categories/:id')
   @Roles('admin')
   update(
@@ -75,12 +81,14 @@ export class CanastaController {
     return this.canasta.updateCategory(id, dto);
   }
 
+  @RequiredScopes('inventory:write')
   @Delete('categories/:id')
   @Roles('admin')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.canasta.deleteCategory(id);
   }
 
+  @RequiredScopes('inventory:write')
   @Post('import')
   @Roles('admin')
   @ApiConsumes('multipart/form-data')

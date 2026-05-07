@@ -2,6 +2,9 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
 
+// Note: EMAIL_BACKEND=noop is set in test/jest-env.ts (Jest `setupFiles`),
+// which runs before this file is imported.
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';

@@ -1,0 +1,133 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
+                  @typescript-eslint/no-unsafe-member-access,
+                  @typescript-eslint/no-unsafe-argument,
+                  @typescript-eslint/require-await */
+// oidc-provider's AdapterPayload is intentionally permissive; this adapter
+// is the integration boundary that maps untyped JSON to the typed entity.
+// Some `findBy*` methods are async by interface contract but trivially
+// resolve — required-await would force pointless `await Promise.resolve()`.
+import { Repository } from 'typeorm';
+import { OAuthToken, OAuthTokenKind } from '../entities/oauth-token.entity';
+
+const NAME_TO_KIND: Record<string, OAuthTokenKind> = {
+  Session: 'session',
+  AccessToken: 'access',
+  AuthorizationCode: 'authorization_code',
+  RefreshToken: 'refresh',
+  Interaction: 'interaction',
+  RegistrationAccessToken: 'registration_access_token',
+  // oidc-provider's `Grant` model is the consent envelope (scopes a user
+  // approved for a client). It's distinct from the persistent `OAuthGrant`
+  // entity (which is *our* longer-lived consent record) — the OIDC `Grant`
+  // payload here is the in-flight handle the provider hands to access tokens
+  // and authorization codes via `payload.grantId`.
+  Grant: 'grant',
+  // ClientCredentials, DeviceCode, BackchannelAuthenticationRequest not used in v1
+};
+
+export interface AdapterPayload extends Record<string, unknown> {
+  grantId?: string;
+  clientId?: string;
+  accountId?: string;
+  uid?: string;
+  consumed?: boolean | number;
+}
+
+export class PostgresAdapter {
+  constructor(
+    private readonly repo: Repository<OAuthToken>,
+    private readonly name: string,
+  ) {}
+
+  private get kind(): OAuthTokenKind {
+    const k = NAME_TO_KIND[this.name];
+    if (!k) throw new Error(`Unsupported oidc-provider model: ${this.name}`);
+    return k;
+  }
+
+  async upsert(
+    id: string,
+    payload: AdapterPayload,
+    expiresIn?: number,
+  ): Promise<void> {
+    // RegistrationAccessToken (when rotateRegistrationAccessToken=false)
+    // is saved without a ttl — oidc-provider expects it to never expire.
+    // Use a sentinel far-future date so the NOT NULL `expiresAt` column
+    // accepts the row and `find` doesn't reject it.
+    const FAR_FUTURE = new Date('9999-12-31T23:59:59Z');
+    const expiresAt =
+      typeof expiresIn === 'number' && Number.isFinite(expiresIn)
+        ? new Date(Date.now() + expiresIn * 1000)
+        : FAR_FUTURE;
+    await this.repo.upsert(
+      {
+        id,
+        kind: this.kind,
+        // typeorm's QueryDeepPartialEntity types Record<string, unknown> as a
+        // recursive query expression; cast to silence the false positive.
+        payload: payload as unknown as OAuthToken['payload'],
+        grantId: (payload.grantId as string) ?? null,
+        clientId: (payload.clientId as string) ?? null,
+        userId: payload.accountId ? Number(payload.accountId) : null,
+        organizationId: (payload as any).organizationId ?? null,
+        expiresAt,
+        consumed: Boolean(payload.consumed),
+      } as any,
+      ['id'],
+    );
+  }
+
+  async find(id: string): Promise<AdapterPayload | undefined> {
+    const row = await this.repo.findOne({ where: { id, kind: this.kind } });
+    if (!row) return undefined;
+    if (row.expiresAt.getTime() < Date.now()) return undefined;
+    return { ...(row.payload as AdapterPayload) };
+  }
+
+  async findByUserCode(): Promise<AdapterPayload | undefined> {
+    return undefined; // device code grant out of scope
+  }
+
+  async findByUid(uid: string): Promise<AdapterPayload | undefined> {
+    const row = await this.repo
+      .createQueryBuilder('t')
+      .where('t.kind = :kind AND t.payload @> :u', {
+        kind: this.kind,
+        u: { uid },
+      })
+      .getOne();
+    if (!row) return undefined;
+    return row.payload as AdapterPayload;
+  }
+
+  async consume(id: string): Promise<void> {
+    const consumedAt = Math.floor(Date.now() / 1000);
+    const row = await this.repo.findOne({ where: { id, kind: this.kind } });
+    if (!row) return;
+    const updatedPayload = {
+      ...(row.payload as AdapterPayload),
+      consumed: consumedAt,
+    };
+    await this.repo.update(
+      { id, kind: this.kind },
+      // typeorm's QueryDeepPartialEntity types Record<string, unknown> as a
+      // recursive query expression; cast to silence the false positive.
+      {
+        consumed: true,
+        payload: updatedPayload as unknown as OAuthToken['payload'],
+      } as any,
+    );
+  }
+
+  async destroy(id: string): Promise<void> {
+    await this.repo.delete({ id, kind: this.kind });
+  }
+
+  async revokeByGrantId(grantId: string): Promise<void> {
+    await this.repo.delete({ grantId });
+  }
+}
+
+export function makePostgresAdapterFactory(repo: Repository<OAuthToken>) {
+  return (name: string) => new PostgresAdapter(repo, name);
+}

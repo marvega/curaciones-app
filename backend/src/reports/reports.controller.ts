@@ -1,15 +1,18 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { MultiAuthGuard } from '../oauth/guards/multi-auth.guard';
+import { OAuthScopeGuard } from '../oauth/guards/oauth-scope.guard';
+import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
 @Controller('api/reports')
-@UseGuards(JwtAuthGuard)
+@UseGuards(MultiAuthGuard, OAuthScopeGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  @RequiredScopes('reports:read')
   @Get('monthly')
   async getMonthlyReport(
     @Query('year') year: string,
@@ -21,6 +24,7 @@ export class ReportsController {
     );
   }
 
+  @RequiredScopes('reports:read')
   @Get('detailed')
   async getDetailedReport(
     @Query('year') year?: string,
