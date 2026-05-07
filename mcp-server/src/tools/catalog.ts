@@ -5,6 +5,7 @@ import { searchPatientsHandler } from './patients/search-patients.js';
 import { getPatientHandler } from './patients/get-patient.js';
 import { getPatientPdfHandler } from './patients/get-patient-pdf.js';
 import { dischargePatientHandler } from './patients/discharge-patient.js';
+import { readmitPatientHandler } from './patients/readmit-patient.js';
 import { listPatientAppointmentsHandler } from './agenda/list-patient-appointments.js';
 import { getAgendaByDateRangeHandler } from './agenda/get-agenda-by-date-range.js';
 import { listCuracionesHandler } from './curaciones/list-curaciones.js';
@@ -45,7 +46,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'create_patient', description: 'Crea un paciente nuevo. Solicita RUT, nombre, fecha de nacimiento y datos demográficos vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   { name: 'update_patient', description: 'Actualiza datos demográficos de un paciente existente. Solicita campos a modificar vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }).passthrough(), handler: stub },
   { name: 'discharge_patient', description: 'Da de alta a un paciente. Acción destructiva: detiene seguimiento clínico.', requiredScope: 'patients:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int(), cancelAppointment: z.boolean().optional() }), handler: (input, ctx) => dischargePatientHandler(input as any, ctx) },
-  { name: 'readmit_patient', description: 'Reingresa a un paciente previamente dado de alta.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: stub },
+  { name: 'readmit_patient', description: 'Reingresa a un paciente previamente dado de alta.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => readmitPatientHandler(input as any, ctx) },
   { name: 'get_patient_pdf', description: 'Devuelve el PDF de la ficha clínica del paciente como recurso descargable.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => getPatientPdfHandler(input as any, ctx) },
   // agenda
   { name: 'list_patient_appointments', description: 'Lista las citas agendadas de un paciente específico.', requiredScope: 'agenda:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int() }), handler: (input, ctx) => listPatientAppointmentsHandler(input as any, ctx) },
