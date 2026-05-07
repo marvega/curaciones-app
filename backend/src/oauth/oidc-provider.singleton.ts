@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OAuthToken } from './entities/oauth-token.entity';
 import { OAuthClient } from './entities/oauth-client.entity';
+import { OAuthGrant } from './entities/oauth-grant.entity';
+import { OrganizationMembership } from '../organizations/organization-membership.entity';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
 import { AccountAdapterService } from './adapters/account.adapter';
 import { OAuthGrantService } from './services/oauth-grant.service';
@@ -17,6 +19,8 @@ export class OidcProviderSingleton implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(OAuthToken) private readonly tokenRepo: Repository<OAuthToken>,
     @InjectRepository(OAuthClient) private readonly clientRepo: Repository<OAuthClient>,
+    @InjectRepository(OAuthGrant) private readonly grantRepo: Repository<OAuthGrant>,
+    @InjectRepository(OrganizationMembership) private readonly memRepo: Repository<OrganizationMembership>,
     private readonly signingKeys: OAuthSigningKeyService,
     private readonly accountAdapter: AccountAdapterService,
     private readonly grantService: OAuthGrantService,
@@ -29,6 +33,8 @@ export class OidcProviderSingleton implements OnApplicationBootstrap {
       signingKeys: this.signingKeys,
       tokenRepo: this.tokenRepo,
       clientRepo: this.clientRepo,
+      grantRepo: this.grantRepo,
+      memRepo: this.memRepo,
       findAccount: this.accountAdapter.findAccount,
       loadExistingGrant: this.grantService.loadExistingGrant,
     });

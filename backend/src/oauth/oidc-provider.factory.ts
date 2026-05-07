@@ -8,9 +8,14 @@
 import { randomBytes, createPrivateKey } from 'crypto';
 import type { Provider as OidcProvider, Configuration } from 'oidc-provider';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { OAuthToken } from './entities/oauth-token.entity';
 import { OAuthClient } from './entities/oauth-client.entity';
+import { OAuthGrant } from './entities/oauth-grant.entity';
+import {
+  OrganizationMembership,
+  MembershipStatus,
+} from '../organizations/organization-membership.entity';
 import { makePostgresAdapterFactory } from './adapters/postgres.adapter';
 import { ClientAdapter } from './adapters/client.adapter';
 
@@ -34,6 +39,8 @@ export interface OidcFactoryDeps {
   signingKeys: OAuthSigningKeyService;
   tokenRepo: Repository<OAuthToken>;
   clientRepo: Repository<OAuthClient>;
+  grantRepo: Repository<OAuthGrant>;
+  memRepo: Repository<OrganizationMembership>;
   findAccount: Configuration['findAccount'];
   loadExistingGrant: Configuration['loadExistingGrant'];
 }
@@ -118,15 +125,29 @@ export async function buildOidcProvider(
     issueRefreshToken(_ctx, client, code) {
       return code.scopes?.has('offline_access') ?? false;
     },
-    extraTokenClaims(_ctx, token) {
-      const payload: Record<string, unknown> = {};
+    extraTokenClaims: async (_ctx, token) => {
+      // `token.extra` is never populated by oidc-provider for our flows, so
+      // we resolve org context from the durable join `OAuthGrant.oidcGrantId
+      // -> oauth_grant` (set at consent time). Falling back to the user's
+      // most recent active grant for this client keeps refresh-token rotation
+      // and other code paths consistent with what was approved at consent.
       const t = token as any;
-      if (t.extra?.org_id) payload.org_id = t.extra.org_id;
-      if (t.extra?.org_name) payload.org_name = t.extra.org_name;
-      if (t.extra?.role) payload.role = t.extra.role;
-      if (t.extra?.establishment_ids)
-        payload.establishment_ids = t.extra.establishment_ids;
-      return payload;
+      const accountId = Number(t.accountId);
+      const clientId: string | undefined = t.clientId;
+      if (!accountId || !clientId) return {};
+      const oauthGrant = await deps.grantRepo.findOne({
+        where: { userId: accountId, clientId, revokedAt: IsNull() },
+      });
+      if (!oauthGrant) return {};
+      const membership = await deps.memRepo.findOne({
+        where: {
+          userId: accountId,
+          organizationId: oauthGrant.organizationId,
+          status: MembershipStatus.ACTIVE,
+        },
+      });
+      if (!membership) return {};
+      return { org_id: oauthGrant.organizationId, role: membership.role };
     },
   };
 

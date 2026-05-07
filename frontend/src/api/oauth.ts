@@ -39,7 +39,6 @@ export interface ConsentScope {
 export interface ConsentUser {
   id: number;
   username: string;
-  fullName: string;
 }
 
 export interface ConsentOrganization {
@@ -53,7 +52,7 @@ export interface ConsentInteraction {
   scopes: ConsentScope[];
   user: ConsentUser;
   organizations: ConsentOrganization[];
-  preselectedOrganizationId: string;
+  preselectedOrganizationId: string | null;
 }
 
 export async function fetchConsentInteraction(
