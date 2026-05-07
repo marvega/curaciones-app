@@ -34,6 +34,11 @@ export const SUPPORTED_SCOPES = [
   'org:admin',
 ];
 
+// OIDC-only scopes that don't bind a resource server. Any scope outside this
+// set is treated as a domain (resource-server) scope and triggers the
+// issuer-as-resource default in `resourceIndicators.defaultResource`.
+const OIDC_ONLY_SCOPES = new Set(['openid', 'offline_access']);
+
 export interface OidcFactoryDeps {
   issuer: string;
   signingKeys: OAuthSigningKeyService;
@@ -127,14 +132,16 @@ export async function buildOidcProvider(
         // `scope=openid` is opaque and accepted by /oauth/userinfo; ATs
         // obtained with any domain scope remain JWT-format and bound to the
         // issuer-as-resource (the original intent of resource indicators).
-        defaultResource: (ctx) => {
+        defaultResource: ((ctx) => {
           const rawScope = (ctx.oidc?.params?.scope as string | undefined) ?? '';
           const scopes = rawScope.split(/\s+/).filter(Boolean);
-          const hasDomainScope = scopes.some(
-            (s) => s !== 'openid' && s !== 'offline_access',
-          );
-          return hasDomainScope ? deps.issuer : (undefined as unknown as string);
-        },
+          const hasDomainScope = scopes.some((s) => !OIDC_ONLY_SCOPES.has(s));
+          // undefined is intentional: oidc-provider treats a falsy return as
+          // "no resource binding" (opaque AT), allowing the userinfo endpoint.
+          // The cast satisfies the `string` return type declared by
+          // @types/oidc-provider.
+          return (hasDomainScope ? deps.issuer : undefined) as string;
+        }) as any,
         useGrantedResource: () => true,
         getResourceServerInfo: () => ({
           // Resource Server scopes — only domain/functional scopes belong
@@ -143,9 +150,9 @@ export async function buildOidcProvider(
           // them here the consent policy's `rs_scopes_missing` check would
           // re-fire because `getResourceScopeEncountered(issuer)` won't
           // contain them.
-          scope: SUPPORTED_SCOPES.filter(
-            (s) => s !== 'openid' && s !== 'offline_access',
-          ).join(' '),
+          scope: SUPPORTED_SCOPES.filter((s) => !OIDC_ONLY_SCOPES.has(s)).join(
+            ' ',
+          ),
           audience: deps.issuer,
           accessTokenTTL: 10 * 60,
           accessTokenFormat: 'jwt',
