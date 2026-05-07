@@ -5,6 +5,7 @@ import { searchPatientsHandler } from './patients/search-patients.js';
 import { getPatientHandler } from './patients/get-patient.js';
 import { getPatientPdfHandler } from './patients/get-patient-pdf.js';
 import { dischargePatientHandler } from './patients/discharge-patient.js';
+import { createPatientHandler } from './patients/create-patient.js';
 import { readmitPatientHandler } from './patients/readmit-patient.js';
 import { listPatientAppointmentsHandler } from './agenda/list-patient-appointments.js';
 import { getAgendaByDateRangeHandler } from './agenda/get-agenda-by-date-range.js';
@@ -45,7 +46,7 @@ export const TOOLS: ToolDef[] = [
   // patients
   { name: 'search_patients', description: 'Busca pacientes por nombre, RUT o teléfono. Devuelve lista paginada con cursor.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ q: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => searchPatientsHandler(input as any, ctx) },
   { name: 'get_patient', description: 'Devuelve los datos demográficos y clínicos de un paciente por id.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => getPatientHandler(input as any, ctx) },
-  { name: 'create_patient', description: 'Crea un paciente nuevo. Solicita RUT, nombre, fecha de nacimiento y datos demográficos vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
+  { name: 'create_patient', description: 'Crea un paciente nuevo. Solicita RUT, nombre, fecha de nacimiento y datos demográficos vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: (input, ctx) => createPatientHandler(input, ctx) },
   { name: 'update_patient', description: 'Actualiza datos demográficos de un paciente existente. Solicita campos a modificar vía elicitation.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }).passthrough(), handler: stub },
   { name: 'discharge_patient', description: 'Da de alta a un paciente. Acción destructiva: detiene seguimiento clínico.', requiredScope: 'patients:write', readOnly: false, destructive: true, inputSchema: z.object({ id: z.number().int(), cancelAppointment: z.boolean().optional() }), handler: (input, ctx) => dischargePatientHandler(input as any, ctx) },
   { name: 'readmit_patient', description: 'Reingresa a un paciente previamente dado de alta.', requiredScope: 'patients:write', readOnly: false, destructive: false, inputSchema: z.object({ id: z.number().int() }), handler: (input, ctx) => readmitPatientHandler(input as any, ctx) },
