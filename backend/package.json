@@ -29,7 +29,8 @@
     "audit:verify": "ts-node -r tsconfig-paths/register src/cli/audit-verify.ts",
     "encryption:backfill": "ts-node -r tsconfig-paths/register src/kms/encryption-batch.script.ts",
     "oauth:rotate-keys": "ts-node -r tsconfig-paths/register src/oauth/cli/oauth-rotate-keys.ts",
-    "oauth:conformance": "ts-node -r tsconfig-paths/register test/oauth/conformance.ts"
+    "oauth:conformance": "ts-node -r tsconfig-paths/register test/oauth/conformance.ts",
+    "openapi:export": "ts-node -r tsconfig-paths/register scripts/export-openapi.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1038.0",
