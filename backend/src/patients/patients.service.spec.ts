@@ -576,5 +576,23 @@ describe('PatientsService', () => {
         cursorId: 10,
       });
     }));
+
+    it('caps limit at 100 (defence against hostile MCP clients)', inOrg(async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.findByCursor({ limit: 5000 });
+
+      // Service requests cappedLimit + 1 = 101 even though caller asked for 5000.
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(101);
+    }));
+
+    it('floors limit at 1 for non-positive input', inOrg(async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.findByCursor({ limit: 0 });
+
+      // cappedLimit = max(1, min(0, 100)) = 1 → take(2)
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(2);
+    }));
   });
 });

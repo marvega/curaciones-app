@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { PatientsController } from './patients.controller';
 import { PatientsService } from './patients.service';
 import { PatientPdfService } from './patient-pdf.service';
@@ -145,5 +146,54 @@ describe('PatientsController (cursor branch)', () => {
 
     expect(mockService.findByCursor).not.toHaveBeenCalled();
     expect(mockService.findPaginated).toHaveBeenCalledWith(1, 20);
+  });
+
+  it('throws BadRequestException for malformed cursor', async () => {
+    // Service's decodeCursor() throws plain Error on bad input; without the
+    // controller's try/catch this would surface as a 500. Verify the
+    // contract that bad opaque cursor → 400.
+    mockService.findByCursor.mockRejectedValue(new Error('invalid cursor'));
+
+    await expect(callFind({ cursor: 'garbage' })).rejects.toThrow(BadRequestException);
+  });
+
+  it('rethrows unrelated service errors as-is (not 400)', async () => {
+    // Defence: the catch must only convert "invalid cursor" — other failures
+    // (e.g. DB outage) keep their original error type so Nest maps them to 500.
+    mockService.findByCursor.mockRejectedValue(new Error('database connection lost'));
+
+    await expect(callFind({ cursor: 'whatever' })).rejects.toThrow('database connection lost');
+    await expect(callFind({ cursor: 'whatever' })).rejects.not.toThrow(BadRequestException);
+  });
+
+  it('caps limit at 100 in the cursor branch', async () => {
+    mockService.findByCursor.mockResolvedValue({ items: [], nextCursor: undefined });
+
+    await callFind({ cursor: '', limit: '5000' });
+
+    expect(mockService.findByCursor).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 100 }),
+    );
+  });
+
+  it('falls back to limit=20 for non-positive limit input', async () => {
+    mockService.findByCursor.mockResolvedValue({ items: [], nextCursor: undefined });
+
+    await callFind({ cursor: '', limit: '-5' });
+
+    expect(mockService.findByCursor).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 20 }),
+    );
+  });
+
+  it('truncates q at 100 chars in the cursor branch', async () => {
+    mockService.findByCursor.mockResolvedValue({ items: [], nextCursor: undefined });
+    const longQ = 'a'.repeat(250);
+
+    await callFind({ cursor: '', q: longQ });
+
+    expect(mockService.findByCursor).toHaveBeenCalledWith(
+      expect.objectContaining({ q: 'a'.repeat(100) }),
+    );
   });
 });

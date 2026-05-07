@@ -11,6 +11,7 @@ import {
   UseGuards,
   Req,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -32,6 +33,18 @@ export class PatientsController {
     private readonly patientsService: PatientsService,
     private readonly patientPdfService: PatientPdfService,
   ) {}
+
+  /**
+   * Parse the ?limit= query param for the cursor branch with safe bounds.
+   * - Non-numeric / non-positive / non-finite → fallback to 20.
+   * - Capped at 100 so a hostile MCP client cannot request a huge page.
+   * (The service also caps; defence in depth.)
+   */
+  private parseLimit(raw: string | undefined): number {
+    const n = parseInt(raw || '20', 10);
+    if (!Number.isFinite(n) || n <= 0) return 20;
+    return Math.min(n, 100);
+  }
 
   @Throttle({ default: { ttl: 60000, limit: 300 } })
   @RequiredScopes('patients:read')
@@ -58,11 +71,21 @@ export class PatientsController {
     // Cursor branch: when ?cursor= is present (even empty) the client opts
     // into the cursor-paginated contract and `page` is ignored.
     if (cursor !== undefined) {
-      return this.patientsService.findByCursor({
-        cursor: cursor || undefined,
-        limit: parseInt(limit || '20', 10) || 20,
-        q: q?.trim() || undefined,
-      });
+      try {
+        return await this.patientsService.findByCursor({
+          cursor: cursor || undefined,
+          limit: this.parseLimit(limit),
+          q: q?.trim().slice(0, 100) || undefined,
+        });
+      } catch (e) {
+        // decodeCursor() throws plain Error('invalid cursor[...]') on bad
+        // client input. Convert to 400 so the contract for an opaque cursor
+        // (bad input → BadRequest, not 500) is honoured.
+        if ((e as Error).message?.toLowerCase().includes('invalid cursor')) {
+          throw new BadRequestException('invalid cursor');
+        }
+        throw e;
+      }
     }
 
     const trimmedQ = q?.trim();

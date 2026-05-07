@@ -272,6 +272,10 @@ export class PatientsService {
     q?: string;
   }): Promise<{ items: DecryptedPatient[]; nextCursor?: string }> {
     const orgId = this.requireOrgId();
+    // Cap caller-supplied limit defensively. An MCP client passing
+    // limit=100000 must not trigger a 100k-row decrypt. Floor at 1, ceil at
+    // 100 — same upper bound as findAdvanced's q-truncation philosophy.
+    const cappedLimit = Math.max(1, Math.min(args.limit, 100));
     const decoded = decodeCursor(args.cursor);
 
     const qb = this.patientRepo
@@ -279,7 +283,7 @@ export class PatientsService {
       .where('p."organizationId" = :orgId', { orgId })
       .orderBy('p."createdAt"', 'DESC')
       .addOrderBy('p.id', 'DESC')
-      .take(args.limit + 1);
+      .take(cappedLimit + 1);
 
     if (decoded) {
       qb.andWhere(
@@ -295,8 +299,8 @@ export class PatientsService {
     }
 
     const rows = await qb.getMany();
-    const hasMore = rows.length > args.limit;
-    const sliced = hasMore ? rows.slice(0, args.limit) : rows;
+    const hasMore = rows.length > cappedLimit;
+    const sliced = hasMore ? rows.slice(0, cappedLimit) : rows;
     const last = sliced[sliced.length - 1];
     const nextCursor =
       hasMore && last
