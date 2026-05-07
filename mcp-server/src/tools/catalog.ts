@@ -20,6 +20,7 @@ import { searchInventoryHandler } from './inventory/search-inventory.js';
 import { listLotsExpiringHandler } from './inventory/list-lots-expiring.js';
 import { registerCanastaConsumptionHandler } from './inventory/register-canasta-consumption.js';
 import { monthlyReportHandler } from './reports/monthly-report.js';
+import { whoamiHandler } from './identity/whoami.js';
 
 export interface ToolContext {
   token: VerifiedToken;
@@ -74,5 +75,5 @@ export const TOOLS: ToolDef[] = [
   // reports
   { name: 'monthly_report', description: 'Reporte mensual de curaciones (formato YYYY-MM).', requiredScope: 'reports:read', readOnly: true, destructive: false, inputSchema: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }), handler: (input, ctx) => monthlyReportHandler(input as any, ctx) },
   // identity
-  { name: 'whoami', description: 'Devuelve el usuario y organización actuales (lee del JWT, no llama al backend).', requiredScope: '', readOnly: true, destructive: false, inputSchema: z.object({}), handler: stub },
+  { name: 'whoami', description: 'Devuelve el usuario y organización actuales (lee del JWT, no llama al backend).', requiredScope: '', readOnly: true, destructive: false, inputSchema: z.object({}), handler: (input, ctx) => whoamiHandler(input, ctx) },
 ];
