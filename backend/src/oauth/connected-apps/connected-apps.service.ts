@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { DataSource, Repository, IsNull, In } from 'typeorm';
 import { OAuthGrant } from '../entities/oauth-grant.entity';
 import { OAuthClient } from '../entities/oauth-client.entity';
 import { OAuthToken } from '../entities/oauth-token.entity';
@@ -28,6 +28,7 @@ export class ConnectedAppsService {
     @InjectRepository(OAuthToken) private readonly tokenRepo: Repository<OAuthToken>,
     @InjectRepository(OAuthRevocation) private readonly revocationRepo: Repository<OAuthRevocation>,
     @InjectRepository(Organization) private readonly orgRepo: Repository<Organization>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async listForUser(userId: number) {
@@ -69,31 +70,58 @@ export class ConnectedAppsService {
     if (!grant) throw new NotFoundException('Grant not found');
     if (grant.userId !== userId) throw new ForbiddenException('Grant not owned by user');
 
-    grant.revokedAt = new Date();
-    await this.grantRepo.save(grant);
+    // Idempotent: if the grant is already revoked, there is nothing to do.
+    // A second call must not re-run the cascade (which would re-insert
+    // denylist rows and bump expiresAt) and must not error out.
+    if (grant.revokedAt) return;
 
-    const tokens = await this.tokenRepo.find({ where: { grantId } });
-    if (!tokens.length) return;
+    // Wrap the multi-step mutation in a single DB transaction so a failure
+    // halfway through (e.g. denylist insert collision) does not leave the
+    // grant marked revoked while tokens are still alive — the whole cascade
+    // either commits or rolls back.
+    await this.dataSource.transaction(async (em) => {
+      grant.revokedAt = new Date();
+      await em.save(OAuthGrant, grant);
 
-    const now = new Date();
-    // Expire all tokens for this grant — refresh tokens become unusable.
-    await this.tokenRepo.update({ grantId }, { expiresAt: now });
+      // `oauth_grant.id` is our UUID; `oauth_token.grantId` stores the
+      // oidc-provider nanoid grant id. The two id-spaces are joined via
+      // `OAuthGrant.oidcGrantId`, populated by consent.controller.ts when
+      // the user authorizes the prompt. It may be null for grants that
+      // pre-date that wiring — those have no token rows to cascade to.
+      if (!grant.oidcGrantId) return;
 
-    // Denylist any access-token JTIs still inside their original TTL so
-    // bearer validation rejects in-flight tokens immediately.
-    const revocations = tokens
-      .filter((t) => t.kind === 'access')
-      .map((t) => {
-        const payload = t.payload as { jti?: string } | null;
-        return {
-          jti: payload?.jti ?? t.id,
-          userId,
-          reason: 'user_revoked',
-          expiresAt: t.expiresAt,
-        };
+      const tokens = await em.find(OAuthToken, {
+        where: { grantId: grant.oidcGrantId },
       });
-    if (revocations.length) {
-      await this.revocationRepo.insert(revocations);
-    }
+      if (!tokens.length) return;
+
+      const now = new Date();
+      // Expire all tokens for this grant — refresh tokens become unusable.
+      await em.update(
+        OAuthToken,
+        { grantId: grant.oidcGrantId },
+        { expiresAt: now },
+      );
+
+      // Denylist any access-token JTIs still inside their original TTL so
+      // bearer validation rejects in-flight tokens immediately.
+      // Note: under JWT-AT config, kind='access' rows are stateless and not
+      // persisted by oidc-provider — this branch is dormant but kept for
+      // parity with opaque-AT deployments.
+      const revocations = tokens
+        .filter((t) => t.kind === 'access')
+        .map((t) => {
+          const payload = t.payload as { jti?: string } | null;
+          return {
+            jti: payload?.jti ?? t.id,
+            userId,
+            reason: 'user_revoked',
+            expiresAt: t.expiresAt,
+          };
+        });
+      if (revocations.length) {
+        await em.insert(OAuthRevocation, revocations);
+      }
+    });
   }
 }

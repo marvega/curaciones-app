@@ -72,19 +72,26 @@ async function createTestFixtures(app: INestApplication): Promise<Fixtures> {
   return { orgId, userId, username, spaAccessToken };
 }
 
+interface TokenBundle {
+  accessToken: string;
+  refreshToken: string;
+  clientId: string;
+}
+
 /**
  * Drives the full DCR → authorize → consent → token flow against the live
- * NestJS test app and returns the resulting OAuth access token (a JWT under
- * the resource-indicator config). `requestedScopes` is the space-delimited
- * scope string both the DCR registration and the authorize step request;
- * always include `openid` and `offline_access` so a refresh token is
- * issued and the consent prompt fires consistently.
+ * NestJS test app and returns the resulting OAuth access token, refresh
+ * token, and the dynamic client_id (the latter two are needed to verify the
+ * post-revocation refresh-token denial). `requestedScopes` is the
+ * space-delimited scope string both the DCR registration and the authorize
+ * step request; always include `openid` and `offline_access` so a refresh
+ * token is issued and the consent prompt fires consistently.
  */
 async function getAccessTokenWithScopes(
   app: INestApplication,
   fixtures: Fixtures,
   requestedScopes: string,
-): Promise<string> {
+): Promise<TokenBundle> {
   const reg = await request(app.getHttpServer())
     .post('/oauth/register')
     .send({
@@ -142,7 +149,11 @@ async function getAccessTokenWithScopes(
       code_verifier: verifier,
     })
     .expect(200);
-  return tok.body.access_token as string;
+  return {
+    accessToken: tok.body.access_token as string,
+    refreshToken: tok.body.refresh_token as string,
+    clientId,
+  };
 }
 
 describe('OAuth grant revocation cascades to bearer access (e2e)', () => {
@@ -162,11 +173,17 @@ describe('OAuth grant revocation cascades to bearer access (e2e)', () => {
 
   it('revoking a connected app: AT writes 401, AT reads still 200 (denylist write-only)', async () => {
     const fixtures = await createTestFixtures(app);
-    const at = await getAccessTokenWithScopes(
-      app,
-      fixtures,
-      'openid offline_access patients:read patients:write',
-    );
+    const { accessToken: at, refreshToken, clientId } =
+      await getAccessTokenWithScopes(
+        app,
+        fixtures,
+        'openid offline_access patients:read patients:write',
+      );
+    // Sanity check: the consent flow with `offline_access` must yield a
+    // refresh token — without it the post-revocation cascade assertion is
+    // not actually verifying anything.
+    expect(typeof refreshToken).toBe('string');
+    expect(refreshToken.length).toBeGreaterThan(0);
 
     // Sanity check: before revocation, the AT can read.
     const preGet = await request(app.getHttpServer())
@@ -208,5 +225,20 @@ describe('OAuth grant revocation cascades to bearer access (e2e)', () => {
       .get('/api/patients')
       .set('Authorization', `Bearer ${at}`);
     expect(getRes.status).toBe(200);
+
+    // The refresh token must also be dead — otherwise a revoked client can
+    // mint fresh access tokens indefinitely, defeating the whole point of
+    // revocation. The cascade expires the refresh-token row, so
+    // oidc-provider rejects the swap with `invalid_grant` (HTTP 400).
+    const rtRes = await request(app.getHttpServer())
+      .post('/oauth/token')
+      .type('form')
+      .send({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: clientId,
+      });
+    expect(rtRes.status).toBe(400);
+    expect(rtRes.body.error).toBe('invalid_grant');
   });
 });
