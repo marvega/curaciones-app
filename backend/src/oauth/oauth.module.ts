@@ -55,6 +55,11 @@ import { MultiAuthGuard } from './guards/multi-auth.guard';
   exports: [
     OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService,
     OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard, MultiAuthGuard,
+    // JwtAuthGuard must be exported because MultiAuthGuard injects it; with
+    // @UseGuards(MultiAuthGuard) on domain controllers, Nest resolves the
+    // guard chain in the host module's context and needs JwtAuthGuard
+    // discoverable from there.
+    JwtAuthGuard,
   ],
 })
 export class OAuthModule {}
