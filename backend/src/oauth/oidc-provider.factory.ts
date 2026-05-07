@@ -91,7 +91,43 @@ export async function buildOidcProvider(
       jwtUserinfo: { enabled: false },
       introspection: { enabled: false },
       clientCredentials: { enabled: false },
-      resourceIndicators: { enabled: false },
+      // Resource Indicators (RFC 8707) — used here for one purpose only:
+      // enabling JWT-format access tokens. `OAuthScopeGuard` reads scopes
+      // off the AT, and `OAuthJwtStrategy` validates iss/aud/sig and reads
+      // `org_id` from the JWT payload. Without this, oidc-provider v8
+      // issues opaque ATs and our domain controllers can't authorize them.
+      //
+      // - `defaultResource` returns the issuer URL so a single, fixed
+      //   audience is bound to every AT the AS issues. Clients don't need
+      //   to send a `resource` parameter; the AS fills it in.
+      // - `useGrantedResource` returns true so token requests don't have to
+      //   echo the resource back. The granted resource (== issuer) is used.
+      // - `getResourceServerInfo` advertises every supported scope as
+      //   belonging to this single resource server, with `accessTokenFormat
+      //   = 'jwt'` and ES256 signing. ttl matches our top-level
+      //   `ttl.AccessToken` for consistency.
+      resourceIndicators: {
+        enabled: true,
+        defaultResource: () => deps.issuer,
+        useGrantedResource: () => true,
+        getResourceServerInfo: () => ({
+          // Resource Server scopes — only domain/functional scopes belong
+          // here. `openid` and `offline_access` are OIDC-only and live on
+          // `grant.openid`, never `grant.resources[issuer]`. If we listed
+          // them here the consent policy's `rs_scopes_missing` check would
+          // re-fire because `getResourceScopeEncountered(issuer)` won't
+          // contain them.
+          scope: SUPPORTED_SCOPES.filter(
+            (s) => s !== 'openid' && s !== 'offline_access',
+          ).join(' '),
+          audience: deps.issuer,
+          accessTokenTTL: 10 * 60,
+          accessTokenFormat: 'jwt',
+          // RS256 to match the algorithm of the keys seeded by
+          // OAuthBootstrapService (`'RS256'` per its constructor).
+          jwt: { sign: { alg: 'RS256' } },
+        }),
+      },
     },
     clients: [],
     findAccount: deps.findAccount,

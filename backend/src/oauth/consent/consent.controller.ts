@@ -187,7 +187,20 @@ export class ConsentController {
       accountId: String(user.id),
       clientId,
     });
-    requestedScopes.forEach((s: string) => grant.addOIDCScope(s));
+    // OIDC scopes (openid, offline_access) flow into the id_token / refresh
+    // token issuance. With resourceIndicators enabled (so we get JWT-format
+    // ATs), every functional/domain scope must additionally be attached to
+    // the resource server (== issuer); otherwise oidc-provider issues an AT
+    // for the userinfo endpoint with no domain scopes.
+    const issuerResource = provider.issuer;
+    requestedScopes.forEach((s: string) => {
+      grant.addOIDCScope(s);
+      // OIDC-only scopes (`openid`, `offline_access`) belong only on
+      // `addOIDCScope`. All other scopes are resource-server scopes.
+      if (s !== 'openid' && s !== 'offline_access') {
+        grant.addResourceScope(issuerResource, s);
+      }
+    });
     grant.organizationId = body.organizationId;
     const grantId = await grant.save();
 
