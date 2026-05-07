@@ -11,6 +11,7 @@ import { getAgendaByDateRangeHandler } from './agenda/get-agenda-by-date-range.j
 import { cancelAppointmentHandler } from './agenda/cancel-appointment.js';
 import { listCuracionesHandler } from './curaciones/list-curaciones.js';
 import { listWoundNotesHandler } from './wound-notes/list-wound-notes.js';
+import { addWoundNoteHandler } from './wound-notes/add-wound-note.js';
 import { searchInventoryHandler } from './inventory/search-inventory.js';
 import { listLotsExpiringHandler } from './inventory/list-lots-expiring.js';
 
@@ -58,7 +59,7 @@ export const TOOLS: ToolDef[] = [
   { name: 'list_curaciones', description: 'Lista curaciones de un paciente, paginadas con cursor.', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => listCuracionesHandler(input as any, ctx) },
   { name: 'register_curacion', description: 'Registra una nueva curación. Solicita localización, tipo de herida, observaciones y cuidados aplicados vía elicitation.', requiredScope: 'clinical:write', readOnly: false, destructive: false, inputSchema: z.object({}).passthrough(), handler: stub },
   // wound notes
-  { name: 'add_wound_note', description: 'Agrega una nota de evolución a una curación o paciente.', requiredScope: 'clinical:write', readOnly: false, destructive: false, inputSchema: z.object({ patientId: z.number().int().optional(), curacionId: z.number().int().optional(), content: z.string().min(1) }), handler: stub },
+  { name: 'add_wound_note', description: 'Agrega una nota de evolución a una curación o paciente.', requiredScope: 'clinical:write', readOnly: false, destructive: false, inputSchema: z.object({ patientId: z.number().int().optional(), curacionId: z.number().int().optional(), content: z.string().min(1) }), handler: (input, ctx) => addWoundNoteHandler(input as any, ctx) },
   { name: 'list_wound_notes', description: 'Lista las notas de evolución de un paciente.', requiredScope: 'clinical:read', readOnly: true, destructive: false, inputSchema: z.object({ patientId: z.number().int(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => listWoundNotesHandler(input as any, ctx) },
   // inventory
   { name: 'search_inventory', description: 'Busca productos del inventario por nombre o código.', requiredScope: 'inventory:read', readOnly: true, destructive: false, inputSchema: z.object({ q: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => searchInventoryHandler(input as any, ctx) },
