@@ -21,6 +21,8 @@ import { OAuthAuthorizeController } from './controllers/oauth-authorize.controll
 import { OAuthTokenController } from './controllers/oauth-token.controller';
 import { ConsentController } from './consent/consent.controller';
 import { ConsentService } from './consent/consent.service';
+import { OAuthJwtStrategy } from './strategies/oauth-jwt.strategy';
+import { OAuthJwtGuard } from './guards/oauth-jwt.guard';
 
 @Module({
   imports: [
@@ -41,7 +43,11 @@ import { ConsentService } from './consent/consent.service';
     OAuthBootstrapService, OAuthSigningKeyService, OAuthGrantService,
     AccountAdapterService, OidcProviderSingleton,
     ConsentService,
+    OAuthJwtStrategy, OAuthJwtGuard,
   ],
-  exports: [OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService],
+  exports: [
+    OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService,
+    OAuthJwtStrategy, OAuthJwtGuard,
+  ],
 })
 export class OAuthModule {}
