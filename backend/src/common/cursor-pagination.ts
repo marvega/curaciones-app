@@ -16,7 +16,7 @@ export function decodeCursor(raw: string | undefined): CursorPayload | null {
       throw new Error('invalid cursor: missing fields');
     }
     return parsed as CursorPayload;
-  } catch (e) {
-    throw new Error(`invalid cursor: ${(e as Error).message}`);
+  } catch {
+    throw new Error('invalid cursor');
   }
 }

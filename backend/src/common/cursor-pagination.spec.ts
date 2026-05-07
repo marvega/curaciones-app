@@ -14,7 +14,7 @@ describe('cursor-pagination', () => {
     expect(decodeCursor('')).toBeNull();
   });
 
-  it('throws on malformed cursor', () => {
+  it('throws when decoded bytes are not valid JSON', () => {
     expect(() => decodeCursor('not-base64url!!!')).toThrow(/invalid cursor/i);
   });
 
