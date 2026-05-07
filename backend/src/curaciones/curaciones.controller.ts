@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Body, Query, Param, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Query,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CuracionesService } from './curaciones.service';
@@ -17,6 +29,16 @@ import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
 export class CuracionesController {
   constructor(private readonly curacionesService: CuracionesService) {}
 
+  /**
+   * Parse the ?limit= query param for the cursor branch with safe bounds.
+   * Mirrors PatientsController.parseLimit — fallback 20, cap 100.
+   */
+  private parseLimit(raw: string | undefined): number {
+    const n = parseInt(raw || '20', 10);
+    if (!Number.isFinite(n) || n <= 0) return 20;
+    return Math.min(n, 100);
+  }
+
   @RequiredScopes('clinical:write')
   @Post()
   async create(@Body() dto: CreateCuracionDto) {
@@ -25,7 +47,27 @@ export class CuracionesController {
 
   @RequiredScopes('clinical:read')
   @Get('patient/:patientId')
-  async findByPatient(@Param('patientId', ParseIntPipe) patientId: number) {
+  async findByPatient(
+    @Param('patientId', ParseIntPipe) patientId: number,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    // Cursor branch: when ?cursor= is present (even empty) the client opts
+    // into the cursor-paginated contract. Bad opaque cursor → 400.
+    if (cursor !== undefined) {
+      try {
+        return await this.curacionesService.findByPatientCursor({
+          patientId,
+          limit: this.parseLimit(limit),
+          cursor: cursor || undefined,
+        });
+      } catch (e) {
+        if ((e as Error).message?.toLowerCase().includes('invalid cursor')) {
+          throw new BadRequestException('invalid cursor');
+        }
+        throw e;
+      }
+    }
     return this.curacionesService.findByPatient(patientId);
   }
 
