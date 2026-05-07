@@ -52,9 +52,7 @@ export class PostgresAdapter {
     const row = await this.repo.findOne({ where: { id, kind: this.kind } });
     if (!row) return undefined;
     if (row.expiresAt.getTime() < Date.now()) return undefined;
-    const payload = row.payload as AdapterPayload;
-    if (row.consumed) payload.consumed = Math.floor(row.expiresAt.getTime() / 1000);
-    return payload;
+    return { ...(row.payload as AdapterPayload) };
   }
 
   async findByUserCode(): Promise<AdapterPayload | undefined> {
@@ -71,7 +69,16 @@ export class PostgresAdapter {
   }
 
   async consume(id: string): Promise<void> {
-    await this.repo.update({ id, kind: this.kind }, { consumed: true });
+    const consumedAt = Math.floor(Date.now() / 1000);
+    const row = await this.repo.findOne({ where: { id, kind: this.kind } });
+    if (!row) return;
+    const updatedPayload = { ...(row.payload as AdapterPayload), consumed: consumedAt };
+    await this.repo.update(
+      { id, kind: this.kind },
+      // typeorm's QueryDeepPartialEntity types Record<string, unknown> as a
+      // recursive query expression; cast to silence the false positive.
+      { consumed: true, payload: updatedPayload as unknown as OAuthToken['payload'] } as any,
+    );
   }
 
   async destroy(id: string): Promise<void> {

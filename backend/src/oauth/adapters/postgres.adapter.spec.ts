@@ -34,7 +34,17 @@ describe('PostgresAdapter', () => {
   it('consume() flips consumed flag', async () => {
     const adapter = factory('RefreshToken');
     await adapter.upsert('rt-1', { iss: 'x', sub: '1', clientId: 'c' }, 86400);
+
+    const before = Math.floor(Date.now() / 1000);
     await adapter.consume('rt-1');
+    const after = Math.floor(Date.now() / 1000);
+
+    const found = await adapter.find('rt-1');
+    expect(found).toBeTruthy();
+    expect(typeof found!.consumed).toBe('number');
+    expect(found!.consumed as number).toBeGreaterThanOrEqual(before);
+    expect(found!.consumed as number).toBeLessThanOrEqual(after);
+
     const row = await repo.findOne({ where: { id: 'rt-1' } });
     expect(row!.consumed).toBe(true);
   });
@@ -56,16 +66,21 @@ describe('PostgresAdapter', () => {
   });
 
   it('revokeByGrantId destroys all tokens of grant', async () => {
-    // grantId column is uuid in the schema, so use a valid UUID literal.
+    // grantId column is uuid in the schema, so use valid UUID literals.
     const grantId = '11111111-1111-1111-1111-111111111111';
+    const otherGrantId = '22222222-2222-2222-2222-222222222222';
     const at = factory('AccessToken');
     const rt = factory('RefreshToken');
     await at.upsert('jti-a', { grantId, sub: '1' }, 600);
     await at.upsert('jti-b', { grantId, sub: '1' }, 600);
     await rt.upsert('rt-a', { grantId, sub: '1' }, 86400);
+    await at.upsert('jti-keep', { grantId: otherGrantId, sub: '1' }, 600); // must survive
+
     await at.revokeByGrantId(grantId);
+
     expect(await at.find('jti-a')).toBeUndefined();
     expect(await at.find('jti-b')).toBeUndefined();
     expect(await rt.find('rt-a')).toBeUndefined();
+    expect(await at.find('jti-keep')).toBeTruthy(); // different grant — must NOT be deleted
   });
 });
