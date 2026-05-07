@@ -41,6 +41,7 @@ export class PatientsController {
     @Query('q') q?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
     @Query('status') status?: string,
     @Query('gender') gender?: string,
     @Query('curacionType') curacionType?: string,
@@ -52,6 +53,16 @@ export class PatientsController {
     if (rut) {
       const patient = await this.patientsService.findByRut(rut);
       return patient ? patient : { found: false };
+    }
+
+    // Cursor branch: when ?cursor= is present (even empty) the client opts
+    // into the cursor-paginated contract and `page` is ignored.
+    if (cursor !== undefined) {
+      return this.patientsService.findByCursor({
+        cursor: cursor || undefined,
+        limit: parseInt(limit || '20', 10) || 20,
+        q: q?.trim() || undefined,
+      });
     }
 
     const trimmedQ = q?.trim();

@@ -12,6 +12,7 @@ import type { KmsService } from '../kms/kms.service';
 import type { EncryptedField } from '../kms/encrypted-field';
 import { getCurrentOrgId } from '../common/org-context';
 import { findScoped, findOneScoped } from '../common/org-scoped.repository';
+import { encodeCursor, decodeCursor } from '../common/cursor-pagination';
 
 /**
  * Patient projection where the encrypted PII columns have been resolved back to
@@ -255,6 +256,55 @@ export class PatientsService {
       page,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * Cursor-paginated listing for stable iteration (used by the MCP server and
+   * any client that wants to walk the patient list without offset drift).
+   * Orders by (createdAt DESC, id DESC) so the cursor tuple is unique.
+   *
+   * Contract: returns `{ items, nextCursor }`. `nextCursor` is `undefined`
+   * when there are no more rows.
+   */
+  async findByCursor(args: {
+    cursor?: string;
+    limit: number;
+    q?: string;
+  }): Promise<{ items: DecryptedPatient[]; nextCursor?: string }> {
+    const orgId = this.requireOrgId();
+    const decoded = decodeCursor(args.cursor);
+
+    const qb = this.patientRepo
+      .createQueryBuilder('p')
+      .where('p."organizationId" = :orgId', { orgId })
+      .orderBy('p."createdAt"', 'DESC')
+      .addOrderBy('p.id', 'DESC')
+      .take(args.limit + 1);
+
+    if (decoded) {
+      qb.andWhere(
+        '(p."createdAt", p.id) < (:cursorCreatedAt, :cursorId)',
+        { cursorCreatedAt: decoded.createdAt, cursorId: decoded.id },
+      );
+    }
+    if (args.q) {
+      qb.andWhere(
+        '(p."firstName" ILIKE :q OR p."lastName" ILIKE :q)',
+        { q: `%${args.q}%` },
+      );
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > args.limit;
+    const sliced = hasMore ? rows.slice(0, args.limit) : rows;
+    const last = sliced[sliced.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        : undefined;
+
+    const items = await this.decryptMany(sliced);
+    return { items, nextCursor };
   }
 
   async findAdvanced(filters: {

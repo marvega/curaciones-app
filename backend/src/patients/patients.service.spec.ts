@@ -25,16 +25,20 @@ describe('PatientsService', () => {
   let service: PatientsService;
 
   const mockQueryBuilder = {
+    where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     innerJoin: jest.fn().mockReturnThis(),
     distinct: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     offset: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
     getCount: jest.fn(),
     getRawMany: jest.fn(),
+    getMany: jest.fn(),
   };
 
   const mockPatientRepo = {
@@ -97,16 +101,20 @@ describe('PatientsService', () => {
     service = module.get(PatientsService);
     jest.clearAllMocks();
 
+    mockQueryBuilder.where.mockClear().mockReturnThis();
     mockQueryBuilder.andWhere.mockClear().mockReturnThis();
     mockQueryBuilder.innerJoin.mockClear().mockReturnThis();
     mockQueryBuilder.distinct.mockClear().mockReturnThis();
     mockQueryBuilder.select.mockClear().mockReturnThis();
     mockQueryBuilder.addSelect.mockClear().mockReturnThis();
     mockQueryBuilder.orderBy.mockClear().mockReturnThis();
+    mockQueryBuilder.addOrderBy.mockClear().mockReturnThis();
     mockQueryBuilder.offset.mockClear().mockReturnThis();
     mockQueryBuilder.limit.mockClear().mockReturnThis();
+    mockQueryBuilder.take.mockClear().mockReturnThis();
     mockQueryBuilder.getCount.mockReset();
     mockQueryBuilder.getRawMany.mockReset();
+    mockQueryBuilder.getMany.mockReset();
     mockPatientRepo.createQueryBuilder.mockClear().mockReturnValue(mockQueryBuilder);
 
     // Reset mockQueryRunner mocks
@@ -502,4 +510,71 @@ describe('PatientsService', () => {
     );
     expect(hasQ).toBe(false);
   }));
+
+  describe('findByCursor', () => {
+    const cursorPatient = (id: number, createdAt: Date): Patient => ({
+      ...samplePatient,
+      id,
+      createdAt,
+    });
+
+    it('returns nextCursor when more results exist', inOrg(async () => {
+      const t1 = new Date('2026-01-01T00:00:00.000Z');
+      const t2 = new Date('2026-01-02T00:00:00.000Z');
+      const t3 = new Date('2026-01-03T00:00:00.000Z');
+      // Service requests limit + 1 = 3 rows; that signals more data exists.
+      mockQueryBuilder.getMany.mockResolvedValue([
+        cursorPatient(3, t3),
+        cursorPatient(2, t2),
+        cursorPatient(1, t1),
+      ]);
+
+      const result = await service.findByCursor({ limit: 2 });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.nextCursor).toBeDefined();
+      expect(typeof result.nextCursor).toBe('string');
+      // The cursor encodes the LAST returned item (the one at index limit-1).
+      const decoded = JSON.parse(
+        Buffer.from(result.nextCursor!, 'base64url').toString('utf8'),
+      );
+      expect(decoded).toEqual({ id: 2, createdAt: t2.toISOString() });
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(3);
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('p."createdAt"', 'DESC');
+      expect(mockQueryBuilder.addOrderBy).toHaveBeenCalledWith('p.id', 'DESC');
+    }));
+
+    it('returns no nextCursor on last page', inOrg(async () => {
+      const t1 = new Date('2026-01-01T00:00:00.000Z');
+      // Only one row returned for a request of limit + 1 = 11 → no more pages.
+      mockQueryBuilder.getMany.mockResolvedValue([cursorPatient(1, t1)]);
+
+      const result = await service.findByCursor({ limit: 10 });
+
+      expect(result.items.length).toBeGreaterThanOrEqual(1);
+      expect(result.nextCursor).toBeUndefined();
+    }));
+
+    it('decodes cursor and applies tuple comparison', inOrg(async () => {
+      const t1 = new Date('2026-01-01T00:00:00.000Z');
+      mockQueryBuilder.getMany.mockResolvedValue([cursorPatient(5, t1)]);
+      const cursor = Buffer.from(
+        JSON.stringify({ id: 10, createdAt: '2026-01-05T00:00:00.000Z' }),
+      ).toString('base64url');
+
+      await service.findByCursor({ cursor, limit: 20 });
+
+      const tupleCall = mockQueryBuilder.andWhere.mock.calls.find(
+        ([sql]) =>
+          typeof sql === 'string' &&
+          sql.includes('p."createdAt"') &&
+          sql.includes('p.id'),
+      );
+      expect(tupleCall).toBeDefined();
+      expect(tupleCall![1]).toEqual({
+        cursorCreatedAt: '2026-01-05T00:00:00.000Z',
+        cursorId: 10,
+      });
+    }));
+  });
 });
