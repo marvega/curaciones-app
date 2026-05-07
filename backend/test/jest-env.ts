@@ -6,9 +6,10 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
 
 // AppModule constructs ResendEmailService at boot, which throws when the
-// API key is missing. We never send mail during tests, so a placeholder
-// keeps the DI graph happy — no need to add this to .env.test (which is
-// gitignored and varies per developer).
-if (!process.env.RESEND_API_KEY) {
-  process.env.RESEND_API_KEY = 'test_dummy_resend_key';
+// API key is missing. The email module supports `EMAIL_BACKEND=noop` which
+// disables the Resend client entirely — preferable to a dummy key because
+// it short-circuits any accidental send attempt instead of silently failing
+// inside the Resend SDK.
+if (!process.env.EMAIL_BACKEND) {
+  process.env.EMAIL_BACKEND = 'noop';
 }

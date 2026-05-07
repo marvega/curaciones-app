@@ -1,3 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
+                  @typescript-eslint/no-unsafe-member-access,
+                  @typescript-eslint/no-unsafe-argument,
+                  @typescript-eslint/require-await */
+// oidc-provider's AdapterPayload is intentionally permissive; this adapter
+// is the integration boundary that maps untyped JSON to the typed entity.
+// Some `findBy*` methods are async by interface contract but trivially
+// resolve — required-await would force pointless `await Promise.resolve()`.
 import { Repository } from 'typeorm';
 import { OAuthToken, OAuthTokenKind } from '../entities/oauth-token.entity';
 
@@ -20,7 +28,10 @@ export interface AdapterPayload extends Record<string, unknown> {
 }
 
 export class PostgresAdapter {
-  constructor(private readonly repo: Repository<OAuthToken>, private readonly name: string) {}
+  constructor(
+    private readonly repo: Repository<OAuthToken>,
+    private readonly name: string,
+  ) {}
 
   private get kind(): OAuthTokenKind {
     const k = NAME_TO_KIND[this.name];
@@ -28,15 +39,20 @@ export class PostgresAdapter {
     return k;
   }
 
-  async upsert(id: string, payload: AdapterPayload, expiresIn?: number): Promise<void> {
+  async upsert(
+    id: string,
+    payload: AdapterPayload,
+    expiresIn?: number,
+  ): Promise<void> {
     // RegistrationAccessToken (when rotateRegistrationAccessToken=false)
     // is saved without a ttl — oidc-provider expects it to never expire.
     // Use a sentinel far-future date so the NOT NULL `expiresAt` column
     // accepts the row and `find` doesn't reject it.
     const FAR_FUTURE = new Date('9999-12-31T23:59:59Z');
-    const expiresAt = typeof expiresIn === 'number' && Number.isFinite(expiresIn)
-      ? new Date(Date.now() + expiresIn * 1000)
-      : FAR_FUTURE;
+    const expiresAt =
+      typeof expiresIn === 'number' && Number.isFinite(expiresIn)
+        ? new Date(Date.now() + expiresIn * 1000)
+        : FAR_FUTURE;
     await this.repo.upsert(
       {
         id,
@@ -69,7 +85,10 @@ export class PostgresAdapter {
   async findByUid(uid: string): Promise<AdapterPayload | undefined> {
     const row = await this.repo
       .createQueryBuilder('t')
-      .where('t.kind = :kind AND t.payload @> :u', { kind: this.kind, u: { uid } })
+      .where('t.kind = :kind AND t.payload @> :u', {
+        kind: this.kind,
+        u: { uid },
+      })
       .getOne();
     if (!row) return undefined;
     return row.payload as AdapterPayload;
@@ -79,12 +98,18 @@ export class PostgresAdapter {
     const consumedAt = Math.floor(Date.now() / 1000);
     const row = await this.repo.findOne({ where: { id, kind: this.kind } });
     if (!row) return;
-    const updatedPayload = { ...(row.payload as AdapterPayload), consumed: consumedAt };
+    const updatedPayload = {
+      ...(row.payload as AdapterPayload),
+      consumed: consumedAt,
+    };
     await this.repo.update(
       { id, kind: this.kind },
       // typeorm's QueryDeepPartialEntity types Record<string, unknown> as a
       // recursive query expression; cast to silence the false positive.
-      { consumed: true, payload: updatedPayload as unknown as OAuthToken['payload'] } as any,
+      {
+        consumed: true,
+        payload: updatedPayload as unknown as OAuthToken['payload'],
+      } as any,
     );
   }
 

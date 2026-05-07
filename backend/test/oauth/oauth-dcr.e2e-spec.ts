@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
+                  @typescript-eslint/no-unsafe-member-access,
+                  @typescript-eslint/no-unsafe-argument */
+// supertest passes the Nest http server as `any`; response bodies are JSON
+// blobs from oidc-provider — typing them adds noise without value in e2e.
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../setup';
@@ -9,7 +14,9 @@ describe('OAuth DCR (e2e)', () => {
     app = await createTestApp();
   });
 
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('POST /oauth/register with valid HTTPS redirect_uris returns 201 + client_id', async () => {
     const res = await request(app.getHttpServer())
@@ -84,18 +91,26 @@ describe('OAuth DCR rate limiting (e2e)', () => {
     app = await createTestApp();
   });
 
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('rate limits DCR after 10 registrations from same IP/hour', async () => {
     for (let i = 0; i < 10; i++) {
       await request(app.getHttpServer())
         .post('/oauth/register')
-        .send({ client_name: `c${i}`, redirect_uris: [`https://c${i}.example/cb`] })
+        .send({
+          client_name: `c${i}`,
+          redirect_uris: [`https://c${i}.example/cb`],
+        })
         .expect(201);
     }
     await request(app.getHttpServer())
       .post('/oauth/register')
-      .send({ client_name: 'overflow', redirect_uris: ['https://o.example/cb'] })
+      .send({
+        client_name: 'overflow',
+        redirect_uris: ['https://o.example/cb'],
+      })
       .expect(429);
   });
 });

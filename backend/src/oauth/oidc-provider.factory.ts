@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
+                  @typescript-eslint/no-unsafe-member-access,
+                  @typescript-eslint/no-unsafe-return,
+                  @typescript-eslint/no-unsafe-call */
+// oidc-provider's Configuration types are loose at the boundaries we tweak
+// (token claims, adapter factory cast, dynamic ESM import). Asserting at
+// each site adds noise without buying real safety.
 import { randomBytes, createPrivateKey } from 'crypto';
 import type { Provider as OidcProvider, Configuration } from 'oidc-provider';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
@@ -8,12 +15,18 @@ import { makePostgresAdapterFactory } from './adapters/postgres.adapter';
 import { ClientAdapter } from './adapters/client.adapter';
 
 export const SUPPORTED_SCOPES = [
-  'openid', 'offline_access',
-  'patients:read', 'patients:write',
-  'clinical:read', 'clinical:write',
-  'agenda:read', 'agenda:write',
-  'inventory:read', 'inventory:write',
-  'reports:read', 'org:admin',
+  'openid',
+  'offline_access',
+  'patients:read',
+  'patients:write',
+  'clinical:read',
+  'clinical:write',
+  'agenda:read',
+  'agenda:write',
+  'inventory:read',
+  'inventory:write',
+  'reports:read',
+  'org:admin',
 ];
 
 export interface OidcFactoryDeps {
@@ -25,7 +38,9 @@ export interface OidcFactoryDeps {
   loadExistingGrant: Configuration['loadExistingGrant'];
 }
 
-export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProvider> {
+export async function buildOidcProvider(
+  deps: OidcFactoryDeps,
+): Promise<OidcProvider> {
   const allKeys = await deps.signingKeys.getAllPublishableKeys();
   const jwks = {
     keys: allKeys.map((k) => {
@@ -43,7 +58,8 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
   // call: 'AccessToken', 'RefreshToken', 'Client', etc. Route 'Client' to
   // the dedicated adapter so DCR persists registered clients to the
   // `oauth_client` table; everything else continues to share `oauth_token`.
-  const Adapter = (name: string) => (name === 'Client' ? clientAdapter : tokenAdapterFactory(name));
+  const Adapter = (name: string) =>
+    name === 'Client' ? clientAdapter : tokenAdapterFactory(name);
 
   const config: Configuration = {
     adapter: Adapter as any,
@@ -59,7 +75,10 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
         initialAccessToken: false,
         idFactory: () => randomClientId(),
       },
-      registrationManagement: { enabled: true, rotateRegistrationAccessToken: false },
+      registrationManagement: {
+        enabled: true,
+        rotateRegistrationAccessToken: false,
+      },
       revocation: { enabled: true },
       userinfo: { enabled: true },
       jwtUserinfo: { enabled: false },
@@ -105,7 +124,8 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
       if (t.extra?.org_id) payload.org_id = t.extra.org_id;
       if (t.extra?.org_name) payload.org_name = t.extra.org_name;
       if (t.extra?.role) payload.role = t.extra.role;
-      if (t.extra?.establishment_ids) payload.establishment_ids = t.extra.establishment_ids;
+      if (t.extra?.establishment_ids)
+        payload.establishment_ids = t.extra.establishment_ids;
       return payload;
     },
   };
@@ -115,8 +135,11 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
   // ts-jest) lowers `await import(x)` to `require(x)`, which fails on
   // ESM packages. `eval('import(...)')` survives the transform and runs
   // through Node's native ESM loader.
-  // eslint-disable-next-line no-eval
-  const dynamicImport = (mod: string) => (eval('(m) => import(m)') as (m: string) => Promise<any>)(mod);
+
+  const dynamicImport = (mod: string) =>
+    // Preserve native dynamic import through ts/Jest CJS transform; see
+    // comment above for context.
+    (eval('(m) => import(m)') as (m: string) => Promise<any>)(mod);
   const { default: ProviderCtor } = await dynamicImport('oidc-provider');
   return new ProviderCtor(deps.issuer, config);
 }

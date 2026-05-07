@@ -63,8 +63,8 @@ export class OAuthClient {
   @Column({ type: 'timestamptz', nullable: true })
   firstAuthorizedAt!: Date | null;
 
-  @Column({ type: 'text' })
-  registrationAccessTokenHash!: string;
+  @Column({ type: 'text', nullable: true })
+  registrationAccessTokenHash!: string | null;
 
   @Column({ type: 'text', nullable: true })
   createdByIp!: string | null;
