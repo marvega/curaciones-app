@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import { Provider as OidcProvider } from 'oidc-provider';
+import type { Provider as OidcProvider } from 'oidc-provider';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OAuthToken } from './entities/oauth-token.entity';
