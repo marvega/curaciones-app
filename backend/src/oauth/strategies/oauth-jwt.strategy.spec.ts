@@ -42,7 +42,7 @@ describe('OAuthJwtStrategy', () => {
     process.env.OAUTH_ISSUER = 'http://issuer';
     const token = signToken({
       iss: 'http://issuer',
-      aud: ['issuer'],
+      aud: ['http://issuer'],
       sub: '12',
       org_id: 'uuid-acme',
       org_name: 'Acme',
@@ -65,7 +65,7 @@ describe('OAuthJwtStrategy', () => {
     const otherPair = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const otherPriv = otherPair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
     const token = jwt.sign(
-      { sub: '12', iss: 'http://issuer', aud: 'issuer', jti: 'j' },
+      { sub: '12', iss: 'http://issuer', aud: 'http://issuer', jti: 'j' },
       otherPriv,
       { algorithm: 'RS256', keyid: 'unknown', expiresIn: '10m' },
     );
@@ -77,7 +77,7 @@ describe('OAuthJwtStrategy', () => {
     revocationRepo.findOne.mockResolvedValue({ jti: 'j-revoked', expiresAt: new Date(Date.now() + 60000) });
     const token = signToken({
       iss: 'http://issuer',
-      aud: ['issuer'],
+      aud: ['http://issuer'],
       sub: '12',
       org_id: 'org',
       role: 'Admin',
@@ -93,7 +93,7 @@ describe('OAuthJwtStrategy', () => {
     process.env.OAUTH_ISSUER = 'http://issuer';
     const token = signToken({
       iss: 'http://issuer',
-      aud: ['issuer'],
+      aud: ['http://issuer'],
       sub: '12',
       org_id: 'org',
       role: 'Admin',
