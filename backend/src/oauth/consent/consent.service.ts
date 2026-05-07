@@ -6,6 +6,10 @@ import {
   OrganizationMembership,
   MembershipStatus,
 } from '../../organizations/organization-membership.entity';
+import {
+  Organization,
+  OrganizationStatus,
+} from '../../organizations/organization.entity';
 
 const GRANT_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
@@ -16,6 +20,8 @@ export class ConsentService {
     private readonly grantRepo: Repository<OAuthGrant>,
     @InjectRepository(OrganizationMembership)
     private readonly memRepo: Repository<OrganizationMembership>,
+    @InjectRepository(Organization)
+    private readonly orgRepo: Repository<Organization>,
   ) {}
 
   async recordConsent(input: {
@@ -24,6 +30,12 @@ export class ConsentService {
     organizationId: string;
     scopes: string[];
   }): Promise<OAuthGrant> {
+    const org = await this.orgRepo.findOne({
+      where: { id: input.organizationId, status: OrganizationStatus.ACTIVE },
+    });
+    if (!org) {
+      throw new ForbiddenException('Organization is not active');
+    }
     const membership = await this.memRepo.findOne({
       where: {
         userId: input.userId,

@@ -128,15 +128,17 @@ export async function buildOidcProvider(
     extraTokenClaims: async (_ctx, token) => {
       // `token.extra` is never populated by oidc-provider for our flows, so
       // we resolve org context from the durable join `OAuthGrant.oidcGrantId
-      // -> oauth_grant` (set at consent time). Falling back to the user's
-      // most recent active grant for this client keeps refresh-token rotation
-      // and other code paths consistent with what was approved at consent.
+      // -> oauth_grant` (set at consent time). `t.grantId` is oidc-provider's
+      // runtime nanoid — it is in `IN_PAYLOAD` and survives serialization,
+      // so it is the deterministic key. Looking up by (userId, clientId)
+      // alone is non-deterministic when a user has consented the same client
+      // for multiple orgs (two active rows, ORDER unspecified).
       const t = token as any;
       const accountId = Number(t.accountId);
-      const clientId: string | undefined = t.clientId;
-      if (!accountId || !clientId) return {};
+      const oidcGrantId: string | undefined = t.grantId;
+      if (!accountId || !oidcGrantId) return {};
       const oauthGrant = await deps.grantRepo.findOne({
-        where: { userId: accountId, clientId, revokedAt: IsNull() },
+        where: { oidcGrantId, revokedAt: IsNull() },
       });
       if (!oauthGrant) return {};
       const membership = await deps.memRepo.findOne({

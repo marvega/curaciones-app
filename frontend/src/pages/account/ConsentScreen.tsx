@@ -93,7 +93,11 @@ export function ConsentScreen() {
             <label className="block text-sm font-medium mb-1">
               Conectar a:
             </label>
-            {data.organizations.length > 1 ? (
+            {data.organizations.length === 0 ? (
+              <p className="text-sm text-red-600">
+                No tenés membresías activas para autorizar esta app.
+              </p>
+            ) : data.organizations.length > 1 ? (
               <Select
                 options={orgOptions}
                 value={orgId}
