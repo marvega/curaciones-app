@@ -1,10 +1,11 @@
-import { randomBytes } from 'crypto';
+import { randomBytes, createPrivateKey } from 'crypto';
 import type { Provider as OidcProvider, Configuration } from 'oidc-provider';
 import { OAuthSigningKeyService } from './services/oauth-signing-key.service';
 import { Repository } from 'typeorm';
 import { OAuthToken } from './entities/oauth-token.entity';
 import { OAuthClient } from './entities/oauth-client.entity';
 import { makePostgresAdapterFactory } from './adapters/postgres.adapter';
+import { ClientAdapter } from './adapters/client.adapter';
 
 export const SUPPORTED_SCOPES = [
   'openid', 'offline_access',
@@ -27,17 +28,22 @@ export interface OidcFactoryDeps {
 export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProvider> {
   const allKeys = await deps.signingKeys.getAllPublishableKeys();
   const jwks = {
-    keys: await Promise.all(
-      allKeys.map(async (k) => {
-        const { exportJWK, importPKCS8 } = await import('jose');
-        const priv = await importPKCS8(k.privateKeyPem, k.algorithm);
-        const jwk = await exportJWK(priv);
-        return { ...jwk, alg: k.algorithm, use: 'sig', kid: k.kid };
-      }),
-    ),
+    keys: allKeys.map((k) => {
+      // Node built-in crypto: PEM (PKCS#8) → KeyObject → JWK. Avoids the
+      // ESM-only `jose` package which Jest CJS transforms cannot resolve.
+      const keyObj = createPrivateKey({ key: k.privateKeyPem, format: 'pem' });
+      const jwk = keyObj.export({ format: 'jwk' });
+      return { ...jwk, alg: k.algorithm, use: 'sig', kid: k.kid };
+    }),
   };
 
-  const Adapter = makePostgresAdapterFactory(deps.tokenRepo);
+  const tokenAdapterFactory = makePostgresAdapterFactory(deps.tokenRepo);
+  const clientAdapter = new ClientAdapter(deps.clientRepo);
+  // oidc-provider asks the adapter factory for a different model `name` per
+  // call: 'AccessToken', 'RefreshToken', 'Client', etc. Route 'Client' to
+  // the dedicated adapter so DCR persists registered clients to the
+  // `oauth_client` table; everything else continues to share `oauth_token`.
+  const Adapter = (name: string) => (name === 'Client' ? clientAdapter : tokenAdapterFactory(name));
 
   const config: Configuration = {
     adapter: Adapter as any,
@@ -104,9 +110,14 @@ export async function buildOidcProvider(deps: OidcFactoryDeps): Promise<OidcProv
     },
   };
 
-  // oidc-provider v8 is ESM-only — use dynamic import so this module remains
-  // CommonJS-loadable from ts-jest e2e specs (which transpile to commonjs).
-  const { default: ProviderCtor } = (await import('oidc-provider')) as any;
+  // oidc-provider v8 is ESM-only. We need a real native dynamic `import()`
+  // here. TypeScript with `module: commonjs` (production runtime *and*
+  // ts-jest) lowers `await import(x)` to `require(x)`, which fails on
+  // ESM packages. `eval('import(...)')` survives the transform and runs
+  // through Node's native ESM loader.
+  // eslint-disable-next-line no-eval
+  const dynamicImport = (mod: string) => (eval('(m) => import(m)') as (m: string) => Promise<any>)(mod);
+  const { default: ProviderCtor } = await dynamicImport('oidc-provider');
   return new ProviderCtor(deps.issuer, config);
 }
 
