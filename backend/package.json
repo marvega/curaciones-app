@@ -27,7 +27,8 @@
     "migration:run:prod": "node node_modules/typeorm/cli.js migration:run -d dist/data-source.js",
     "admin:create-org": "ts-node -r tsconfig-paths/register src/cli/admin-create-org.ts",
     "audit:verify": "ts-node -r tsconfig-paths/register src/cli/audit-verify.ts",
-    "encryption:backfill": "ts-node -r tsconfig-paths/register src/kms/encryption-batch.script.ts"
+    "encryption:backfill": "ts-node -r tsconfig-paths/register src/kms/encryption-batch.script.ts",
+    "oauth:rotate-keys": "ts-node -r tsconfig-paths/register src/oauth/cli/oauth-rotate-keys.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1038.0",
