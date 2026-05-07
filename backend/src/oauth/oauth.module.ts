@@ -18,6 +18,7 @@ import { OidcProviderSingleton } from './oidc-provider.singleton';
 import { OAuthDiscoveryController } from './controllers/oauth-discovery.controller';
 import { OAuthRegisterController } from './controllers/oauth-register.controller';
 import { OAuthAuthorizeController } from './controllers/oauth-authorize.controller';
+import { OAuthTokenController } from './controllers/oauth-token.controller';
 import { ConsentController } from './consent/consent.controller';
 import { ConsentService } from './consent/consent.service';
 
@@ -33,6 +34,7 @@ import { ConsentService } from './consent/consent.service';
     OAuthDiscoveryController,
     OAuthRegisterController,
     OAuthAuthorizeController,
+    OAuthTokenController,
     ConsentController,
   ],
   providers: [
