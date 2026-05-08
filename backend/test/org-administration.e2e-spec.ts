@@ -159,5 +159,14 @@ describe('Org administration (e2e)', () => {
         .send({ name: '' })
         .expect(400);
     });
+
+    it('clears rut when omitted', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/api/org/settings')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: 'No Rut' })
+        .expect(200);
+      expect(res.body).toEqual({ name: 'No Rut', rut: null });
+    });
   });
 });
