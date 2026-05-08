@@ -15,14 +15,32 @@ import { KMS_SERVICE } from '../kms/kms.service';
 describe('OrgService', () => {
   let service: OrgService;
   let orgRepo: { findOne: jest.Mock; save: jest.Mock };
-  let memRepo: { find: jest.Mock; findOne: jest.Mock; save: jest.Mock; count: jest.Mock };
+  let memRepo: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    save: jest.Mock;
+    count: jest.Mock;
+    manager: { getRepository: jest.Mock; transaction: jest.Mock };
+  };
   let userRepo: { findBy: jest.Mock; findOne: jest.Mock };
   let invRepo: { find: jest.Mock };
   let kms: { decrypt: jest.Mock; encrypt: jest.Mock };
+  let manager: { getRepository: jest.Mock; transaction: jest.Mock };
 
   beforeEach(async () => {
     orgRepo = { findOne: jest.fn(), save: jest.fn() };
-    memRepo = { find: jest.fn(), findOne: jest.fn(), save: jest.fn(), count: jest.fn() };
+    manager = {
+      getRepository: jest.fn(),
+      transaction: jest.fn(async (fn) => fn(manager)),
+    };
+    memRepo = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
+      count: jest.fn(),
+      manager,
+    };
+    manager.getRepository.mockReturnValue(memRepo);
     userRepo = { findBy: jest.fn(), findOne: jest.fn() };
     invRepo = { find: jest.fn() };
     kms = { decrypt: jest.fn(), encrypt: jest.fn() };

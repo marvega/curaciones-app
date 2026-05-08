@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, MoreThan, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 import {
   OrganizationMembership,
@@ -79,23 +79,36 @@ export class OrgService {
     );
   }
 
+  private async countActiveOwners(
+    organizationId: string,
+    manager: EntityManager = this.memRepo.manager,
+  ): Promise<number> {
+    return manager.getRepository(OrganizationMembership).count({
+      where: { organizationId, role: OrgRole.OWNER, status: MembershipStatus.ACTIVE },
+    });
+  }
+
   async updateRole(
     organizationId: string,
     userId: number,
     role: OrgRole,
   ): Promise<Member> {
-    const membership = await this.memRepo.findOne({
-      where: { organizationId, userId, status: MembershipStatus.ACTIVE },
-    });
-    if (!membership) throw new NotFoundException('Member not found');
-    if (membership.role === OrgRole.OWNER && role !== OrgRole.OWNER) {
-      const owners = await this.memRepo.count({
-        where: { organizationId, role: OrgRole.OWNER, status: MembershipStatus.ACTIVE },
+    const membership = await this.memRepo.manager.transaction(async (manager) => {
+      const memRepo = manager.getRepository(OrganizationMembership);
+      const m = await memRepo.findOne({
+        where: { organizationId, userId, status: MembershipStatus.ACTIVE },
+        lock: { mode: 'pessimistic_write' },
       });
-      if (owners <= 1) throw new ConflictException('Cannot demote the last owner');
-    }
-    membership.role = role;
-    await this.memRepo.save(membership);
+      if (!m) throw new NotFoundException('Member not found');
+      if (m.role === OrgRole.OWNER && role !== OrgRole.OWNER) {
+        const owners = await this.countActiveOwners(organizationId, manager);
+        if (owners <= 1) throw new ConflictException('Cannot demote the last owner');
+      }
+      m.role = role;
+      await memRepo.save(m);
+      return m;
+    });
+
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new Error(`User ${userId} not found after membership update`);
     const email = user.email
@@ -118,19 +131,21 @@ export class OrgService {
     if (targetUserId === callerUserId) {
       throw new ConflictException('Cannot revoke yourself');
     }
-    const membership = await this.memRepo.findOne({
-      where: { organizationId, userId: targetUserId, status: MembershipStatus.ACTIVE },
-    });
-    if (!membership) throw new NotFoundException('Member not found');
-    if (membership.role === OrgRole.OWNER) {
-      const owners = await this.memRepo.count({
-        where: { organizationId, role: OrgRole.OWNER, status: MembershipStatus.ACTIVE },
+    await this.memRepo.manager.transaction(async (manager) => {
+      const memRepo = manager.getRepository(OrganizationMembership);
+      const membership = await memRepo.findOne({
+        where: { organizationId, userId: targetUserId, status: MembershipStatus.ACTIVE },
+        lock: { mode: 'pessimistic_write' },
       });
-      if (owners <= 1) throw new ConflictException('Cannot revoke the last owner');
-    }
-    membership.status = MembershipStatus.REVOKED;
-    membership.revokedAt = new Date();
-    await this.memRepo.save(membership);
+      if (!membership) throw new NotFoundException('Member not found');
+      if (membership.role === OrgRole.OWNER) {
+        const owners = await this.countActiveOwners(organizationId, manager);
+        if (owners <= 1) throw new ConflictException('Cannot revoke the last owner');
+      }
+      membership.status = MembershipStatus.REVOKED;
+      membership.revokedAt = new Date();
+      await memRepo.save(membership);
+    });
   }
 
   async listInvitations(organizationId: string) {
