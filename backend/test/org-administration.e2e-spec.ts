@@ -127,4 +127,37 @@ describe('Org administration (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('PATCH /api/org/settings', () => {
+    it('updates name and rut', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/api/org/settings')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: 'New Name', rut: '99.999.999-9' })
+        .expect(200);
+      expect(res.body).toEqual({ name: 'New Name', rut: '99.999.999-9' });
+
+      const verify = await request(app.getHttpServer())
+        .get('/api/org/settings')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      expect(verify.body).toEqual({ name: 'New Name', rut: '99.999.999-9' });
+    });
+
+    it('rejects clinician role with 403', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/org/settings')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .send({ name: 'Whatever' })
+        .expect(403);
+    });
+
+    it('rejects empty name with 400', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/org/settings')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: '' })
+        .expect(400);
+    });
+  });
 });
