@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { OrgService } from './org.service';
 import { Organization } from '../organizations/organization.entity';
 import {
@@ -15,13 +15,13 @@ describe('OrgService', () => {
   let service: OrgService;
   let orgRepo: { findOne: jest.Mock; save: jest.Mock };
   let memRepo: { find: jest.Mock; findOne: jest.Mock; save: jest.Mock; count: jest.Mock };
-  let userRepo: { findBy: jest.Mock };
+  let userRepo: { findBy: jest.Mock; findOne: jest.Mock };
   let kms: { decrypt: jest.Mock; encrypt: jest.Mock };
 
   beforeEach(async () => {
     orgRepo = { findOne: jest.fn(), save: jest.fn() };
     memRepo = { find: jest.fn(), findOne: jest.fn(), save: jest.fn(), count: jest.fn() };
-    userRepo = { findBy: jest.fn() };
+    userRepo = { findBy: jest.fn(), findOne: jest.fn() };
     kms = { decrypt: jest.fn(), encrypt: jest.fn() };
     const m = await Test.createTestingModule({
       providers: [
@@ -102,6 +102,56 @@ describe('OrgService', () => {
       ]);
       userRepo.findBy.mockResolvedValue([]);
       await expect(service.listMembers('1')).rejects.toThrow(/missing user 99/);
+    });
+  });
+
+  describe('updateRole', () => {
+    it('rejects demoting the last owner with 409', async () => {
+      memRepo.findOne.mockResolvedValue({
+        id: '1', userId: 9, organizationId: '1', role: OrgRole.OWNER, status: MembershipStatus.ACTIVE,
+      });
+      memRepo.count.mockResolvedValue(1); // last owner
+      await expect(service.updateRole('1', 9, OrgRole.ADMIN)).rejects.toThrow(ConflictException);
+      expect(memRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('persists when another owner exists', async () => {
+      memRepo.findOne.mockResolvedValue({
+        id: '1', userId: 9, organizationId: '1', role: OrgRole.OWNER, status: MembershipStatus.ACTIVE,
+      });
+      memRepo.count.mockResolvedValue(2);
+      memRepo.save.mockImplementation(async (m) => m);
+      userRepo.findOne = jest.fn().mockResolvedValue({ id: 9, username: 'x', email: null });
+      const result = await service.updateRole('1', 9, OrgRole.ADMIN);
+      expect(memRepo.save).toHaveBeenCalledWith(expect.objectContaining({ role: OrgRole.ADMIN }));
+      expect(result).toEqual({
+        userId: 9, username: 'x', email: null,
+        role: OrgRole.ADMIN, status: MembershipStatus.ACTIVE,
+      });
+    });
+
+    it('decrypts email when present in the returned member', async () => {
+      memRepo.findOne.mockResolvedValue({
+        id: '1', userId: 9, organizationId: '1', role: OrgRole.ADMIN, status: MembershipStatus.ACTIVE,
+      });
+      memRepo.save.mockImplementation(async (m) => m);
+      userRepo.findOne = jest.fn().mockResolvedValue({
+        id: 9, username: 'x',
+        email: { v: 1, k: 'k', iv: 'iv', c: 'c', t: 't', aad: 'User.email:9' },
+      });
+      kms.decrypt.mockResolvedValue('x@x.cl');
+      const result = await service.updateRole('1', 9, OrgRole.CLINICIAN);
+      expect(result.email).toBe('x@x.cl');
+      expect(kms.decrypt).toHaveBeenCalledWith(
+        expect.objectContaining({ v: 1 }),
+        'User.email:9',
+        '1',
+      );
+    });
+
+    it('throws NotFound when membership does not exist', async () => {
+      memRepo.findOne.mockResolvedValue(null);
+      await expect(service.updateRole('1', 9, OrgRole.ADMIN)).rejects.toThrow(NotFoundException);
     });
   });
 });

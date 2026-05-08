@@ -229,4 +229,39 @@ describe('Org administration (e2e)', () => {
       expect(owner.email).toBe('owner@org.cl');
     });
   });
+
+  describe('PATCH /api/org/members/:userId', () => {
+    it('demotes the admin to clinician', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/org/members/${fx.adminId}`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ role: 'clinician' })
+        .expect(200);
+      expect(res.body).toEqual(expect.objectContaining({ userId: fx.adminId, role: 'clinician' }));
+    });
+
+    it('rejects role=owner with 400', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/org/members/${fx.adminId}`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ role: 'owner' })
+        .expect(400);
+    });
+
+    it('refuses to demote the last owner with 409', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/org/members/${fx.ownerId}`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ role: 'admin' })
+        .expect(409);
+    });
+
+    it('rejects clinician role with 403', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/org/members/${fx.adminId}`)
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .send({ role: 'clinician' })
+        .expect(403);
+    });
+  });
 });

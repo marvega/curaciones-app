@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
@@ -74,5 +74,36 @@ export class OrgService {
         };
       }),
     );
+  }
+
+  async updateRole(
+    organizationId: string,
+    userId: number,
+    role: OrgRole,
+  ): Promise<Member> {
+    const membership = await this.memRepo.findOne({
+      where: { organizationId, userId, status: MembershipStatus.ACTIVE },
+    });
+    if (!membership) throw new NotFoundException('Member not found');
+    if (membership.role === OrgRole.OWNER && role !== OrgRole.OWNER) {
+      const owners = await this.memRepo.count({
+        where: { organizationId, role: OrgRole.OWNER, status: MembershipStatus.ACTIVE },
+      });
+      if (owners <= 1) throw new ConflictException('Cannot demote the last owner');
+    }
+    membership.role = role;
+    await this.memRepo.save(membership);
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new Error(`User ${userId} not found after membership update`);
+    const email = user.email
+      ? await this.kms.decrypt(user.email, `User.email:${user.id}`, organizationId)
+      : null;
+    return {
+      userId: user.id,
+      username: user.username,
+      email,
+      role: membership.role,
+      status: membership.status,
+    };
   }
 }
