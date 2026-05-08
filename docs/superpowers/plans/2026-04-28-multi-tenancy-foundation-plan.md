@@ -6483,14 +6483,17 @@ For each, follow the same 4-test pattern (list, fetch 404, update 404, delete 40
 ## Pre-flight (T-30m)
 
 1. Announce maintenance to user.
-2. Confirm Resend API key in Railway env: `RESEND_API_KEY`, `EMAIL_FROM`.
+2. Confirm Resend API key in Render env: `RESEND_API_KEY`, `EMAIL_FROM`.
 3. Confirm AWS env: `KMS_CMK_ARN`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 4. Verify staging migration test green in CI.
 
 ## Step 1 — Stop traffic
 
+Suspend the backend service via Render dashboard or API:
+
 ```bash
-railway service pause backend
+curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/$RENDER_BACKEND_SERVICE_ID/suspend"
 ```
 
 ## Step 2 — Fresh dump
@@ -6531,8 +6534,11 @@ Expected: `[audit:verify] OK — N rows verified for org 1`.
 
 ## Step 6 — Resume traffic
 
+Resume the backend service via Render dashboard or API:
+
 ```bash
-railway service resume backend
+curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/$RENDER_BACKEND_SERVICE_ID/resume"
 ```
 
 ## Step 7 — Smoke test
@@ -6546,9 +6552,9 @@ railway service resume backend
 ## Rollback (only if any of 4-7 fails)
 
 ```bash
-railway service pause backend
+# Suspend backend in Render dashboard (or via API as in Step 1)
 pg_restore --clean --if-exists -d "$DATABASE_URL_PROD" pre-migration-*.dump
-railway service resume backend
+# Resume backend in Render dashboard (or via API as in Step 6)
 git push --force origin <previous-deploy-sha>:main   # only if you really must
 ```
 
@@ -6624,8 +6630,11 @@ Document each as a checklist item. Capture screenshots for evidence.
 
 - [ ] **Step 1: Pause staging**
 
+Suspend the `backend-staging` service via Render dashboard or API:
+
 ```bash
-railway service pause backend-staging
+curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/$RENDER_BACKEND_STAGING_SERVICE_ID/suspend"
 ```
 
 - [ ] **Step 2: Restore the dump**
@@ -6644,8 +6653,11 @@ Expected: `OK: column absent`.
 
 - [ ] **Step 4: Resume staging**
 
+Resume the `backend-staging` service via Render dashboard or API:
+
 ```bash
-railway service resume backend-staging
+curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/$RENDER_BACKEND_STAGING_SERVICE_ID/resume"
 ```
 
 ### Task 12.6: Final readiness commit

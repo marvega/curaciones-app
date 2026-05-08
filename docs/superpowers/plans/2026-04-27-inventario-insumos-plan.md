@@ -4301,7 +4301,7 @@ gh pr create --title "feat(inventory): Phase 1 — catalog, lots, weekly counts,
 - [ ] Manual smoke: import catalog → seed canasta → reception → count → export Excel
 - [ ] Verify no regression in existing app (Pacientes, Curaciones, Reportes)
 - [ ] After merge, verify Render backend deploy succeeds and memory remains stable
-- [ ] Verify Railway frontend deploy succeeds
+- [ ] Verify Render frontend deploy succeeds
 EOF
 )"
 ```

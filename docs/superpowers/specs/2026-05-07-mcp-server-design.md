@@ -21,7 +21,7 @@ Este sub-spec define el servicio MCP que un cliente Claude conecta vía OAuth, v
 | # | Decisión | Elección | Razón |
 |---|---|---|---|
 | D1 | Alcance del spec | Hitos 3.1–3.5 (sin submission ni landing) | Submission tiene gates de marketing/legal distintos; mejor sub-spec aparte |
-| D2 | Estructura del repo | Subdir autónomo `mcp-server/` con package.json propio, deploy Railway separado | Failure isolation real, evolución independiente del backend, costo bajo de mantener tipos vía OpenAPI export |
+| D2 | Estructura del repo | Subdir autónomo `mcp-server/` con package.json propio, deploy Render separado | Failure isolation real, evolución independiente del backend, costo bajo de mantener tipos vía OpenAPI export |
 | D3 | Token validation | JWT verification con JWKS público | El AS de Sub #2 ya emite JWT firmados con clave pública; introspection deshabilitada; passthrough simple |
 | D4 | Tracing distribuido | **Diferido** a sub-spec "Observabilidad" posterior. v1 usa pino + correlation-id | El backend hoy no tiene OTel; instrumentar ambos lados infla el spec ~30%. Logs + correlation cubren 80% del valor de debugging |
 | D5 | Multi-tenancy | Org se ata al grant OAuth (consent del Sub #2 ya pregunta cuál); JWT lleva `org_id`; MCP no expone tool `switch_org` | Mantiene la regla "MCP no autoriza, solo proxy-ea"; un grant = una org es la línea OAuth limpia |
@@ -275,7 +275,7 @@ Required check para PRs a `main`.
 
 ## 10. Deployment + secrets
 
-### 10.1 Servicio Railway nuevo: `curaciones-mcp`
+### 10.1 Servicio Render nuevo: `curaciones-mcp`
 
 | Setting | Valor |
 |---|---|
@@ -291,7 +291,7 @@ Required check para PRs a `main`.
 
 | Var | Ejemplo | Descripción |
 |---|---|---|
-| `PORT` | `3001` | provisto por Railway |
+| `PORT` | `3001` | provisto por Render |
 | `BACKEND_URL` | `https://api.<placeholder>` | base URL del backend |
 | `OAUTH_ISSUER` | `https://api.<placeholder>` | claim `iss` esperado |
 | `OAUTH_JWKS_URL` | `https://api.<placeholder>/jwks.json` | endpoint JWKS |
@@ -331,7 +331,7 @@ Restricto a orígenes MCP conocidos (`https://claude.ai`, `https://*.anthropic.c
 
 Sub #3 cerrado cuando:
 
-1. Servicio `mcp-server` deployado en Railway en `mcp.<placeholder>`, accesible vía streamable-HTTP.
+1. Servicio `mcp-server` deployado en Render en `mcp.<placeholder>`, accesible vía streamable-HTTP.
 2. Las 19 tools v1 + `whoami` implementadas, cada una con scope check, mapping al backend, error handling per §7.
 3. JWT validation con JWKS público (`/jwks.json` del backend) funcional; MCP valida firma + `iss` + `aud=OAUTH_ISSUER` + `exp/nbf`. Sin cambios en el AS.
 4. Las 5 tools con elicitation funcionan en cliente que la soporta (verificado con MCP Inspector) y degradan correctamente en cliente que no.
@@ -370,6 +370,6 @@ Sub #3 cerrado cuando:
 | 5 | Tools con elicitation (5 tools): create_patient, update_patient, register_curacion, create_appointment, register_canasta_consumption |
 | 6 | Reports (monthly_report) + whoami |
 | 7 | Logging + redaction + correlation-id end-to-end |
-| 8 | Documentación interna + smoke test manual + Railway deploy a `mcp.<placeholder>` |
+| 8 | Documentación interna + smoke test manual + Render deploy a `mcp.<placeholder>` |
 
 Detalles de cada fase + checks de verificación viven en el plan de implementación (writing-plans).

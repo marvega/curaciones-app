@@ -36,7 +36,7 @@ Un usuario de un CESFAM puede:
 | D6 | SSO empresarial | **Diferido a v2.** Cuando aplique, será principalmente OIDC con Microsoft (Azure AD / Entra ID), que es lo que usan los CESFAMs y centros médicos chilenos. SAML genérico no se prioriza. |
 | D7 | Idioma / región | Español Chile, RUT como ID nacional, datos en UTC. i18n diferida. |
 | D8 | Stack runtime | NestJS + TypeORM + Postgres para sub-proyectos #1 y #2; Node + TypeScript SDK MCP para #3. Sin reescritura de stack. |
-| D9 | Hosting v1 | Railway como dev/staging y placeholder de prod. Migración a infra controlable (AWS/GCP) cuando salgamos del pilot. |
+| D9 | Hosting v1 | Render como dev/staging y placeholder de prod. Migración a infra controlable (AWS/GCP) cuando salgamos del pilot. |
 
 ---
 
@@ -241,7 +241,7 @@ Campos cifrados (lista mínima v1):
 
 ### 5.5 Data residency placeholder
 
-Hoy Railway no garantiza residencia en CL. **Spec asume hosting en US/EU para v1**, con compromiso explícito de migración a CL antes de cualquier cliente público chileno cuya normativa requiera residencia local. Las normativas específicas (Ley 19.628, MINSAL, FONASA, etc.) deben validarse con asesoría legal antes de comprometer L3. Documentar este gap en el contrato/DPA con cláusula de servicio explícita: "no apto para datos sujetos a residencia local hasta versión L3".
+Hoy Render no garantiza residencia en CL. **Spec asume hosting en US/EU para v1**, con compromiso explícito de migración a CL antes de cualquier cliente público chileno cuya normativa requiera residencia local. Las normativas específicas (Ley 19.628, MINSAL, FONASA, etc.) deben validarse con asesoría legal antes de comprometer L3. Documentar este gap en el contrato/DPA con cláusula de servicio explícita: "no apto para datos sujetos a residencia local hasta versión L3".
 
 ---
 
@@ -315,5 +315,5 @@ Estas no se preempt-deciden en este umbrella; cada sub-spec las resuelve con inf
 - Lista exacta de scopes y granularidad → spec #2
 - Lista exacta de las 18 tools v1, schemas JSON, descripciones → spec #3
 - Estrategia de paginación en tools (cursor vs offset) → spec #3
-- Plataforma definitiva de hosting prod (Railway vs AWS vs GCP) → decisión de ops, no de spec
+- Plataforma definitiva de hosting prod (Render vs AWS vs GCP) → decisión de ops, no de spec
 - Branding y dominio comercial final → decisión de producto, no de spec

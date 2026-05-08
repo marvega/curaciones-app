@@ -535,8 +535,8 @@ Razón: pocas writes concurrentes (1 user activo). Online migration (dual-write)
 **Runbook:**
 
 ```
-0. Pre-flight: backup verificado restaurable, snapshot Railway, anuncio al user
-1. Stop backend (Railway pause)
+0. Pre-flight: backup verificado restaurable, snapshot Render, anuncio al user
+1. Stop backend (Render suspend)
 2. Dump fresco: pg_dump -Fc > pre-migration-<timestamp>.dump
 3. Apply migration 1714400000000-MultiTenancyFoundation.ts:
    a. CREATE TABLES: organization, organization_membership,
@@ -640,5 +640,5 @@ Cubre: invitation flow, login, refresh rotation, refresh-reuse-attack detection,
 - Detalles UI fina: copy de invitación email, microcopy de errores, validaciones de form (Zod schemas)
 - Implementación específica de Resend templates (MJML + react-email)
 - Configuración de IAM en AWS para el `KmsUser` que la app usará
-- Cómo se almacenan AWS credentials en Railway env (rotación, restricción a operaciones KMS)
+- Cómo se almacenan AWS credentials en Render env (rotación, restricción a operaciones KMS)
 - Lista exacta endpoint↔rol matrix (apéndice del plan)

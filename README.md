@@ -9,7 +9,7 @@ Sistema de gestión de curaciones para clínica. Backend NestJS + frontend React
 | Backend | NestJS 10, TypeORM, PostgreSQL |
 | Frontend | React 18, Vite, react-router-dom |
 | Auth | JWT (passport-jwt) |
-| Deploy | Render (backend + DB), Railway (frontend) |
+| Deploy | Render (backend + frontend + DB) |
 
 ## Local dev
 
@@ -82,6 +82,6 @@ Se aplica como `APP_GUARD` global desde `app.module.ts`.
 
 | Servicio | Plataforma | Branch |
 |---|---|---|
-| Backend | Render | `main` (auto-deploy) |
-| Frontend | Railway | `main` (auto-deploy) |
+| Backend | Render | `prd` (auto-deploy) |
+| Frontend | Render | `prd` (auto-deploy) |
 | DB | Render Postgres | — |

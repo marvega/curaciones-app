@@ -6,7 +6,7 @@
 
 **Architecture:** Standalone Node service in `mcp-server/` (monorepo subdir, no workspace). Receives MCP streamable-HTTP requests, validates JWT bearers via JWKS from the backend, enforces scope per tool from a static catalog, proxies HTTP to `api.<placeholder>` with the bearer reused, maps backend HTTP responses to MCP tool results. Zero shared code with backend; only contract is HTTP. Types regenerated from backend OpenAPI.
 
-**Tech Stack:** Node 20, TypeScript, Fastify 5, `@modelcontextprotocol/sdk`, `undici`, `pino`, `jose`, `vitest`. Deployed as separate Railway service `curaciones-mcp` pinned to `main` (autoDeploy=on commit).
+**Tech Stack:** Node 20, TypeScript, Fastify 5, `@modelcontextprotocol/sdk`, `undici`, `pino`, `jose`, `vitest`. Deployed as separate Render service `curaciones-mcp` pinned to `main` (autoDeploy=on commit).
 
 **Spec:** `docs/superpowers/specs/2026-05-07-mcp-server-design.md`
 
@@ -1029,11 +1029,10 @@ git add mcp-server/src/server.ts mcp-server/src/server.test.ts
 git commit -m "feat(mcp): fastify bootstrap with /health endpoint"
 ```
 
-### Task 1.5: Dockerfile + Railway configuration
+### Task 1.5: Dockerfile (Render deployment)
 
 **Files:**
 - Create: `mcp-server/Dockerfile`
-- Create: `mcp-server/railway.toml`
 
 - [ ] **Step 1: Create Dockerfile**
 
@@ -1064,20 +1063,15 @@ EXPOSE 3001
 CMD ["node", "dist/server.js"]
 ```
 
-- [ ] **Step 2: Create railway.toml**
+- [ ] **Step 2: Configure Render service**
 
-Create `mcp-server/railway.toml`:
+Create the `curaciones-mcp` service in the Render dashboard pointing at `mcp-server/` root:
+- Runtime: Docker (uses the Dockerfile above)
+- Health check path: `/health`
+- Auto-deploy: on commit to `main`
+- Region/plan to match the rest of the stack
 
-```toml
-[build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
-
-[deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 30
-restartPolicyType = "ON_FAILURE"
-```
+(Render reads service config from the dashboard or `render.yaml`; no per-service config file inside `mcp-server/` is required.)
 
 - [ ] **Step 3: Verify Docker build works locally**
 
@@ -1091,8 +1085,8 @@ Expected: `{"status":"ok"...}`. Stop with Ctrl-C.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add mcp-server/Dockerfile mcp-server/railway.toml
-git commit -m "chore(mcp): Dockerfile + Railway config"
+git add mcp-server/Dockerfile
+git commit -m "chore(mcp): Dockerfile for Render deployment"
 ```
 
 ### Task 1.6: GitHub Actions CI workflow
@@ -3315,7 +3309,7 @@ Expected: clean exit on both
 
 Open `docs/superpowers/specs/2026-05-07-mcp-server-design.md` §12. For each numbered item, confirm:
 
-1. ✅ Servicio mcp-server deployado: deferred to Railway-side (post-merge step)
+1. ✅ Servicio mcp-server deployado: deferred to Render-side (post-merge step)
 2. ✅ 19 tools + whoami implementadas: verified by `tools/catalog.test.ts` and per-tool tests
 3. ✅ JWT validation con JWKS: verified by `jwt-verifier.test.ts`
 4. ✅ Las 5 tools con elicitation: verified by tests + manual smoke step 10
@@ -3336,7 +3330,7 @@ Save a short memory entry summarizing:
 - Acopla con backend via JWT validation (aud=issuer, sin cambios al AS)
 - Cursor pagination agregada al backend en fase 0
 - CI workflow nuevo `mcp-build-test.yml` con OpenAPI drift check
-- DoD §12 cumplido localmente; deploy a Railway pendiente como step manual posterior
+- DoD §12 cumplido localmente; deploy a Render pendiente como step manual posterior
 
 Per memory rules, save as a `project_*` memory file with the relevant facts.
 
@@ -3357,7 +3351,7 @@ After writing this plan, the spec was re-read with fresh eyes against this plan:
 - §7 Errors ✓ (Phase 2.4)
 - §8 Logging ✓ (Phase 1.3)
 - §9 Testing ✓ (Phase 8.1 + per-tool unit tests)
-- §10 Deployment ✓ (Phase 1.5 Dockerfile/railway.toml; Phase 1.6 CI)
+- §10 Deployment ✓ (Phase 1.5 Dockerfile + Render service; Phase 1.6 CI)
 - §11 Out-of-scope ✓ (no tasks for OTel, submission, etc.)
 - §12 DoD ✓ (Phase 9.2 verification)
 
