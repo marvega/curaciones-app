@@ -18,6 +18,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { JwtUser } from '../auth/jwt-user.type';
 import { OrgService } from './org.service';
+import { EstablishmentsService } from '../establishments/establishments.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
@@ -28,7 +29,10 @@ import { InviteMemberDto } from './dto/invite-member.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin', 'owner')
 export class OrgController {
-  constructor(private readonly org: OrgService) {}
+  constructor(
+    private readonly org: OrgService,
+    private readonly establishments: EstablishmentsService,
+  ) {}
 
   @Get('settings')
   getSettings(@CurrentUser() user: JwtUser) {
@@ -79,5 +83,10 @@ export class OrgController {
       dto.email,
       dto.role,
     );
+  }
+
+  @Get('establishments')
+  listEstablishments() {
+    return this.establishments.list();
   }
 }

@@ -441,4 +441,32 @@ describe('Org administration (e2e)', () => {
         .expect(401);
     });
   });
+
+  describe('GET /api/org/establishments', () => {
+    it('returns establishments for the org', async () => {
+      const ds = app.get(DataSource);
+      await ds.query(
+        `INSERT INTO "establishments"("name","comuna","organizationId") VALUES ($1,$2,$3)`,
+        ['CESFAM Test', 'Quilpué', fx.orgId],
+      );
+      const res = await request(app.getHttpServer())
+        .get('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      expect(res.body).toContainEqual(
+        expect.objectContaining({ name: 'CESFAM Test', comuna: 'Quilpué' }),
+      );
+    });
+
+    it('rejects clinician with 403', async () => {
+      await request(app.getHttpServer())
+        .get('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .expect(403);
+    });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer()).get('/api/org/establishments').expect(401);
+    });
+  });
 });
