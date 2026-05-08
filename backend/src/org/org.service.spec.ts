@@ -10,6 +10,7 @@ import {
 } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
 import { Invitation } from '../auth/invitation.entity';
+import { InvitationsService } from '../auth/invitations.service';
 import { KMS_SERVICE } from '../kms/kms.service';
 
 describe('OrgService', () => {
@@ -26,9 +27,11 @@ describe('OrgService', () => {
   let invRepo: { find: jest.Mock };
   let kms: { decrypt: jest.Mock; encrypt: jest.Mock };
   let manager: { getRepository: jest.Mock; transaction: jest.Mock };
+  let invitationsService: { create: jest.Mock };
 
   beforeEach(async () => {
     orgRepo = { findOne: jest.fn(), save: jest.fn() };
+    invitationsService = { create: jest.fn() };
     manager = {
       getRepository: jest.fn(),
       transaction: jest.fn(async (fn) => fn(manager)),
@@ -52,6 +55,7 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(Invitation), useValue: invRepo },
         { provide: KMS_SERVICE, useValue: kms },
+        { provide: InvitationsService, useValue: invitationsService },
       ],
     }).compile();
     service = m.get(OrgService);
@@ -209,6 +213,44 @@ describe('OrgService', () => {
     it('throws NotFound when membership does not exist', async () => {
       memRepo.findOne.mockResolvedValue(null);
       await expect(service.revokeMember('1', 9, 1)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('invite', () => {
+    const inviter = { id: 1, username: 'admin' };
+
+    it('rejects when an active member with the same email already exists', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 5 });
+      memRepo.findOne.mockResolvedValue({
+        id: '7', userId: 5, organizationId: '1', role: OrgRole.CLINICIAN, status: MembershipStatus.ACTIVE,
+      });
+      await expect(
+        service.invite('1', inviter, 'foo@test.cl', OrgRole.CLINICIAN),
+      ).rejects.toThrow(ConflictException);
+      expect(invitationsService.create).not.toHaveBeenCalled();
+    });
+
+    it('delegates to InvitationsService.create when no active member exists', async () => {
+      userRepo.findOne.mockResolvedValue(null);
+      invitationsService.create.mockResolvedValue({ invitation: { id: '42' }, token: 't' });
+      const result = await service.invite('1', inviter, 'foo@test.cl', OrgRole.CLINICIAN);
+      expect(invitationsService.create).toHaveBeenCalledWith(
+        '1',
+        1,
+        'admin',
+        'foo@test.cl',
+        OrgRole.CLINICIAN,
+      );
+      expect(result).toEqual({ id: '42' });
+    });
+
+    it('passes through when user exists but is not an active member of this org', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 5 });
+      memRepo.findOne.mockResolvedValue(null); // no active membership in this org
+      invitationsService.create.mockResolvedValue({ invitation: { id: '42' }, token: 't' });
+      const result = await service.invite('1', inviter, 'foo@test.cl', OrgRole.CLINICIAN);
+      expect(invitationsService.create).toHaveBeenCalled();
+      expect(result).toEqual({ id: '42' });
     });
   });
 

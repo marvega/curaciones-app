@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -19,6 +20,7 @@ import { JwtUser } from '../auth/jwt-user.type';
 import { OrgService } from './org.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
 
 @ApiTags('Org')
 @ApiBearerAuth()
@@ -67,5 +69,15 @@ export class OrgController {
   @Get('invitations')
   listInvitations(@CurrentUser() user: JwtUser) {
     return this.org.listInvitations(user.organizationId);
+  }
+
+  @Post('invitations')
+  invite(@CurrentUser() user: JwtUser, @Body() dto: InviteMemberDto) {
+    return this.org.invite(
+      user.organizationId,
+      { id: user.id, username: user.username },
+      dto.email,
+      dto.role,
+    );
   }
 }

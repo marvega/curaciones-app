@@ -377,4 +377,68 @@ describe('Org administration (e2e)', () => {
       await request(app.getHttpServer()).get('/api/org/invitations').expect(401);
     });
   });
+
+  describe('POST /api/org/invitations', () => {
+    it('creates an invitation and returns its id', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ email: 'newperson@test.cl', role: 'clinician' })
+        .expect(201);
+      expect(res.body).toEqual({ id: expect.any(String) });
+
+      const list = await request(app.getHttpServer())
+        .get('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      expect(list.body).toContainEqual(
+        expect.objectContaining({ email: 'newperson@test.cl', role: 'clinician' }),
+      );
+    });
+
+    it('rejects when inviting an existing active member with 409', async () => {
+      const ds = app.get(DataSource);
+      const dupEmail = 'dup@test.cl';
+      await ds.query(
+        `UPDATE "users" SET "emailHash"=$1 WHERE id=$2`,
+        [createHash('sha256').update(dupEmail.toLowerCase()).digest('hex'), fx.adminId],
+      );
+      await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ email: dupEmail, role: 'clinician' })
+        .expect(409);
+    });
+
+    it('rejects role=owner with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ email: 'someone@test.cl', role: 'owner' })
+        .expect(400);
+    });
+
+    it('rejects invalid email with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ email: 'not-an-email', role: 'clinician' })
+        .expect(400);
+    });
+
+    it('rejects clinician role with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .send({ email: 'x@test.cl', role: 'clinician' })
+        .expect(403);
+    });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .send({ email: 'x@test.cl', role: 'clinician' })
+        .expect(401);
+    });
+  });
 });

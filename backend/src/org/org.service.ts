@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, IsNull, MoreThan, Repository } from 'typeorm';
+import { createHash } from 'crypto';
 import { Organization } from '../organizations/organization.entity';
 import {
   OrganizationMembership,
@@ -9,6 +10,7 @@ import {
 } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
 import { Invitation } from '../auth/invitation.entity';
+import { InvitationsService } from '../auth/invitations.service';
 import { KMS_SERVICE, type KmsService } from '../kms/kms.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
@@ -32,6 +34,7 @@ export class OrgService {
     @InjectRepository(Invitation)
     private readonly invRepo: Repository<Invitation>,
     @Inject(KMS_SERVICE) private readonly kms: KmsService,
+    private readonly invitations: InvitationsService,
   ) {}
 
   async getSettings(organizationId: string): Promise<{ name: string; rut: string | null }> {
@@ -146,6 +149,34 @@ export class OrgService {
       membership.revokedAt = new Date();
       await memRepo.save(membership);
     });
+  }
+
+  async invite(
+    organizationId: string,
+    inviter: { id: number; username: string },
+    email: string,
+    role: OrgRole,
+  ): Promise<{ id: string }> {
+    const emailHash = createHash('sha256').update(email.toLowerCase()).digest('hex');
+    const existingUser = await this.userRepo.findOne({ where: { emailHash } });
+    if (existingUser) {
+      const existingMembership = await this.memRepo.findOne({
+        where: {
+          organizationId,
+          userId: existingUser.id,
+          status: MembershipStatus.ACTIVE,
+        },
+      });
+      if (existingMembership) throw new ConflictException('User is already a member');
+    }
+    const { invitation } = await this.invitations.create(
+      organizationId,
+      inviter.id,
+      inviter.username,
+      email,
+      role,
+    );
+    return { id: invitation.id };
   }
 
   async listInvitations(organizationId: string) {
