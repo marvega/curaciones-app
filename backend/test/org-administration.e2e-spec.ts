@@ -468,5 +468,30 @@ describe('Org administration (e2e)', () => {
     it('rejects without a JWT', async () => {
       await request(app.getHttpServer()).get('/api/org/establishments').expect(401);
     });
+
+    it('does not leak establishments from another org', async () => {
+      const ds = app.get(DataSource);
+      // Create a second org with one establishment
+      const [otherOrg] = await ds.query(
+        `INSERT INTO "organizations"("name") VALUES ('Other Org') RETURNING id`,
+      );
+      await ds.query(
+        `INSERT INTO "establishments"("name","comuna","organizationId") VALUES ('FOREIGN','Otra Comuna',$1)`,
+        [String(otherOrg.id)],
+      );
+      // Also create one in the caller's org so we know the endpoint works
+      await ds.query(
+        `INSERT INTO "establishments"("name","comuna","organizationId") VALUES ('Mine','My Comuna',$1)`,
+        [fx.orgId],
+      );
+
+      const res = await request(app.getHttpServer())
+        .get('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      const names = res.body.map((e: { name: string }) => e.name);
+      expect(names).toContain('Mine');
+      expect(names).not.toContain('FOREIGN');
+    });
   });
 });

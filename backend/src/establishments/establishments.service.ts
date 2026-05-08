@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Establishment } from './establishment.entity';
+import { findScoped, findOneScoped } from '../common/org-scoped.repository';
 
 @Injectable()
 export class EstablishmentsService {
@@ -11,11 +12,11 @@ export class EstablishmentsService {
   ) {}
 
   list(): Promise<Establishment[]> {
-    return this.repo.find({ order: { id: 'ASC' } });
+    return findScoped(this.repo, { order: { id: 'ASC' } });
   }
 
   async findById(id: number): Promise<Establishment> {
-    const e = await this.repo.findOne({ where: { id } });
+    const e = await findOneScoped(this.repo, { where: { id } });
     if (!e) throw new NotFoundException(`Establishment ${id} not found`);
     return e;
   }
