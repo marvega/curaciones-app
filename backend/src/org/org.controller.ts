@@ -27,4 +27,9 @@ export class OrgController {
   ) {
     return this.org.updateSettings(user.organizationId, dto);
   }
+
+  @Get('members')
+  listMembers(@CurrentUser() user: { organizationId: string }) {
+    return this.org.listMembers(user.organizationId);
+  }
 }

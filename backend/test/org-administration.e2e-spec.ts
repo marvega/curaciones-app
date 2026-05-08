@@ -169,4 +169,38 @@ describe('Org administration (e2e)', () => {
       expect(res.body).toEqual({ name: 'No Rut', rut: null });
     });
   });
+
+  describe('GET /api/org/members', () => {
+    it('returns active members of the org with username and role', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/org/members')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      expect(res.body).toHaveLength(3);
+      const usernames = res.body.map((m: { username: string }) => m.username).sort();
+      expect(usernames[0]).toMatch(/^admin_/);
+      expect(usernames[1]).toMatch(/^clin_/);
+      expect(usernames[2]).toMatch(/^owner_/);
+      for (const m of res.body) {
+        expect(m).toEqual(
+          expect.objectContaining({
+            userId: expect.any(Number),
+            role: expect.stringMatching(/^(owner|admin|clinician|receptionist)$/),
+            status: 'active',
+          }),
+        );
+      }
+    });
+
+    it('rejects clinician with 403', async () => {
+      await request(app.getHttpServer())
+        .get('/api/org/members')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .expect(403);
+    });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer()).get('/api/org/members').expect(401);
+    });
+  });
 });
