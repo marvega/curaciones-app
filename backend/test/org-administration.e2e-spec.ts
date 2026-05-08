@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment,
+                  @typescript-eslint/no-unsafe-member-access,
+                  @typescript-eslint/no-unsafe-argument,
+                  @typescript-eslint/no-unsafe-call */
+// supertest's response bodies are JSON blobs typed as `any`; typing them
+// per-test adds noise without value in e2e (see oauth-multi-org.e2e-spec.ts).
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
@@ -59,7 +65,11 @@ async function seedOrgFixture(app: INestApplication): Promise<OrgFixture> {
     const [u] = await ds.query(
       `INSERT INTO "users"("username","passwordHash","emailHash","emailVerifiedAt","passwordChangedAt")
        VALUES ($1,$2,$3,now(),now()) RETURNING id`,
-      [username, passwordHash, createHash('sha256').update(`${username}@test.cl`).digest('hex')],
+      [
+        username,
+        passwordHash,
+        createHash('sha256').update(`${username}@test.cl`).digest('hex'),
+      ],
     );
     return u.id as number;
   };
@@ -87,7 +97,13 @@ async function seedOrgFixture(app: INestApplication): Promise<OrgFixture> {
     adminId,
     adminToken: await mintAccess(jwt, adminId, `admin_${tag}`, orgId, 'admin'),
     clinicianId,
-    clinicianToken: await mintAccess(jwt, clinicianId, `clin_${tag}`, orgId, 'clinician'),
+    clinicianToken: await mintAccess(
+      jwt,
+      clinicianId,
+      `clin_${tag}`,
+      orgId,
+      'clinician',
+    ),
   };
 }
 
@@ -114,7 +130,10 @@ describe('Org administration (e2e)', () => {
         .get('/api/org/settings')
         .set('Authorization', `Bearer ${fx.adminToken}`)
         .expect(200);
-      expect(res.body).toEqual({ name: expect.stringMatching(/^Org /), rut: '76.123.456-7' });
+      expect(res.body).toEqual({
+        name: expect.stringMatching(/^Org /),
+        rut: '76.123.456-7',
+      });
     });
 
     it('rejects without a JWT', async () => {
@@ -178,7 +197,9 @@ describe('Org administration (e2e)', () => {
         .set('Authorization', `Bearer ${fx.adminToken}`)
         .expect(200);
       expect(res.body).toHaveLength(3);
-      const usernames = res.body.map((m: { username: string }) => m.username).sort();
+      const usernames = res.body
+        .map((m: { username: string }) => m.username)
+        .sort();
       expect(usernames[0]).toMatch(/^admin_/);
       expect(usernames[1]).toMatch(/^clin_/);
       expect(usernames[2]).toMatch(/^owner_/);
@@ -188,7 +209,9 @@ describe('Org administration (e2e)', () => {
         expect(m).toEqual(
           expect.objectContaining({
             userId: expect.any(Number),
-            role: expect.stringMatching(/^(owner|admin|clinician|receptionist)$/),
+            role: expect.stringMatching(
+              /^(owner|admin|clinician|receptionist)$/,
+            ),
             status: 'active',
           }),
         );
@@ -209,23 +232,29 @@ describe('Org administration (e2e)', () => {
     it('decrypts member emails when present', async () => {
       const ds = app.get(DataSource);
       const kms = app.get<{
-        encrypt: (plain: string, aad: string, orgId: string) => Promise<unknown>;
+        encrypt: (
+          plain: string,
+          aad: string,
+          orgId: string,
+        ) => Promise<unknown>;
       }>(KMS_SERVICE);
       const encrypted = await kms.encrypt(
         'owner@org.cl',
         `User.email:${fx.ownerId}`,
         fx.orgId,
       );
-      await ds.query(
-        `UPDATE "users" SET "email" = $1 WHERE id = $2`,
-        [JSON.stringify(encrypted), fx.ownerId],
-      );
+      await ds.query(`UPDATE "users" SET "email" = $1 WHERE id = $2`, [
+        JSON.stringify(encrypted),
+        fx.ownerId,
+      ]);
 
       const res = await request(app.getHttpServer())
         .get('/api/org/members')
         .set('Authorization', `Bearer ${fx.adminToken}`)
         .expect(200);
-      const owner = res.body.find((m: { userId: number }) => m.userId === fx.ownerId);
+      const owner = res.body.find(
+        (m: { userId: number }) => m.userId === fx.ownerId,
+      );
       expect(owner.email).toBe('owner@org.cl');
     });
   });
@@ -237,7 +266,9 @@ describe('Org administration (e2e)', () => {
         .set('Authorization', `Bearer ${fx.ownerToken}`)
         .send({ role: 'clinician' })
         .expect(200);
-      expect(res.body).toEqual(expect.objectContaining({ userId: fx.adminId, role: 'clinician' }));
+      expect(res.body).toEqual(
+        expect.objectContaining({ userId: fx.adminId, role: 'clinician' }),
+      );
     });
 
     it('rejects role=owner with 400', async () => {
@@ -291,7 +322,9 @@ describe('Org administration (e2e)', () => {
         .get('/api/org/members')
         .set('Authorization', `Bearer ${fx.ownerToken}`)
         .expect(200);
-      expect(list.body.find((m: { userId: number }) => m.userId === fx.adminId)).toBeUndefined();
+      expect(
+        list.body.find((m: { userId: number }) => m.userId === fx.adminId),
+      ).toBeUndefined();
     });
 
     it('rejects revoking yourself with 409', async () => {
@@ -332,7 +365,10 @@ describe('Org administration (e2e)', () => {
   describe('GET /api/org/invitations', () => {
     it('returns only pending invitations', async () => {
       const ds = app.get(DataSource);
-      const tokenHash = createHash('sha256').update('xxx').digest('hex').slice(0, 63);
+      const tokenHash = createHash('sha256')
+        .update('xxx')
+        .digest('hex')
+        .slice(0, 63);
       const futureExp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const pastExp = new Date(Date.now() - 1000);
 
@@ -374,7 +410,9 @@ describe('Org administration (e2e)', () => {
     });
 
     it('rejects without a JWT', async () => {
-      await request(app.getHttpServer()).get('/api/org/invitations').expect(401);
+      await request(app.getHttpServer())
+        .get('/api/org/invitations')
+        .expect(401);
     });
   });
 
@@ -392,17 +430,20 @@ describe('Org administration (e2e)', () => {
         .set('Authorization', `Bearer ${fx.adminToken}`)
         .expect(200);
       expect(list.body).toContainEqual(
-        expect.objectContaining({ email: 'newperson@test.cl', role: 'clinician' }),
+        expect.objectContaining({
+          email: 'newperson@test.cl',
+          role: 'clinician',
+        }),
       );
     });
 
     it('rejects when inviting an existing active member with 409', async () => {
       const ds = app.get(DataSource);
       const dupEmail = 'dup@test.cl';
-      await ds.query(
-        `UPDATE "users" SET "emailHash"=$1 WHERE id=$2`,
-        [createHash('sha256').update(dupEmail.toLowerCase()).digest('hex'), fx.adminId],
-      );
+      await ds.query(`UPDATE "users" SET "emailHash"=$1 WHERE id=$2`, [
+        createHash('sha256').update(dupEmail.toLowerCase()).digest('hex'),
+        fx.adminId,
+      ]);
       await request(app.getHttpServer())
         .post('/api/org/invitations')
         .set('Authorization', `Bearer ${fx.ownerToken}`)
@@ -466,7 +507,9 @@ describe('Org administration (e2e)', () => {
     });
 
     it('rejects without a JWT', async () => {
-      await request(app.getHttpServer()).get('/api/org/establishments').expect(401);
+      await request(app.getHttpServer())
+        .get('/api/org/establishments')
+        .expect(401);
     });
 
     it('does not leak establishments from another org', async () => {

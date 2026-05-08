@@ -41,10 +41,7 @@ export class OrgController {
   }
 
   @Patch('settings')
-  updateSettings(
-    @CurrentUser() user: JwtUser,
-    @Body() dto: UpdateSettingsDto,
-  ) {
+  updateSettings(@CurrentUser() user: JwtUser, @Body() dto: UpdateSettingsDto) {
     return this.org.updateSettings(user.organizationId, dto);
   }
 

@@ -1,4 +1,9 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { createHash } from 'crypto';
@@ -40,7 +45,9 @@ export class OrgService {
     private readonly invitations: InvitationsService,
   ) {}
 
-  async getSettings(organizationId: string): Promise<{ name: string; rut: string | null }> {
+  async getSettings(
+    organizationId: string,
+  ): Promise<{ name: string; rut: string | null }> {
     const org = await this.orgRepo.findOne({ where: { id: organizationId } });
     if (!org) throw new NotFoundException('Organization not found');
     return { name: org.name, rut: org.rut };
@@ -70,9 +77,16 @@ export class OrgService {
     return Promise.all(
       rows.map(async (r) => {
         const u = byId.get(r.userId);
-        if (!u) throw new Error(`Membership ${r.id} references missing user ${r.userId}`);
+        if (!u)
+          throw new Error(
+            `Membership ${r.id} references missing user ${r.userId}`,
+          );
         const email = u.email
-          ? await this.kms.decrypt(u.email, `User.email:${u.id}`, organizationId)
+          ? await this.kms.decrypt(
+              u.email,
+              `User.email:${u.id}`,
+              organizationId,
+            )
           : null;
         return {
           userId: u.id,
@@ -90,7 +104,11 @@ export class OrgService {
     manager: EntityManager = this.memRepo.manager,
   ): Promise<number> {
     return manager.getRepository(OrganizationMembership).count({
-      where: { organizationId, role: OrgRole.OWNER, status: MembershipStatus.ACTIVE },
+      where: {
+        organizationId,
+        role: OrgRole.OWNER,
+        status: MembershipStatus.ACTIVE,
+      },
     });
   }
 
@@ -99,26 +117,34 @@ export class OrgService {
     userId: number,
     role: OrgRole,
   ): Promise<Member> {
-    const membership = await this.memRepo.manager.transaction(async (manager) => {
-      const memRepo = manager.getRepository(OrganizationMembership);
-      const m = await memRepo.findOne({
-        where: { organizationId, userId, status: MembershipStatus.ACTIVE },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!m) throw new NotFoundException('Member not found');
-      if (m.role === OrgRole.OWNER && role !== OrgRole.OWNER) {
-        const owners = await this.countActiveOwners(organizationId, manager);
-        if (owners <= 1) throw new ConflictException('Cannot demote the last owner');
-      }
-      m.role = role;
-      await memRepo.save(m);
-      return m;
-    });
+    const membership = await this.memRepo.manager.transaction(
+      async (manager) => {
+        const memRepo = manager.getRepository(OrganizationMembership);
+        const m = await memRepo.findOne({
+          where: { organizationId, userId, status: MembershipStatus.ACTIVE },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!m) throw new NotFoundException('Member not found');
+        if (m.role === OrgRole.OWNER && role !== OrgRole.OWNER) {
+          const owners = await this.countActiveOwners(organizationId, manager);
+          if (owners <= 1)
+            throw new ConflictException('Cannot demote the last owner');
+        }
+        m.role = role;
+        await memRepo.save(m);
+        return m;
+      },
+    );
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new Error(`User ${userId} not found after membership update`);
+    if (!user)
+      throw new Error(`User ${userId} not found after membership update`);
     const email = user.email
-      ? await this.kms.decrypt(user.email, `User.email:${user.id}`, organizationId)
+      ? await this.kms.decrypt(
+          user.email,
+          `User.email:${user.id}`,
+          organizationId,
+        )
       : null;
     return {
       userId: user.id,
@@ -140,13 +166,18 @@ export class OrgService {
     await this.memRepo.manager.transaction(async (manager) => {
       const memRepo = manager.getRepository(OrganizationMembership);
       const membership = await memRepo.findOne({
-        where: { organizationId, userId: targetUserId, status: MembershipStatus.ACTIVE },
+        where: {
+          organizationId,
+          userId: targetUserId,
+          status: MembershipStatus.ACTIVE,
+        },
         lock: { mode: 'pessimistic_write' },
       });
       if (!membership) throw new NotFoundException('Member not found');
       if (membership.role === OrgRole.OWNER) {
         const owners = await this.countActiveOwners(organizationId, manager);
-        if (owners <= 1) throw new ConflictException('Cannot revoke the last owner');
+        if (owners <= 1)
+          throw new ConflictException('Cannot revoke the last owner');
       }
       membership.status = MembershipStatus.REVOKED;
       membership.revokedAt = new Date();
@@ -160,7 +191,9 @@ export class OrgService {
     email: string,
     role: OrgRole,
   ): Promise<{ id: string }> {
-    const emailHash = createHash('sha256').update(email.toLowerCase()).digest('hex');
+    const emailHash = createHash('sha256')
+      .update(email.toLowerCase())
+      .digest('hex');
     const existingUser = await this.userRepo.findOne({ where: { emailHash } });
     if (existingUser) {
       const existingMembership = await this.memRepo.findOne({
@@ -170,7 +203,8 @@ export class OrgService {
           status: MembershipStatus.ACTIVE,
         },
       });
-      if (existingMembership) throw new ConflictException('User is already a member');
+      if (existingMembership)
+        throw new ConflictException('User is already a member');
     }
     const { invitation } = await this.invitations.create(
       organizationId,
