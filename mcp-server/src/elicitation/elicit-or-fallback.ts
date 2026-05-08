@@ -4,7 +4,7 @@ export type ElicitResult<T> =
   | { kind: 'value'; value: T }
   | { kind: 'fallback'; text: string };
 
-export interface ElicitOrFallbackArgs<T> {
+export interface ElicitOrFallbackArgs {
   capable: boolean;
   schema: ZodTypeAny;
   prompt: string;
@@ -20,7 +20,7 @@ function describeRequiredFields(schema: ZodTypeAny, partial: Record<string, unkn
   return [];
 }
 
-export async function elicitOrFallback<T>(args: ElicitOrFallbackArgs<T>): Promise<ElicitResult<T>> {
+export async function elicitOrFallback<T>(args: ElicitOrFallbackArgs): Promise<ElicitResult<T>> {
   if (!args.capable) {
     const fields = describeRequiredFields(args.schema, args.partial);
     return {

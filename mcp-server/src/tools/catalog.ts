@@ -46,8 +46,6 @@ export interface ToolDef {
   handler: (input: unknown, ctx: ToolContext) => Promise<ToolResult>;
 }
 
-const stub: ToolDef['handler'] = async () => ({ content: [{ type: 'text', text: 'not implemented' }], isError: true });
-
 export const TOOLS: ToolDef[] = [
   // patients
   { name: 'search_patients', description: 'Busca pacientes por nombre, RUT o teléfono. Devuelve lista paginada con cursor.', requiredScope: 'patients:read', readOnly: true, destructive: false, inputSchema: z.object({ q: z.string().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional() }), handler: (input, ctx) => searchPatientsHandler(input as any, ctx) },
