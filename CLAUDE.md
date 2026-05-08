@@ -1,4 +1,8 @@
 
+## Style
+
+Be extremely concise. Sacrifice grammar for concision. Tables > prose. Fragments OK.
+
 ## Branching model
 
 Two long-lived branches with distinct purposes — never conflate them.
