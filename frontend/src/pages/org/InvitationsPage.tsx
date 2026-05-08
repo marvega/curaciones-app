@@ -3,6 +3,7 @@ import { listOrgInvitations } from '../../services/api';
 import { PageHeader, DataTable } from '../../components/ui';
 import type { ColumnDef } from '../../components/ui';
 import { useToast } from '../../contexts/useToast';
+import { OrgTabs } from '../../components/org/OrgTabs';
 
 interface Invite {
   id: string;
@@ -49,6 +50,7 @@ export default function InvitationsPage() {
 
   return (
     <>
+      <OrgTabs />
       <PageHeader title="Invitaciones pendientes" />
       <DataTable
         columns={cols}

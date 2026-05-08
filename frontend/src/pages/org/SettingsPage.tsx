@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getOrgSettings, updateOrgSettings } from '../../services/api';
 import { Button, Input, PageHeader, Card } from '../../components/ui';
 import { useToast } from '../../contexts/useToast';
+import { OrgTabs } from '../../components/org/OrgTabs';
 
 export default function OrgSettingsPage() {
   const [name, setName] = useState('');
@@ -28,6 +29,7 @@ export default function OrgSettingsPage() {
 
   return (
     <>
+      <OrgTabs />
       <PageHeader title="Información de la organización" />
       <Card>
         <div className="space-y-3">

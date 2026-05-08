@@ -16,6 +16,7 @@ import {
 import type { ColumnDef } from '../../components/ui';
 import { useToast } from '../../contexts/useToast';
 import { useConfirm } from '../../contexts/useConfirm';
+import { OrgTabs } from '../../components/org/OrgTabs';
 
 interface Member {
   userId: number;
@@ -116,6 +117,7 @@ export default function MembersPage() {
 
   return (
     <>
+      <OrgTabs />
       <PageHeader
         title="Miembros"
         actions={<Button onClick={() => setOpen(true)}>Invitar</Button>}
