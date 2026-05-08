@@ -62,4 +62,9 @@ export class OrgController {
   ) {
     await this.org.revokeMember(user.organizationId, userId, user.id);
   }
+
+  @Get('invitations')
+  listInvitations(@CurrentUser() user: { organizationId: string }) {
+    return this.org.listInvitations(user.organizationId);
+  }
 }

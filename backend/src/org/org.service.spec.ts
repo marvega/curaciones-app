@@ -9,6 +9,7 @@ import {
   OrgRole,
 } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
+import { Invitation } from '../auth/invitation.entity';
 import { KMS_SERVICE } from '../kms/kms.service';
 
 describe('OrgService', () => {
@@ -16,12 +17,14 @@ describe('OrgService', () => {
   let orgRepo: { findOne: jest.Mock; save: jest.Mock };
   let memRepo: { find: jest.Mock; findOne: jest.Mock; save: jest.Mock; count: jest.Mock };
   let userRepo: { findBy: jest.Mock; findOne: jest.Mock };
+  let invRepo: { find: jest.Mock };
   let kms: { decrypt: jest.Mock; encrypt: jest.Mock };
 
   beforeEach(async () => {
     orgRepo = { findOne: jest.fn(), save: jest.fn() };
     memRepo = { find: jest.fn(), findOne: jest.fn(), save: jest.fn(), count: jest.fn() };
     userRepo = { findBy: jest.fn(), findOne: jest.fn() };
+    invRepo = { find: jest.fn() };
     kms = { decrypt: jest.fn(), encrypt: jest.fn() };
     const m = await Test.createTestingModule({
       providers: [
@@ -29,6 +32,7 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(Organization), useValue: orgRepo },
         { provide: getRepositoryToken(OrganizationMembership), useValue: memRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Invitation), useValue: invRepo },
         { provide: KMS_SERVICE, useValue: kms },
       ],
     }).compile();
@@ -187,6 +191,39 @@ describe('OrgService', () => {
     it('throws NotFound when membership does not exist', async () => {
       memRepo.findOne.mockResolvedValue(null);
       await expect(service.revokeMember('1', 9, 1)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('listInvitations', () => {
+    it('maps rows with ISO date strings', async () => {
+      const created = new Date('2026-05-01T10:00:00Z');
+      const expires = new Date('2026-05-08T10:00:00Z');
+      invRepo.find.mockResolvedValue([
+        { id: '42', email: 'a@x.cl', role: OrgRole.ADMIN, createdAt: created, expiresAt: expires },
+      ]);
+      const result = await service.listInvitations('1');
+      expect(result).toEqual([
+        {
+          id: '42',
+          email: 'a@x.cl',
+          role: OrgRole.ADMIN,
+          createdAt: created.toISOString(),
+          expiresAt: expires.toISOString(),
+        },
+      ]);
+      expect(invRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: '1',
+          }),
+          order: { createdAt: 'DESC' },
+        }),
+      );
+    });
+
+    it('returns [] when there are no pending invitations', async () => {
+      invRepo.find.mockResolvedValue([]);
+      expect(await service.listInvitations('1')).toEqual([]);
     });
   });
 });

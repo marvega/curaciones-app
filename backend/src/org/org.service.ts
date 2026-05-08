@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, MoreThan, Repository } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 import {
   OrganizationMembership,
@@ -8,6 +8,7 @@ import {
   OrgRole,
 } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
+import { Invitation } from '../auth/invitation.entity';
 import { KMS_SERVICE, type KmsService } from '../kms/kms.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
@@ -28,6 +29,8 @@ export class OrgService {
     private readonly memRepo: Repository<OrganizationMembership>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Invitation)
+    private readonly invRepo: Repository<Invitation>,
     @Inject(KMS_SERVICE) private readonly kms: KmsService,
   ) {}
 
@@ -128,5 +131,24 @@ export class OrgService {
     membership.status = MembershipStatus.REVOKED;
     membership.revokedAt = new Date();
     await this.memRepo.save(membership);
+  }
+
+  async listInvitations(organizationId: string) {
+    const rows = await this.invRepo.find({
+      where: {
+        organizationId,
+        acceptedAt: IsNull(),
+        cancelledAt: IsNull(),
+        expiresAt: MoreThan(new Date()),
+      },
+      order: { createdAt: 'DESC' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      role: r.role,
+      createdAt: r.createdAt.toISOString(),
+      expiresAt: r.expiresAt.toISOString(),
+    }));
   }
 }

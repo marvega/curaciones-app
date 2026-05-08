@@ -328,4 +328,53 @@ describe('Org administration (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('GET /api/org/invitations', () => {
+    it('returns only pending invitations', async () => {
+      const ds = app.get(DataSource);
+      const tokenHash = createHash('sha256').update('xxx').digest('hex').slice(0, 63);
+      const futureExp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const pastExp = new Date(Date.now() - 1000);
+
+      await ds.query(
+        `INSERT INTO "invitations"("organizationId","email","role","invitedById","tokenHash","expiresAt")
+         VALUES ($1,$2,'admin',$3,$4,$5)`,
+        [fx.orgId, 'pending@test.cl', fx.ownerId, tokenHash + '1', futureExp],
+      );
+      await ds.query(
+        `INSERT INTO "invitations"("organizationId","email","role","invitedById","tokenHash","expiresAt","acceptedAt")
+         VALUES ($1,$2,'admin',$3,$4,$5,now())`,
+        [fx.orgId, 'accepted@test.cl', fx.ownerId, tokenHash + '2', futureExp],
+      );
+      await ds.query(
+        `INSERT INTO "invitations"("organizationId","email","role","invitedById","tokenHash","expiresAt")
+         VALUES ($1,$2,'admin',$3,$4,$5)`,
+        [fx.orgId, 'expired@test.cl', fx.ownerId, tokenHash + '3', pastExp],
+      );
+
+      const res = await request(app.getHttpServer())
+        .get('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toEqual(
+        expect.objectContaining({
+          email: 'pending@test.cl',
+          role: 'admin',
+          id: expect.any(String),
+        }),
+      );
+    });
+
+    it('rejects clinician with 403', async () => {
+      await request(app.getHttpServer())
+        .get('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .expect(403);
+    });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer()).get('/api/org/invitations').expect(401);
+    });
+  });
 });
