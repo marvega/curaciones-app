@@ -12,6 +12,7 @@ import { User } from '../users/user.entity';
 import { Invitation } from '../auth/invitation.entity';
 import { InvitationsService } from '../auth/invitations.service';
 import { KMS_SERVICE } from '../kms/kms.service';
+import { Establishment } from '../establishments/establishment.entity';
 
 describe('OrgService', () => {
   let service: OrgService;
@@ -25,6 +26,7 @@ describe('OrgService', () => {
   };
   let userRepo: { findBy: jest.Mock; findOne: jest.Mock };
   let invRepo: { find: jest.Mock };
+  let estRepo: { create: jest.Mock; save: jest.Mock };
   let kms: { decrypt: jest.Mock; encrypt: jest.Mock };
   let manager: { getRepository: jest.Mock; transaction: jest.Mock };
   let invitationsService: { create: jest.Mock };
@@ -46,6 +48,7 @@ describe('OrgService', () => {
     manager.getRepository.mockReturnValue(memRepo);
     userRepo = { findBy: jest.fn(), findOne: jest.fn() };
     invRepo = { find: jest.fn() };
+    estRepo = { create: jest.fn(), save: jest.fn() };
     kms = { decrypt: jest.fn(), encrypt: jest.fn() };
     const m = await Test.createTestingModule({
       providers: [
@@ -54,6 +57,7 @@ describe('OrgService', () => {
         { provide: getRepositoryToken(OrganizationMembership), useValue: memRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(Invitation), useValue: invRepo },
+        { provide: getRepositoryToken(Establishment), useValue: estRepo },
         { provide: KMS_SERVICE, useValue: kms },
         { provide: InvitationsService, useValue: invitationsService },
       ],
@@ -284,6 +288,16 @@ describe('OrgService', () => {
     it('returns [] when there are no pending invitations', async () => {
       invRepo.find.mockResolvedValue([]);
       expect(await service.listInvitations('1')).toEqual([]);
+    });
+  });
+
+  describe('createEstablishment', () => {
+    it('persists with organizationId stamped from the caller', async () => {
+      estRepo.create.mockImplementation((data) => ({ ...data }));
+      estRepo.save.mockImplementation(async (e) => ({ id: 7, ...e }));
+      const result = await service.createEstablishment('1', { name: 'New', comuna: 'V' });
+      expect(estRepo.create).toHaveBeenCalledWith({ name: 'New', comuna: 'V', organizationId: '1' });
+      expect(result).toEqual({ id: 7, name: 'New', comuna: 'V' });
     });
   });
 });

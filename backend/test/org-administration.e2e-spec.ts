@@ -494,4 +494,77 @@ describe('Org administration (e2e)', () => {
       expect(names).not.toContain('FOREIGN');
     });
   });
+
+  describe('POST /api/org/establishments', () => {
+    it('creates an establishment and returns it', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: 'New Site', comuna: 'Viña' })
+        .expect(201);
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          id: expect.any(Number),
+          name: 'New Site',
+          comuna: 'Viña',
+        }),
+      );
+
+      const list = await request(app.getHttpServer())
+        .get('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      expect(list.body).toContainEqual(
+        expect.objectContaining({ name: 'New Site', comuna: 'Viña' }),
+      );
+    });
+
+    it('rejects empty name with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: '', comuna: 'X' })
+        .expect(400);
+    });
+
+    it('rejects missing comuna with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: 'X' })
+        .expect(400);
+    });
+
+    it('rejects clinician with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .send({ name: 'Y', comuna: 'Z' })
+        .expect(403);
+    });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .send({ name: 'X', comuna: 'Y' })
+        .expect(401);
+    });
+
+    it('persists into the caller’s org (not another org)', async () => {
+      // create the establishment via the API as the admin
+      await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: 'OnlyMine', comuna: 'X' })
+        .expect(201);
+
+      // verify directly in DB that the row's organizationId matches fx.orgId
+      const ds = app.get(DataSource);
+      const rows = await ds.query(
+        `SELECT "organizationId" FROM "establishments" WHERE name = 'OnlyMine'`,
+      );
+      expect(rows).toHaveLength(1);
+      expect(String(rows[0].organizationId)).toBe(fx.orgId);
+    });
+  });
 });

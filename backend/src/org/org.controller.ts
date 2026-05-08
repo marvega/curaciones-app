@@ -22,6 +22,7 @@ import { EstablishmentsService } from '../establishments/establishments.service'
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { CreateEstablishmentDto } from './dto/create-establishment.dto';
 
 @ApiTags('Org')
 @ApiBearerAuth()
@@ -88,5 +89,13 @@ export class OrgController {
   @Get('establishments')
   listEstablishments() {
     return this.establishments.list();
+  }
+
+  @Post('establishments')
+  createEstablishment(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CreateEstablishmentDto,
+  ) {
+    return this.org.createEstablishment(user.organizationId, dto);
   }
 }

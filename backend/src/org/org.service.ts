@@ -12,6 +12,7 @@ import { User } from '../users/user.entity';
 import { Invitation } from '../auth/invitation.entity';
 import { InvitationsService } from '../auth/invitations.service';
 import { KMS_SERVICE, type KmsService } from '../kms/kms.service';
+import { Establishment } from '../establishments/establishment.entity';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 export type Member = {
@@ -33,6 +34,8 @@ export class OrgService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Invitation)
     private readonly invRepo: Repository<Invitation>,
+    @InjectRepository(Establishment)
+    private readonly estRepo: Repository<Establishment>,
     @Inject(KMS_SERVICE) private readonly kms: KmsService,
     private readonly invitations: InvitationsService,
   ) {}
@@ -177,6 +180,19 @@ export class OrgService {
       role,
     );
     return { id: invitation.id };
+  }
+
+  async createEstablishment(
+    organizationId: string,
+    dto: { name: string; comuna: string },
+  ): Promise<{ id: number; name: string; comuna: string }> {
+    const row = this.estRepo.create({
+      name: dto.name,
+      comuna: dto.comuna,
+      organizationId,
+    });
+    const saved = await this.estRepo.save(row);
+    return { id: saved.id, name: saved.name, comuna: saved.comuna };
   }
 
   async listInvitations(organizationId: string) {
