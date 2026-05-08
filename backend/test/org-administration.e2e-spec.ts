@@ -6,6 +6,7 @@ import { createHash, randomBytes } from 'crypto';
 import { v4 as uuid } from 'uuid';
 import request from 'supertest';
 import { createTestApp, cleanDatabase } from './setup';
+import { KMS_SERVICE } from 'src/kms/kms.service';
 
 interface OrgFixture {
   orgId: string;
@@ -181,6 +182,8 @@ describe('Org administration (e2e)', () => {
       expect(usernames[0]).toMatch(/^admin_/);
       expect(usernames[1]).toMatch(/^clin_/);
       expect(usernames[2]).toMatch(/^owner_/);
+      const roles = res.body.map((m: { role: string }) => m.role).sort();
+      expect(roles).toEqual(['admin', 'clinician', 'owner']);
       for (const m of res.body) {
         expect(m).toEqual(
           expect.objectContaining({
@@ -201,6 +204,29 @@ describe('Org administration (e2e)', () => {
 
     it('rejects without a JWT', async () => {
       await request(app.getHttpServer()).get('/api/org/members').expect(401);
+    });
+
+    it('decrypts member emails when present', async () => {
+      const ds = app.get(DataSource);
+      const kms = app.get<{
+        encrypt: (plain: string, aad: string, orgId: string) => Promise<unknown>;
+      }>(KMS_SERVICE);
+      const encrypted = await kms.encrypt(
+        'owner@org.cl',
+        `User.email:${fx.ownerId}`,
+        fx.orgId,
+      );
+      await ds.query(
+        `UPDATE "users" SET "email" = $1 WHERE id = $2`,
+        [JSON.stringify(encrypted), fx.ownerId],
+      );
+
+      const res = await request(app.getHttpServer())
+        .get('/api/org/members')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(200);
+      const owner = res.body.find((m: { userId: number }) => m.userId === fx.ownerId);
+      expect(owner.email).toBe('owner@org.cl');
     });
   });
 });

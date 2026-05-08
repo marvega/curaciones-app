@@ -550,11 +550,23 @@ Expected: 3 new failures (404 on the new endpoint).
 
 - [ ] **Step 3: Extend service with `listMembers`**
 
-In `backend/src/org/org.service.ts`, add the import and method. Note the additional repos go in the constructor — update its signature:
+In `backend/src/org/org.service.ts`, add the imports and method. Note the additional repos and the `KMS_SERVICE` injection go in the constructor — update its signature. Import `KMS_SERVICE` from `../kms/kms.service`; `KmsModule` is `@Global()` so no module changes are required.
+
+Also add a reusable `Member` type alias above the `@Injectable()` decorator so `updateRole` (Task 4) can return the same shape:
 
 ```typescript
-import { OrganizationMembership, MembershipStatus } from '../organizations/organization-membership.entity';
+import { Inject } from '@nestjs/common';
+import { OrganizationMembership, MembershipStatus, OrgRole } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
+import { KMS_SERVICE, type KmsService } from '../kms/kms.service';
+
+export type Member = {
+  userId: number;
+  username: string;
+  email: string | null;
+  role: OrgRole;
+  status: MembershipStatus;
+};
 
 constructor(
   @InjectRepository(Organization)
@@ -563,10 +575,11 @@ constructor(
   private readonly memRepo: Repository<OrganizationMembership>,
   @InjectRepository(User)
   private readonly userRepo: Repository<User>,
+  @Inject(KMS_SERVICE) private readonly kms: KmsService,
 ) {}
 
 // new method
-async listMembers(organizationId: string) {
+async listMembers(organizationId: string): Promise<Member[]> {
   const rows = await this.memRepo.find({
     where: { organizationId, status: MembershipStatus.ACTIVE },
     order: { id: 'ASC' },
@@ -575,17 +588,22 @@ async listMembers(organizationId: string) {
   const userIds = rows.map((r) => r.userId);
   const users = await this.userRepo.findBy({ id: In(userIds) });
   const byId = new Map(users.map((u) => [u.id, u]));
-  return rows.map((r) => {
-    const u = byId.get(r.userId);
-    if (!u) throw new Error(`Membership ${r.id} references missing user ${r.userId}`);
-    return {
-      userId: u.id,
-      username: u.username,
-      email: u.email?.plaintext ?? null,
-      role: r.role,
-      status: r.status,
-    };
-  });
+  return Promise.all(
+    rows.map(async (r) => {
+      const u = byId.get(r.userId);
+      if (!u) throw new Error(`Membership ${r.id} references missing user ${r.userId}`);
+      const email = u.email
+        ? await this.kms.decrypt(u.email, `User.email:${u.id}`, organizationId)
+        : null;
+      return {
+        userId: u.id,
+        username: u.username,
+        email,
+        role: r.role,
+        status: r.status,
+      };
+    }),
+  );
 }
 ```
 
@@ -595,7 +613,7 @@ Add `In` to the typeorm imports at the top of the file:
 import { In, Repository } from 'typeorm';
 ```
 
-The `email` field on `User` is the encrypted JSONB. After the column transformer auto-decrypts, the in-memory shape is `{ plaintext: string }`. Returning `email?.plaintext ?? null` is the documented contract. No try/catch — if decryption throws, the request fails (per fail-fast).
+The `email` field on `User` is encrypted JSONB. The TypeORM column transformer is a passthrough (it cannot call KMS synchronously), so the in-memory shape after a DB read is the raw `EncryptedField` object — service-layer code is responsible for explicit `kms.decrypt(...)` calls. The AAD format mirrors `PatientsService`: `User.email:<userId>`. No try/catch — if decryption throws, the request fails (per fail-fast).
 
 - [ ] **Step 4: Add the controller route**
 
@@ -738,7 +756,7 @@ In `backend/src/org/org.service.ts`, add:
 import { ConflictException } from '@nestjs/common';
 import { OrgRole } from '../organizations/organization-membership.entity';
 
-async updateRole(organizationId: string, userId: number, role: OrgRole) {
+async updateRole(organizationId: string, userId: number, role: OrgRole): Promise<Member> {
   const membership = await this.memRepo.findOne({
     where: { organizationId, userId, status: MembershipStatus.ACTIVE },
   });
@@ -751,12 +769,17 @@ async updateRole(organizationId: string, userId: number, role: OrgRole) {
   }
   membership.role = role;
   await this.memRepo.save(membership);
-  // Return the same shape as listMembers' rows
+  // Return the same shape as listMembers' rows (Member). Email must be
+  // explicitly decrypted via KMS_SERVICE — the column transformer is a
+  // passthrough, not an auto-decrypter.
   const [user] = await this.userRepo.findBy({ id: In([userId]) });
+  const email = user.email
+    ? await this.kms.decrypt(user.email, `User.email:${user.id}`, organizationId)
+    : null;
   return {
     userId: user.id,
     username: user.username,
-    email: user.email?.plaintext ?? null,
+    email,
     role: membership.role,
     status: membership.status,
   };
@@ -1658,7 +1681,7 @@ Log in via the running frontend (http://localhost:5173) as `admin` (or via `POST
 
 If any step fails, capture the failing request from the browser network tab and triage before continuing.
 
-Note on `Member.email`: in this drill DB the prod KMS key isn’t available locally, so the `email` column may surface as `null` after the column transformer falls back. That is expected per the spec.
+Note on `Member.email`: `email` is decrypted in the service via `KmsService`. In a drilled DB the local KMS key won't match prod's encrypted bytes, so decryption will throw — that's the expected fail-fast behavior, not a bug. Tests seed users with `email = null` to avoid this; one e2e test encrypts via the running `KMS_SERVICE` to round-trip the contract.
 
 - [ ] **Step 6: Tear down the smoke instance**
 

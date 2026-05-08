@@ -1,13 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 import {
   OrganizationMembership,
   MembershipStatus,
+  OrgRole,
 } from '../organizations/organization-membership.entity';
 import { User } from '../users/user.entity';
+import { KMS_SERVICE, type KmsService } from '../kms/kms.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+
+export type Member = {
+  userId: number;
+  username: string;
+  email: string | null;
+  role: OrgRole;
+  status: MembershipStatus;
+};
 
 @Injectable()
 export class OrgService {
@@ -18,6 +28,7 @@ export class OrgService {
     private readonly memRepo: Repository<OrganizationMembership>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @Inject(KMS_SERVICE) private readonly kms: KmsService,
   ) {}
 
   async getSettings(organizationId: string): Promise<{ name: string; rut: string | null }> {
@@ -38,7 +49,7 @@ export class OrgService {
     return { name: saved.name, rut: saved.rut };
   }
 
-  async listMembers(organizationId: string) {
+  async listMembers(organizationId: string): Promise<Member[]> {
     const rows = await this.memRepo.find({
       where: { organizationId, status: MembershipStatus.ACTIVE },
       order: { id: 'ASC' },
@@ -47,16 +58,21 @@ export class OrgService {
     const userIds = rows.map((r) => r.userId);
     const users = await this.userRepo.findBy({ id: In(userIds) });
     const byId = new Map(users.map((u) => [u.id, u]));
-    return rows.map((r) => {
-      const u = byId.get(r.userId);
-      if (!u) throw new Error(`Membership ${r.id} references missing user ${r.userId}`);
-      return {
-        userId: u.id,
-        username: u.username,
-        email: u.email?.plaintext ?? null,
-        role: r.role,
-        status: r.status,
-      };
-    });
+    return Promise.all(
+      rows.map(async (r) => {
+        const u = byId.get(r.userId);
+        if (!u) throw new Error(`Membership ${r.id} references missing user ${r.userId}`);
+        const email = u.email
+          ? await this.kms.decrypt(u.email, `User.email:${u.id}`, organizationId)
+          : null;
+        return {
+          userId: u.id,
+          username: u.username,
+          email,
+          role: r.role,
+          status: r.status,
+        };
+      }),
+    );
   }
 }
