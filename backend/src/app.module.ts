@@ -56,6 +56,7 @@ import { RefreshToken } from './auth/refresh-token.entity';
 import { Invitation } from './auth/invitation.entity';
 import { PasswordResetToken } from './auth/password-reset-token.entity';
 import { OAuthModule } from './oauth/oauth.module';
+import { OrgModule } from './org/org.module';
 import { OAuthClient } from './oauth/entities/oauth-client.entity';
 import { OAuthGrant } from './oauth/entities/oauth-grant.entity';
 import { OAuthToken } from './oauth/entities/oauth-token.entity';
@@ -90,6 +91,7 @@ import { OAuthRevocation } from './oauth/entities/oauth-revocation.entity';
       },
     }),
     AuthModule,
+    OrgModule,
     UsersModule,
     PatientsModule,
     CuracionesModule,
