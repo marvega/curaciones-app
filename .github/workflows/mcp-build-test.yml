@@ -14,9 +14,24 @@ jobs:
   mcp:
     name: mcp (build + test)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mcp-server
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: curaciones_test
+          POSTGRES_USER: curaciones
+          POSTGRES_PASSWORD: curaciones
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_test
+      KMS_BACKEND: memory
+      EMAIL_BACKEND: noop
     steps:
       - uses: actions/checkout@v4
 
@@ -24,10 +39,42 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: mcp-server/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            mcp-server/package-lock.json
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+
+      - name: Run backend migrations (so OpenAPI export starts cleanly)
+        run: npm run migration:run
+        working-directory: backend
+
+      - name: Export OpenAPI from backend
+        run: npm run openapi:export
+        working-directory: backend
+
+      - name: Install mcp-server deps
+        run: npm ci
+        working-directory: mcp-server
+
+      - name: Generate api-types
+        run: npx openapi-typescript ../backend/openapi.json -o src/api-types/index.ts
+        working-directory: mcp-server
+
+      - name: Verify api-types are usable (typecheck)
+        run: npm run typecheck
+        working-directory: mcp-server
+
+      - name: Lint
+        run: npm run lint
+        working-directory: mcp-server
+
+      - name: Test
+        run: npm test
+        working-directory: mcp-server
+
+      - name: Build
+        run: npm run build
+        working-directory: mcp-server
