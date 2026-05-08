@@ -32,7 +32,10 @@ async function mintAccess(
       organizationName: 'OrgFixture',
       role,
       establishmentIds: [],
-      passwordChangedAt: Date.now(),
+      // Offset 1s into the future to remain ahead of the DB row's `passwordChangedAt`
+      // which is set with Postgres `now()` at insertion. JwtStrategy rejects when
+      // DB > token; equality is fine.
+      passwordChangedAt: Date.now() + 1000,
       jti: uuid(),
     },
     { expiresIn: '15m' },
@@ -115,6 +118,13 @@ describe('Org administration (e2e)', () => {
 
     it('rejects without a JWT', async () => {
       await request(app.getHttpServer()).get('/api/org/settings').expect(401);
+    });
+
+    it('rejects clinician role with 403', async () => {
+      await request(app.getHttpServer())
+        .get('/api/org/settings')
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .expect(403);
     });
   });
 });
