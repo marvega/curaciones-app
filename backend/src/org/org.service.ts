@@ -106,4 +106,27 @@ export class OrgService {
       status: membership.status,
     };
   }
+
+  async revokeMember(
+    organizationId: string,
+    targetUserId: number,
+    callerUserId: number,
+  ): Promise<void> {
+    if (targetUserId === callerUserId) {
+      throw new ConflictException('Cannot revoke yourself');
+    }
+    const membership = await this.memRepo.findOne({
+      where: { organizationId, userId: targetUserId, status: MembershipStatus.ACTIVE },
+    });
+    if (!membership) throw new NotFoundException('Member not found');
+    if (membership.role === OrgRole.OWNER) {
+      const owners = await this.memRepo.count({
+        where: { organizationId, role: OrgRole.OWNER, status: MembershipStatus.ACTIVE },
+      });
+      if (owners <= 1) throw new ConflictException('Cannot revoke the last owner');
+    }
+    membership.status = MembershipStatus.REVOKED;
+    membership.revokedAt = new Date();
+    await this.memRepo.save(membership);
+  }
 }

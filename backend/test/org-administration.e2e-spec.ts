@@ -263,5 +263,69 @@ describe('Org administration (e2e)', () => {
         .send({ role: 'clinician' })
         .expect(403);
     });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/org/members/${fx.adminId}`)
+        .send({ role: 'clinician' })
+        .expect(401);
+    });
+
+    it('returns 404 when target userId is not a member of the caller’s org', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/org/members/999999`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .send({ role: 'clinician' })
+        .expect(404);
+    });
+  });
+
+  describe('DELETE /api/org/members/:userId', () => {
+    it('revokes another active member with 204', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/org/members/${fx.adminId}`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .expect(204);
+
+      const list = await request(app.getHttpServer())
+        .get('/api/org/members')
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .expect(200);
+      expect(list.body.find((m: { userId: number }) => m.userId === fx.adminId)).toBeUndefined();
+    });
+
+    it('rejects revoking yourself with 409', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/org/members/${fx.ownerId}`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .expect(409);
+    });
+
+    it('rejects revoking the last owner with 409', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/org/members/${fx.ownerId}`)
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .expect(409);
+    });
+
+    it('rejects clinician role with 403', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/org/members/${fx.adminId}`)
+        .set('Authorization', `Bearer ${fx.clinicianToken}`)
+        .expect(403);
+    });
+
+    it('rejects without a JWT', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/org/members/${fx.adminId}`)
+        .expect(401);
+    });
+
+    it('returns 404 when target userId is not a member of the caller’s org', async () => {
+      await request(app.getHttpServer())
+        .delete(`/api/org/members/999999`)
+        .set('Authorization', `Bearer ${fx.ownerToken}`)
+        .expect(404);
+    });
   });
 });

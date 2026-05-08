@@ -154,4 +154,39 @@ describe('OrgService', () => {
       await expect(service.updateRole('1', 9, OrgRole.ADMIN)).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('revokeMember', () => {
+    it('rejects revoking yourself with 409', async () => {
+      await expect(service.revokeMember('1', 9, 9)).rejects.toThrow(ConflictException);
+      expect(memRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('rejects revoking the last owner with 409', async () => {
+      memRepo.findOne.mockResolvedValue({
+        id: '1', userId: 9, organizationId: '1', role: OrgRole.OWNER, status: MembershipStatus.ACTIVE,
+      });
+      memRepo.count.mockResolvedValue(1);
+      await expect(service.revokeMember('1', 9, 1)).rejects.toThrow(ConflictException);
+      expect(memRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('marks active membership as revoked', async () => {
+      memRepo.findOne.mockResolvedValue({
+        id: '1', userId: 9, organizationId: '1', role: OrgRole.ADMIN, status: MembershipStatus.ACTIVE,
+      });
+      memRepo.save.mockImplementation(async (m) => m);
+      await service.revokeMember('1', 9, 1);
+      expect(memRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: MembershipStatus.REVOKED,
+          revokedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('throws NotFound when membership does not exist', async () => {
+      memRepo.findOne.mockResolvedValue(null);
+      await expect(service.revokeMember('1', 9, 1)).rejects.toThrow(NotFoundException);
+    });
+  });
 });

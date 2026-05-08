@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -41,5 +52,14 @@ export class OrgController {
     @Body() dto: UpdateRoleDto,
   ) {
     return this.org.updateRole(user.organizationId, userId, dto.role);
+  }
+
+  @Delete('members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeMember(
+    @CurrentUser() user: { id: number; organizationId: string },
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    await this.org.revokeMember(user.organizationId, userId, user.id);
   }
 }
