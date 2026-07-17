@@ -25,6 +25,7 @@ import UiGalleryPage from './pages/dev/UiGalleryPage';
 import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import HelpPage from './pages/HelpPage';
 import SessionsPage from './pages/account/SessionsPage';
 import ChangePasswordPage from './pages/account/ChangePasswordPage';
 import MembersPage from './pages/org/MembersPage';
@@ -61,6 +62,7 @@ function App() {
               <Route path="inventory/audit-export" element={<AuditExportPage />} />
               <Route path="inventory/admin/catalog" element={<CatalogAdminPage />} />
               <Route path="inventory/admin/canasta" element={<CanastaAdminPage />} />
+              <Route path="ayuda" element={<HelpPage />} />
               <Route path="account/sessions" element={<SessionsPage />} />
               <Route path="account/change-password" element={<ChangePasswordPage />} />
               <Route path="org/members" element={<MembersPage />} />
