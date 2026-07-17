@@ -22,6 +22,7 @@ import {
   UserCircle,
   Building2,
   AppWindow,
+  HelpCircle,
 } from 'lucide-react';
 import type { AuthUser, OrgSummary } from '../contexts/AuthContext';
 
@@ -52,6 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/inventory/audit-export': 'Exportar Auditoría Canasta',
   '/inventory/admin/catalog': 'Catálogo de Productos',
   '/inventory/admin/canasta': 'Canasta CAPD',
+  '/ayuda': 'Ayuda',
 };
 
 interface SidebarContentProps {
@@ -186,6 +188,24 @@ function SidebarContent({
               {(!collapsed || mobile) && 'Mi organización'}
             </NavLink>
           </>
+        )}
+        {user && (
+          <NavLink
+            to="/ayuda"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+              } ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`
+            }
+            title={collapsed && !mobile ? 'Ayuda' : undefined}
+          >
+            <HelpCircle className="w-5 h-5 shrink-0" />
+            {(!collapsed || mobile) && 'Ayuda'}
+          </NavLink>
         )}
         {(currentOrg?.role || user) && (
           <>
