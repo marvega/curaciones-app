@@ -62,6 +62,7 @@ import { OAuthGrant } from './oauth/entities/oauth-grant.entity';
 import { OAuthToken } from './oauth/entities/oauth-token.entity';
 import { OAuthSigningKey } from './oauth/entities/oauth-signing-key.entity';
 import { OAuthRevocation } from './oauth/entities/oauth-revocation.entity';
+import { buildDbSslConfig } from './common/db-ssl.util';
 
 @Module({
   imports: [
@@ -84,7 +85,10 @@ import { OAuthRevocation } from './oauth/entities/oauth-revocation.entity';
       url: process.env.DATABASE_URL,
       entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct, Organization, OrganizationMembership, UserEstablishmentAssignment, RefreshToken, Invitation, PasswordResetToken, OAuthClient, OAuthGrant, OAuthToken, OAuthSigningKey, OAuthRevocation],
       synchronize: false,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: buildDbSslConfig({
+        nodeEnv: process.env.NODE_ENV,
+        databaseUrl: process.env.DATABASE_URL,
+      }),
       extra: {
         max: parseInt(process.env.DB_POOL_MAX ?? '3', 10),
         idleTimeoutMillis: 30000,

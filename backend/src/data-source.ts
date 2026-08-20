@@ -31,6 +31,7 @@ import { OAuthGrant } from './oauth/entities/oauth-grant.entity';
 import { OAuthToken } from './oauth/entities/oauth-token.entity';
 import { OAuthSigningKey } from './oauth/entities/oauth-signing-key.entity';
 import { OAuthRevocation } from './oauth/entities/oauth-revocation.entity';
+import { buildDbSslConfig } from './common/db-ssl.util';
 
 dotenv.config();
 
@@ -47,7 +48,10 @@ const AppDataSource = new DataSource({
     OAuthClient, OAuthGrant, OAuthToken, OAuthSigningKey, OAuthRevocation,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: buildDbSslConfig({
+    nodeEnv: process.env.NODE_ENV,
+    databaseUrl: process.env.DATABASE_URL,
+  }),
 });
 
 export default AppDataSource;
