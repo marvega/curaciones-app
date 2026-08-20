@@ -11,6 +11,9 @@ dist/
 backend/dist/
 frontend/dist/
 
+# Firebase CLI cache
+.firebase/
+
 # Environment
 .env
 .env.local
