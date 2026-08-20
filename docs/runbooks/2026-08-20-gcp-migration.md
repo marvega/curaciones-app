@@ -52,8 +52,45 @@ No Cloud Scheduler. No Cloud SQL (min ~US$10/mo).
 Live API: `https://curaciones-api-106799050068.us-west1.run.app`
 Hosting site: `curaciones` → `https://curaciones.web.app`
 
-Still to validate with real credentials (only the user has them): login, curaciones
-CRUD, and a photo upload through the UI. Everything below the app layer is proven.
+## End-to-end validation (done, then rolled back)
+
+Exercised through the browser against `https://curaciones.web.app`, logged in as
+`admin`:
+
+| Checked | Result |
+|---|---|
+| Login | works; dashboard renders |
+| Encrypted PII | patient RUT, name and phone all decrypt — the `KMS_LOCAL_MASTER_KEY` copied from Render matches the ciphertext in the restored DB |
+| Data integrity | dashboard reports 51 patients, matching the DB exactly |
+| Photo upload | uploaded a 70-byte PNG; object appeared in `gs://curaciones-uploads/photos/` under the app's own naming convention |
+| Photo read-back | the thumbnail rendered in the UI, so `/api/wound-photos/file/...` reads back through the gcsfuse mount too |
+| Console | no errors on a full patient-page load — in particular no KMS decryption failures |
+
+Everything the test wrote was then reverted:
+
+1. `snapshot.sh baseline` — full `pg_dump` plus exact `COUNT(*)` per table and the
+   audit chain head, taken **before** touching anything.
+2. Deleted the uploaded GCS object.
+3. `pg_restore --clean --if-exists` from the baseline dump.
+4. Verified: per-table counts `diff` clean across all 26 tables, audit chain head
+   back to `675|86dfbe0d…`, and `wound_photos_id_seq` back to `NULL` (never used),
+   so even the sequence bump is gone. Service still answers after the restore.
+
+## Pre-existing findings (not caused by this migration)
+
+Both live on `prd` and deserve their own fixes:
+
+1. **Seed passwords are hardcoded in source.** `backend/src/users/users.service.ts`
+   carries the plaintext production passwords for `admin` and `cynthia`. Anyone
+   with repo access has the credentials to the clinical system. Rotate them and
+   move seeding to env-supplied values.
+2. **`audit:verify` can never pass.** `computePayloadHash` feeds
+   `createdAt.toISOString()` (millisecond precision) but Postgres stores
+   microseconds — e.g. row 1 is `2026-04-27 23:48:39.576297`. The stored
+   `payloadHash` cannot be reproduced from the stored row, so the verifier reports
+   `MISMATCH at row id=1` on untampered data. Confirmed it is not a bigint-vs-string
+   coercion issue: recomputing with both readings still misses. The hash-chain audit
+   trail is therefore unverifiable today, which matters for a clinical record.
 
 ## What is already verified
 
