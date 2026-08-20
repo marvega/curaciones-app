@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "curaciones",
     "public": "frontend/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "predeploy": ["VITE_API_URL=/api npm --prefix frontend run build"],
