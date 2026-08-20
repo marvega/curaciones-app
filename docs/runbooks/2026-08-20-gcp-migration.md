@@ -45,12 +45,15 @@ No Cloud Scheduler. No Cloud SQL (min ~US$10/mo).
 | 4 | Enable APIs, budget alert | **done** — 8 APIs on; budget `curaciones-guard` US$5 at 50/90/100% |
 | 5 | Artifact Registry + push | **done** — repo `curaciones` us-west1, image `api:3dc69f5`, 127.8 MB stored, cleanup keeps 2 |
 | 6 | Bucket + secrets + Cloud Run deploy | **done** — revision `curaciones-api-00001-zjj` live, GCS mount write-verified |
-| 7 | Firebase Hosting deploy | **pending** — needs `firebase login` (CLI has its own auth) |
+| 7 | Firebase Hosting deploy | **done** — live at `https://curaciones.web.app`, rewrite to Cloud Run verified |
 | 8 | DNS + custom domain | needs user DNS record |
 | 9 | Re-sync dump, cut over, delete Render | after 8 validates |
 
 Live API: `https://curaciones-api-106799050068.us-west1.run.app`
-Hosting site: `curaciones` → `https://curaciones.web.app` (project is Firebase-enabled)
+Hosting site: `curaciones` → `https://curaciones.web.app`
+
+Still to validate with real credentials (only the user has them): login, curaciones
+CRUD, and a photo upload through the UI. Everything below the app layer is proven.
 
 ## What is already verified
 
@@ -218,9 +221,16 @@ with site `curaciones`, so only the CLI's own login is missing — it does not r
 gcloud's credentials:
 
 ```bash
-firebase login                    # interactive, browser
-firebase deploy --only hosting    # predeploy bakes VITE_API_URL=/api
+firebase login                    # two steps: visit URL, then `firebase login <code>`
+firebase deploy --only hosting    # predeploy runs frontend `build:hosting`
 ```
+
+The predeploy hook must not start with an inline env assignment
+(`VITE_API_URL=/api npm ...`): firebase-tools warns about the `=`, silently skips
+the command, and still prints "Finished running predeploy script" — so a deploy
+from a clean checkout fails on a missing `frontend/dist`, or worse, ships a bundle
+built with the wrong API URL. Hence `frontend` owns a `build:hosting` script and
+the hook just calls it. Proven by deleting `frontend/dist` and redeploying.
 
 Verify on `https://curaciones.web.app` before touching DNS: login, curaciones
 CRUD, photo upload (proves the GCS mount end to end through the app), and a cold
