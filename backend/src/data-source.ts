@@ -26,6 +26,7 @@ import { UserEstablishmentAssignment } from './establishments/user-establishment
 import { RefreshToken } from './auth/refresh-token.entity';
 import { Invitation } from './auth/invitation.entity';
 import { PasswordResetToken } from './auth/password-reset-token.entity';
+import { buildDbSslConfig } from './common/db-ssl.util';
 
 dotenv.config();
 
@@ -41,7 +42,10 @@ const AppDataSource = new DataSource({
     RefreshToken, Invitation, PasswordResetToken,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: buildDbSslConfig({
+    nodeEnv: process.env.NODE_ENV,
+    databaseUrl: process.env.DATABASE_URL,
+  }),
 });
 
 export default AppDataSource;

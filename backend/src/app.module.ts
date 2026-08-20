@@ -54,6 +54,7 @@ import { UserEstablishmentAssignment } from './establishments/user-establishment
 import { RefreshToken } from './auth/refresh-token.entity';
 import { Invitation } from './auth/invitation.entity';
 import { PasswordResetToken } from './auth/password-reset-token.entity';
+import { buildDbSslConfig } from './common/db-ssl.util';
 
 @Module({
   imports: [
@@ -75,7 +76,10 @@ import { PasswordResetToken } from './auth/password-reset-token.entity';
       url: process.env.DATABASE_URL,
       entities: [Patient, Curacion, MonthlyCycle, User, Appointment, PatientStatusChange, CuracionEdit, AuditLog, WoundPhoto, WoundNote, ConsentSignature, Establishment, Product, ProductCode, Lot, LotMovement, StockCount, CanastaCategory, CanastaCategoryProduct, Organization, OrganizationMembership, UserEstablishmentAssignment, RefreshToken, Invitation, PasswordResetToken],
       synchronize: false,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: buildDbSslConfig({
+        nodeEnv: process.env.NODE_ENV,
+        databaseUrl: process.env.DATABASE_URL,
+      }),
       extra: {
         max: parseInt(process.env.DB_POOL_MAX ?? '3', 10),
         idleTimeoutMillis: 30000,
