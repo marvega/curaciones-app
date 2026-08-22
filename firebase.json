@@ -20,7 +20,21 @@
         }
       },
       {
-        "source": "/.well-known/**",
+        "source": "/.well-known/openid-configuration",
+        "run": {
+          "serviceId": "curaciones-api",
+          "region": "us-west1"
+        }
+      },
+      {
+        "source": "/.well-known/oauth-authorization-server",
+        "run": {
+          "serviceId": "curaciones-api",
+          "region": "us-west1"
+        }
+      },
+      {
+        "source": "/jwks.json",
         "run": {
           "serviceId": "curaciones-api",
           "region": "us-west1"
