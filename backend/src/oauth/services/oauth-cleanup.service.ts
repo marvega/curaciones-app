@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, LessThan } from 'typeorm';
 import { OAuthClient } from '../entities/oauth-client.entity';
@@ -22,7 +21,6 @@ export class OAuthCleanupService {
     @InjectRepository(OAuthSigningKey) private readonly keyRepo: Repository<OAuthSigningKey>,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async runDailyCleanup(): Promise<void> {
     const now = new Date();
     const orphanCutoff = new Date(now.getTime() - 30 * MS_PER_DAY);

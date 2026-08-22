@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ScheduleModule } from '@nestjs/schedule';
 import { OAuthClientThrottlerGuard } from './oauth/guards/oauth-client-throttler.guard';
 import { HealthController } from './health.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -66,7 +65,6 @@ import { buildDbSslConfig } from './common/db-ssl.util';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       useFactory: () => {
         const isProd = process.env.NODE_ENV === 'production';

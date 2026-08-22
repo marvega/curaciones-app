@@ -30,6 +30,8 @@ import { MultiAuthGuard } from './guards/multi-auth.guard';
 import { ConnectedAppsController } from './connected-apps/connected-apps.controller';
 import { ConnectedAppsService } from './connected-apps/connected-apps.service';
 import { OAuthCleanupService } from './services/oauth-cleanup.service';
+import { OAuthCleanupController } from './controllers/oauth-cleanup.controller';
+import { GoogleOidcVerifier } from './services/google-oidc.verifier';
 
 @Global()
 @Module({
@@ -48,6 +50,7 @@ import { OAuthCleanupService } from './services/oauth-cleanup.service';
     OAuthTokenController,
     ConsentController,
     ConnectedAppsController,
+    OAuthCleanupController,
   ],
   providers: [
     OAuthBootstrapService, OAuthSigningKeyService, OAuthGrantService,
@@ -57,6 +60,7 @@ import { OAuthCleanupService } from './services/oauth-cleanup.service';
     OAuthJwtStrategy, OAuthJwtGuard, OAuthScopeGuard,
     JwtAuthGuard, MultiAuthGuard,
     OAuthCleanupService,
+    GoogleOidcVerifier,
   ],
   exports: [
     OidcProviderSingleton, OAuthSigningKeyService, OAuthGrantService,
