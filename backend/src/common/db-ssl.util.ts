@@ -31,5 +31,20 @@ export function buildDbSslConfig(env: {
     );
   }
 
+  // The `ssl` parameter is a separate lever from `sslmode` and just as capable
+  // of disabling TLS: pg-connection-string turns ?ssl=0 into `ssl: false`, an
+  // empty ?ssl= into the falsy string '', and pg itself turns ?ssl=no-verify
+  // into { rejectUnauthorized: false }. Any other spelling is a value pg does
+  // not read as "verified TLS" at all. Only the two spellings pg normalises to
+  // plain `true` are allowed through.
+  if (params.has('ssl')) {
+    const ssl = params.get('ssl');
+    if (ssl !== 'true' && ssl !== '1') {
+      throw new Error(
+        `DATABASE_URL sets ssl=${ssl}, which pg does not read as verified TLS; remove it and use sslmode=verify-full`,
+      );
+    }
+  }
+
   return { rejectUnauthorized: true };
 }
