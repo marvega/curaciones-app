@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { OAuthCleanupController } from './oauth-cleanup.controller';
 
@@ -7,8 +7,16 @@ describe('OAuthCleanupController', () => {
   let cleanup: { runDailyCleanup: jest.Mock };
   let verifier: { verify: jest.Mock };
   let controller: OAuthCleanupController;
+  let warn: jest.SpyInstance;
+  let logged: string[];
 
   beforeEach(() => {
+    logged = [];
+    warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation((message: unknown) => {
+        logged.push(String(message));
+      });
     cleanup = { runDailyCleanup: jest.fn().mockResolvedValue(undefined) };
     verifier = { verify: jest.fn() };
     controller = new OAuthCleanupController(
@@ -19,6 +27,10 @@ describe('OAuthCleanupController', () => {
       'https://api.example/api/internal/oauth-cleanup';
     process.env.CLEANUP_SERVICE_ACCOUNT =
       'scheduler@proj.iam.gserviceaccount.com';
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
   });
 
   it('rejects a request with no bearer token', async () => {
@@ -120,6 +132,66 @@ describe('OAuthCleanupController', () => {
     const responses = errors.map((e) => e.getResponse());
     expect(responses).toEqual([responses[0], responses[0], responses[0]]);
     expect(JSON.stringify(responses[0])).not.toContain('aud');
+    // The reason went to the log, not to the caller.
+    expect(logged).toHaveLength(1);
+  });
+
+  // A lazily imported jose turns a boot-time crash into a per-request
+  // rejection, so the reason has to reach the operator even though it never
+  // reaches the caller.
+  it('logs why a verified token was rejected', async () => {
+    const joseError = Object.assign(new Error('unexpected "aud" claim value'), {
+      name: 'JWTClaimValidationFailed',
+      code: 'ERR_JWT_CLAIM_VALIDATION_FAILED',
+    });
+    verifier.verify.mockRejectedValue(joseError);
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toBe(
+      'Cleanup token rejected: JWTClaimValidationFailed ' +
+        '[ERR_JWT_CLAIM_VALIDATION_FAILED]: unexpected "aud" claim value',
+    );
+  });
+
+  it('logs the underlying cause when the JWKS endpoint is unreachable', async () => {
+    const fetchFailed = new TypeError('fetch failed');
+    fetchFailed.cause = Object.assign(
+      new Error('getaddrinfo ENOTFOUND www.googleapis.com'),
+      { code: 'ENOTFOUND' },
+    );
+    verifier.verify.mockRejectedValue(fetchFailed);
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged[0]).toBe(
+      'Cleanup token rejected: TypeError: fetch failed (cause: ENOTFOUND)',
+    );
+  });
+
+  it('never logs the token', async () => {
+    verifier.verify.mockRejectedValue(
+      new Error('signature verification failed'),
+    );
+    await expect(
+      controller.run('Bearer eyJhbGciOiJSUzI1NiJ9.SUPER-SECRET-TOKEN.sig'),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).not.toContain('SUPER-SECRET');
+  });
+
+  it('collapses the reason to one line so it cannot forge log records', async () => {
+    verifier.verify.mockRejectedValue(
+      new Error('boom\n2026-08-22 WARN [Auth] cleanup succeeded'),
+    );
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged[0]).not.toContain('\n');
+    expect(logged[0]).toBe(
+      'Cleanup token rejected: Error: boom 2026-08-22 WARN [Auth] cleanup succeeded',
+    );
   });
 });
 

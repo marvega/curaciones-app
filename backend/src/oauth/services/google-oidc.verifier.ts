@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import type { JWTVerifyGetKey } from 'jose';
 
 const GOOGLE_CERTS_URL = new URL('https://www.googleapis.com/oauth2/v3/certs');
-const GOOGLE_ISSUER = 'https://accounts.google.com';
+// Google has emitted both forms of `iss` for identity tokens. jose treats an
+// array as "any match" (lib/jwt_claims_set.js: `issuer.includes(payload.iss)`),
+// so accepting both costs nothing and avoids a permanent 401 tail on a job
+// that runs once a day.
+const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 
 @Injectable()
 export class GoogleOidcVerifier {
@@ -21,7 +25,7 @@ export class GoogleOidcVerifier {
     // wrong issuer, a wrong audience or an expired token. Callers must treat
     // any rejection as "not authorised".
     const { payload } = await jwtVerify(token, this.jwks, {
-      issuer: GOOGLE_ISSUER,
+      issuer: GOOGLE_ISSUERS,
       audience,
     });
     return {

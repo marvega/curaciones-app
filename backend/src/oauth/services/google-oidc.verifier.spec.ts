@@ -35,16 +35,34 @@ describe('GoogleOidcVerifier', () => {
     expect(mockJwks).toHaveBeenCalledTimes(1);
   });
 
-  it('pins the Google issuer and the caller-supplied audience', async () => {
+  it('pins the Google issuers and the caller-supplied audience', async () => {
     mockVerify.mockResolvedValue({
       payload: { email: 'a@b.iam.gserviceaccount.com' },
     } as never);
     await verifier.verify('tok', AUD);
     expect(mockVerify).toHaveBeenCalledWith('tok', 'JWKS_RESOLVER', {
-      issuer: 'https://accounts.google.com',
+      issuer: ['https://accounts.google.com', 'accounts.google.com'],
       audience: AUD,
     });
   });
+
+  // Google has emitted the bare form too, and jose treats an `issuer` array as
+  // "any match" (lib/jwt_claims_set.js:113 —
+  // `!(Array.isArray(issuer) ? issuer : [issuer]).includes(payload.iss)`), so
+  // listing it is what makes a token carrying it verifiable. The real jose
+  // cannot run in this suite (ESM under a CommonJS Jest runtime), so this pins
+  // the accepted set rather than re-testing jose's claim check.
+  it.each(['https://accounts.google.com', 'accounts.google.com'])(
+    'accepts the %s issuer form',
+    async (iss) => {
+      mockVerify.mockResolvedValue({
+        payload: { iss, email: 'a@b.iam.gserviceaccount.com' },
+      } as never);
+      await verifier.verify('tok', AUD);
+      const options = mockVerify.mock.calls[0][2] as { issuer: string[] };
+      expect(options.issuer).toContain(iss);
+    },
+  );
 
   it('returns the email claim of a verified token', async () => {
     mockVerify.mockResolvedValue({
