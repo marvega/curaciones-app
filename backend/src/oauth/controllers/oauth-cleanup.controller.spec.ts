@@ -128,12 +128,72 @@ describe('OAuthCleanupController', () => {
         .run(header)
         .catch((e: UnauthorizedException) => errors.push(e));
     }
-    expect(errors).toHaveLength(3);
+    // A validly signed token refused only on identity must be
+    // indistinguishable from the rest, even though it now logs too.
+    verifier.verify.mockResolvedValue({
+      email: 'someone-else@proj.iam.gserviceaccount.com',
+    });
+    await controller
+      .run('Bearer tok')
+      .catch((e: UnauthorizedException) => errors.push(e));
+
+    expect(errors).toHaveLength(4);
     const responses = errors.map((e) => e.getResponse());
-    expect(responses).toEqual([responses[0], responses[0], responses[0]]);
+    expect(responses).toEqual(responses.map(() => responses[0]));
     expect(JSON.stringify(responses[0])).not.toContain('aud');
-    // The reason went to the log, not to the caller.
+    expect(JSON.stringify(responses[0])).not.toContain('someone-else');
+    // Both reasons went to the log, neither to the caller.
+    expect(logged).toHaveLength(2);
+  });
+
+  // The one rejection that means a validly signed Google token with the right
+  // audience was refused purely on identity — a service account change we did
+  // not follow, or someone else's Google identity aimed here. It used to be the
+  // only failure mode that left no trace anywhere.
+  it('logs the service account that was presented', async () => {
+    verifier.verify.mockResolvedValue({
+      email: 'someone-else@proj.iam.gserviceaccount.com',
+    });
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged).toEqual([
+      'Cleanup token rejected: unexpected service account ' +
+        'someone-else@proj.iam.gserviceaccount.com',
+    ]);
+  });
+
+  it('logs a verified token with no email claim as <none>', async () => {
+    verifier.verify.mockResolvedValue({});
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged).toEqual([
+      'Cleanup token rejected: unexpected service account <none>',
+    ]);
+  });
+
+  it('never logs the token on an identity mismatch', async () => {
+    verifier.verify.mockResolvedValue({ email: 'someone-else@proj.example' });
+    await expect(
+      controller.run('Bearer eyJhbGciOiJSUzI1NiJ9.SUPER-SECRET-TOKEN.sig'),
+    ).rejects.toThrow(UnauthorizedException);
     expect(logged).toHaveLength(1);
+    expect(logged[0]).not.toContain('SUPER-SECRET');
+  });
+
+  it('cannot be used to forge log records through the email claim', async () => {
+    verifier.verify.mockResolvedValue({
+      email: 'a@b\n2026-08-22 WARN [Auth] cleanup succeeded',
+    });
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged[0]).not.toContain('\n');
+    expect(logged[0]).toBe(
+      'Cleanup token rejected: unexpected service account ' +
+        'a@b 2026-08-22 WARN [Auth] cleanup succeeded',
+    );
   });
 
   // A lazily imported jose turns a boot-time crash into a per-request

@@ -10,11 +10,16 @@ import { Public } from '../../auth/public.decorator';
 import { OAuthCleanupService } from '../services/oauth-cleanup.service';
 import { GoogleOidcVerifier } from '../services/google-oidc.verifier';
 
+// Collapsed to a single line so that a hostile string can't forge extra log
+// records, and capped so it can't flood them.
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, ' ').slice(0, 300);
+}
+
 // Describes a rejection for the operator without ever touching the token: the
-// error's own identity only, collapsed to a single line so that a hostile
-// message can't forge extra log records, and capped so it can't flood them.
-// One level of `cause` is included because that is where `fetch` keeps the
-// actionable part (`TypeError: fetch failed` alone says nothing).
+// error's own identity only. One level of `cause` is included because that is
+// where `fetch` keeps the actionable part (`TypeError: fetch failed` alone says
+// nothing).
 function describeFailure(err: unknown): string {
   if (!(err instanceof Error)) return `non-error rejection (${typeof err})`;
   const code = (err as { code?: unknown }).code;
@@ -25,7 +30,7 @@ function describeFailure(err: unknown): string {
     const causeCode = (cause as { code?: unknown }).code;
     tail = ` (cause: ${typeof causeCode === 'string' ? causeCode : cause.message})`;
   }
-  return `${head}: ${err.message}${tail}`.replace(/\s+/g, ' ').slice(0, 300);
+  return oneLine(`${head}: ${err.message}${tail}`);
 }
 
 // Invoked by Cloud Scheduler, which signs an OIDC identity token whose
@@ -72,7 +77,19 @@ export class OAuthCleanupController {
       this.logger.warn(`Cleanup token rejected: ${describeFailure(err)}`);
       throw new UnauthorizedException();
     }
-    if (email !== expectedAccount) throw new UnauthorizedException();
+    if (email !== expectedAccount) {
+      // The only rejection that means a validly signed Google token, carrying
+      // the right audience, was refused purely on identity: either a service
+      // account change we did not follow, or someone with a real Google
+      // identity aiming it here. Both need to be visible. The presented address
+      // is an identifier the caller chose, not a secret — and it is what tells
+      // those two cases apart. The expected value stays out of the log; it is
+      // readable from the service's own config.
+      this.logger.warn(
+        `Cleanup token rejected: unexpected service account ${oneLine(email ?? '<none>')}`,
+      );
+      throw new UnauthorizedException();
+    }
 
     await this.cleanup.runDailyCleanup();
     return { status: 'ok' };
