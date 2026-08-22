@@ -423,7 +423,11 @@ describe('Org administration (e2e)', () => {
         .set('Authorization', `Bearer ${fx.adminToken}`)
         .send({ email: 'newperson@test.cl', role: 'clinician' })
         .expect(201);
-      expect(res.body).toEqual({ id: expect.any(String) });
+      // EMAIL_BACKEND=noop in tests, so the acceptUrl comes back in the body.
+      expect(res.body).toEqual({
+        id: expect.any(String),
+        acceptUrl: expect.stringContaining('/accept-invitation?token='),
+      });
 
       const list = await request(app.getHttpServer())
         .get('/api/org/invitations')

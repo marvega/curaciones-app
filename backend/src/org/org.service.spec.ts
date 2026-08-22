@@ -35,11 +35,17 @@ describe('OrgService', () => {
   let estRepo: { create: jest.Mock; save: jest.Mock };
   let kms: { decrypt: jest.Mock; encrypt: jest.Mock };
   let manager: { getRepository: jest.Mock; transaction: jest.Mock };
-  let invitationsService: { create: jest.Mock };
+  let invitationsService: { create: jest.Mock; acceptUrlFor: jest.Mock };
 
   beforeEach(async () => {
     orgRepo = { findOne: jest.fn(), save: jest.fn() };
-    invitationsService = { create: jest.fn() };
+    invitationsService = {
+      create: jest.fn(),
+      acceptUrlFor: jest.fn(
+        (t: string) =>
+          `${process.env.FRONTEND_URL}/accept-invitation?token=${t}`,
+      ),
+    };
     manager = {
       getRepository: jest.fn(),
       transaction: jest.fn(async (fn) => fn(manager)),
@@ -365,6 +371,48 @@ describe('OrgService', () => {
       );
       expect(invitationsService.create).toHaveBeenCalled();
       expect(result).toEqual({ id: '42' });
+    });
+  });
+
+  describe('invite', () => {
+    const savedInvitation = { id: 'inv-1' } as Invitation;
+
+    beforeEach(() => {
+      userRepo.findOne.mockResolvedValue(null);
+      invitationsService.create.mockResolvedValue({
+        invitation: savedInvitation,
+        token: 'tok-abc',
+      });
+    });
+
+    it('returns the acceptUrl when the email backend is noop', async () => {
+      process.env.EMAIL_BACKEND = 'noop';
+      process.env.FRONTEND_URL = 'https://curaciones.web.app';
+
+      const result = await service.invite(
+        '1',
+        { id: 7, username: 'owner' },
+        'nuevo@cesfam.cl',
+        OrgRole.CLINICIAN,
+      );
+
+      expect(result).toEqual({
+        id: 'inv-1',
+        acceptUrl: 'https://curaciones.web.app/accept-invitation?token=tok-abc',
+      });
+    });
+
+    it('omits the acceptUrl when a real email backend is configured', async () => {
+      process.env.EMAIL_BACKEND = 'resend';
+
+      const result = await service.invite(
+        '1',
+        { id: 7, username: 'owner' },
+        'nuevo@cesfam.cl',
+        OrgRole.CLINICIAN,
+      );
+
+      expect(result).toEqual({ id: 'inv-1' });
     });
   });
 

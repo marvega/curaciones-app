@@ -190,7 +190,7 @@ export class OrgService {
     inviter: { id: number; username: string },
     email: string,
     role: OrgRole,
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; acceptUrl?: string }> {
     const emailHash = createHash('sha256')
       .update(email.toLowerCase())
       .digest('hex');
@@ -206,13 +206,21 @@ export class OrgService {
       if (existingMembership)
         throw new ConflictException('User is already a member');
     }
-    const { invitation } = await this.invitations.create(
+    const { invitation, token } = await this.invitations.create(
       organizationId,
       inviter.id,
       inviter.username,
       email,
       role,
     );
+    // With EMAIL_BACKEND=noop nothing is delivered, so the token would be lost
+    // and the invitation unusable. Hand it back to the owner who created it.
+    if (process.env.EMAIL_BACKEND === 'noop') {
+      return {
+        id: invitation.id,
+        acceptUrl: this.invitations.acceptUrlFor(token),
+      };
+    }
     return { id: invitation.id };
   }
 
