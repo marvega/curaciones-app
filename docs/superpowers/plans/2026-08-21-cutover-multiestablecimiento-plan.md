@@ -196,14 +196,16 @@ Anotar en el PR (o en un comentario del plan) qué suites pasaron y con qué con
 **Files:**
 - Read: `backend/Dockerfile` (viene del cherry-pick de la Task 4; si esta tarea se ejecuta antes, usar `git show feat/gcp-migration:backend/Dockerfile`)
 
-- [ ] **Step 1: Traer el Dockerfile al árbol de trabajo**
+- [ ] **Step 1: Verificar que el Dockerfile ya está en el árbol**
 
-Si la Task 4 aún no corrió:
+Esta tarea corre **después** de la Task 4, que trae el Dockerfile por cherry-pick. Escribirlo a mano dejaría el árbol sucio y abortaría ese cherry-pick.
 
 ```bash
-git show feat/gcp-migration:backend/Dockerfile > backend/Dockerfile
-git show feat/gcp-migration:backend/.dockerignore > backend/.dockerignore
+git status --porcelain backend/Dockerfile backend/.dockerignore
+ls -la backend/Dockerfile backend/.dockerignore
 ```
+
+Esperado: ambos archivos existen y **sin** cambios pendientes. Si faltan, ejecutar la Task 4 primero.
 
 - [ ] **Step 2: Construir para la plataforma de Cloud Run**
 
@@ -262,9 +264,11 @@ docker rm -f $(docker ps -q --filter ancestor=curaciones-api:probe) 2>/dev/null;
 - [ ] **Step 1: Crear la rama de release desde el objetivo**
 
 ```bash
-git checkout feat/org-admin-tabs
+git checkout feat/cutover-multiestablecimiento
 git checkout -b release/cutover-2026-08-21
 ```
+
+La base es `feat/cutover-multiestablecimiento`, no `feat/org-admin-tabs`: la primera contiene todo lo de la segunda **más** los commits del spec y de este plan.
 
 - [ ] **Step 2: Cherry-pick de los 7 commits de infraestructura, en orden**
 
@@ -890,16 +894,18 @@ Esperado: ignorado y sin cambios pendientes.
 
 ### Task 11: PR a `main` con CI verde
 
-- [ ] **Step 1: Consolidar la rama de release sobre `main` local**
+- [ ] **Step 1: Verificar que la rama está al día con `origin/main`**
+
+`main` está protegida y la regla de CI es estricta: la rama debe estar al día antes del merge. No se mergea a `main` local — eso violaría la restricción global de no commitear directo.
 
 ```bash
-git checkout main
-git merge --no-ff release/cutover-2026-08-21 -m "feat: multi-establishment cutover"
+git fetch origin
+git rev-list --left-right --count origin/main...release/cutover-2026-08-21
 ```
 
-- [ ] **Step 2: Push de la rama de release y apertura del PR**
+Esperado: el número de la izquierda en `0`. Si no, rebasar sobre `origin/main` y volver a correr las suites.
 
-`main` está protegida y no admite push directo. Se abre PR desde la rama:
+- [ ] **Step 2: Push de la rama de release y apertura del PR**
 
 ```bash
 git checkout release/cutover-2026-08-21
@@ -1177,10 +1183,10 @@ Esperado: los cuatro en `200`.
 ```bash
 PREVIEW=$(cat /tmp/preview-url)
 ASSET=$(curl -s "$PREVIEW" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
-curl -s "$PREVIEW$ASSET" | grep -c "curaciones-api-next" || echo "0 = correcto: no hay URLs absolutas de run.app"
+curl -s "$PREVIEW$ASSET" | grep -c "run\.app" || echo "0 = correcto: sin URLs absolutas"
 ```
 
-Esperado: `0`. Si aparece el host de `run.app`, el build no usó `build:hosting` y el frontend rompería al promover.
+Esperado: `0`. Cualquier host `run.app` incrustado significa que el build no usó `build:hosting`, y el frontend rompería al promover.
 
 ---
 
