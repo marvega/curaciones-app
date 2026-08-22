@@ -42,6 +42,7 @@ export default function MembersPage() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('clinician');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const { showSuccess, showError } = useToast();
   const confirm = useConfirm();
 
@@ -155,10 +156,13 @@ export default function MembersPage() {
             options={INVITE_ROLE_OPTIONS}
           />
           <Button
+            disabled={!email || submitting}
+            loading={submitting}
             onClick={async () => {
               // Drop any link from a previous invitation before creating a new
               // one, so what is on screen always matches the last invite.
               setInviteLink(null);
+              setSubmitting(true);
               try {
                 const res = await inviteMember(email, role);
                 if (res.acceptUrl) {
@@ -172,6 +176,8 @@ export default function MembersPage() {
               } catch (e) {
                 const err = e as { response?: { data?: { message?: string } } };
                 showError(err?.response?.data?.message ?? 'Error');
+              } finally {
+                setSubmitting(false);
               }
             }}
           >
