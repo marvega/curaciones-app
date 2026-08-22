@@ -82,7 +82,7 @@ Desplegar el AS reintroduce cuatro requisitos que el alcance sin OAuth había el
 
 | # | Requisito | Detalle |
 |---|---|---|
-| R1 | Rewrites en `firebase.json` para `/oauth/**` y `/.well-known/**` → Cloud Run | hoy solo `/api/**` está enrutado; sin esto el discovery OIDC y el flujo de autorización caen en el fallback SPA |
+| R1 | Rewrites en `firebase.json` para `/oauth/**`, **`/jwks.json`** y las dos rutas de discovery → Cloud Run | hoy solo `/api/**` está enrutado. `/jwks.json` vive en la **raíz** (`oidc-provider.factory.ts:171`), así que sin su rewrite `createRemoteJWKSet` del MCP recibe el HTML del SPA y **toda** autenticación MCP falla, detrás de un HTTP 200 |
 | R2 | `OAUTH_ISSUER` y `OAUTH_AUDIENCE` como env de Cloud Run | el issuer debe ser el origen público exacto: `https://curaciones.web.app` |
 | R3 | `OAUTH_COOKIE_SECRET` en Secret Manager | pasa a ser el secreto **6 de 6** del free tier. No quedan cupos |
 | R4 | Endpoint protegido para `OAuthCleanupService.runDailyCleanup()` + Cloud Scheduler | el `@Cron(EVERY_DAY_AT_3AM)` no dispara con scale-to-zero. La API de Cloud Scheduler **no está habilitada** en el proyecto. El endpoint valida el token OIDC de identidad del job |

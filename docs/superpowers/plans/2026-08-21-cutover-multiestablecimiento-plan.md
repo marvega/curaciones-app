@@ -1175,10 +1175,13 @@ PREVIEW=$(cat /tmp/preview-url)
 curl -s -o /dev/null -w "app=%{http_code}\n" "$PREVIEW"
 curl -s -o /dev/null -w "api=%{http_code}\n" "$PREVIEW/api/health"
 curl -s -o /dev/null -w "oidc=%{http_code}\n" "$PREVIEW/.well-known/openid-configuration"
+curl -s -o /dev/null -w "rfc8414=%{http_code}\n" "$PREVIEW/.well-known/oauth-authorization-server"
 curl -s -o /dev/null -w "manual=%{http_code}\n" "$PREVIEW/manual/01-login.jpg"
+echo "--- jwks debe devolver JSON, no el HTML del SPA:"
+curl -s "$PREVIEW/jwks.json" | head -c 120; echo
 ```
 
-Esperado: los cuatro en `200`.
+Esperado: todos en `200`, y `jwks.json` devolviendo JSON con `keys`. Si empieza con `<!doctype html`, falta el rewrite de `/jwks.json` y el MCP no podrá verificar ningún token — con un 200 de por medio, así que el código de estado no lo delata.
 
 - [ ] **Step 2: Confirmar que el bundle apunta a `/api` relativo**
 
