@@ -1,4 +1,6 @@
+import 'reflect-metadata';
 import { UnauthorizedException } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { OAuthCleanupController } from './oauth-cleanup.controller';
 
 describe('OAuthCleanupController', () => {
@@ -118,5 +120,51 @@ describe('OAuthCleanupController', () => {
     const responses = errors.map((e) => e.getResponse());
     expect(responses).toEqual([responses[0], responses[0], responses[0]]);
     expect(JSON.stringify(responses[0])).not.toContain('aud');
+  });
+});
+
+// ThrottlerGuard reads its config from metadata on the route handler. Rather
+// than hardcode @nestjs/throttler's internal metadata keys, mint the expected
+// metadata with the same decorators on probe methods and compare — that way the
+// assertion keeps working if the library renames a key.
+class ThrottleProbe {
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  route(): void {}
+}
+
+class SkipProbe {
+  @SkipThrottle()
+  route(): void {}
+}
+
+// The decorators store their metadata on the method itself, which is where
+// ThrottlerGuard reads it from via the route handler.
+function metadataOf(prototype: object, method: string): Map<string, unknown> {
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, method);
+  if (!descriptor) throw new Error(`${method} is not an own property`);
+  const target = descriptor.value as object;
+  const keys = Reflect.getMetadataKeys(target) as string[];
+  return new Map(
+    keys.map((k) => [k, Reflect.getMetadata(k, target) as unknown]),
+  );
+}
+
+describe('OAuthCleanupController throttling', () => {
+  const route = metadataOf(OAuthCleanupController.prototype, 'run');
+
+  it('is rate limited at 10 requests per minute', () => {
+    const expected = metadataOf(ThrottleProbe.prototype, 'route');
+    expect(expected.size).toBeGreaterThan(0);
+    for (const [key, value] of expected) {
+      expect([key, route.get(key)]).toEqual([key, value]);
+    }
+  });
+
+  it('does not skip the throttler', () => {
+    const skipKeys = [...metadataOf(SkipProbe.prototype, 'route').keys()];
+    expect(skipKeys.length).toBeGreaterThan(0);
+    for (const key of skipKeys) {
+      expect(route.has(key)).toBe(false);
+    }
   });
 });
