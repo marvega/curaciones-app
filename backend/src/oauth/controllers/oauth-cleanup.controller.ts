@@ -62,7 +62,20 @@ export class OAuthCleanupController {
 
     const audience = process.env.CLEANUP_OIDC_AUDIENCE;
     const expectedAccount = process.env.CLEANUP_SERVICE_ACCOUNT;
-    if (!audience || !expectedAccount) throw new UnauthorizedException();
+    if (!audience || !expectedAccount) {
+      // Operationally the likeliest failure of all: it needs no attacker and no
+      // infrastructure fault, only a deploy missing two --set-env-vars entries.
+      // Silent, it is an endpoint that refuses Cloud Scheduler forever while
+      // looking exactly like a probe. Nothing here is attacker-controlled — it
+      // is our own configuration — so naming the variable is safe and turns a
+      // mystery into a one-minute fix. Its own prefix, because unlike a
+      // rejected token this means *every* future call fails: worth alerting on.
+      const missing: string[] = [];
+      if (!audience) missing.push('CLEANUP_OIDC_AUDIENCE');
+      if (!expectedAccount) missing.push('CLEANUP_SERVICE_ACCOUNT');
+      this.logger.warn(`Cleanup misconfigured: unset ${missing.join(', ')}`);
+      throw new UnauthorizedException();
+    }
 
     let email: string | undefined;
     try {

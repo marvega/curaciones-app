@@ -80,6 +80,9 @@ describe('OAuthCleanupController', () => {
       );
       expect(verifier.verify).not.toHaveBeenCalled();
       expect(cleanup.runDailyCleanup).not.toHaveBeenCalled();
+      // Internet noise: deliberately not logged, so it cannot drown out the
+      // branches that matter.
+      expect(logged).toEqual([]);
     },
   );
 
@@ -115,8 +118,32 @@ describe('OAuthCleanupController', () => {
       );
       expect(verifier.verify).not.toHaveBeenCalled();
       expect(cleanup.runDailyCleanup).not.toHaveBeenCalled();
+      // The likeliest failure in practice — a deploy missing --set-env-vars —
+      // used to be the one rejection that left no trace at all.
+      expect(logged).toEqual([`Cleanup misconfigured: unset ${name}`]);
     },
   );
+
+  it('names both variables when neither is set', async () => {
+    delete process.env.CLEANUP_OIDC_AUDIENCE;
+    delete process.env.CLEANUP_SERVICE_ACCOUNT;
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged).toEqual([
+      'Cleanup misconfigured: unset CLEANUP_OIDC_AUDIENCE, CLEANUP_SERVICE_ACCOUNT',
+    ]);
+  });
+
+  it('treats an empty variable as unset', async () => {
+    process.env.CLEANUP_SERVICE_ACCOUNT = '';
+    await expect(controller.run('Bearer tok')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logged).toEqual([
+      'Cleanup misconfigured: unset CLEANUP_SERVICE_ACCOUNT',
+    ]);
+  });
 
   it('never discloses why authorization failed', async () => {
     verifier.verify.mockRejectedValue(
@@ -137,13 +164,20 @@ describe('OAuthCleanupController', () => {
       .run('Bearer tok')
       .catch((e: UnauthorizedException) => errors.push(e));
 
-    expect(errors).toHaveLength(4);
+    // A service missing its own configuration must look the same too.
+    delete process.env.CLEANUP_OIDC_AUDIENCE;
+    await controller
+      .run('Bearer tok')
+      .catch((e: UnauthorizedException) => errors.push(e));
+
+    expect(errors).toHaveLength(5);
     const responses = errors.map((e) => e.getResponse());
     expect(responses).toEqual(responses.map(() => responses[0]));
     expect(JSON.stringify(responses[0])).not.toContain('aud');
     expect(JSON.stringify(responses[0])).not.toContain('someone-else');
-    // Both reasons went to the log, neither to the caller.
-    expect(logged).toHaveLength(2);
+    expect(JSON.stringify(responses[0])).not.toContain('CLEANUP_');
+    // Every reason went to the log, none to the caller.
+    expect(logged).toHaveLength(3);
   });
 
   // The one rejection that means a validly signed Google token with the right
