@@ -374,15 +374,32 @@ describe('OrgService', () => {
     });
   });
 
-  describe('invite', () => {
+  describe('invite acceptUrl', () => {
     const savedInvitation = { id: 'inv-1' } as Invitation;
+    const envKeys = ['EMAIL_BACKEND', 'FRONTEND_URL'] as const;
+    let savedEnv: Partial<Record<(typeof envKeys)[number], string>>;
 
     beforeEach(() => {
+      // These tests drive behaviour off process.env. Jest workers reuse the
+      // same process across spec files, so restore the prior values (including
+      // "was unset") instead of leaking them into whatever runs next.
+      savedEnv = {
+        EMAIL_BACKEND: process.env.EMAIL_BACKEND,
+        FRONTEND_URL: process.env.FRONTEND_URL,
+      };
       userRepo.findOne.mockResolvedValue(null);
       invitationsService.create.mockResolvedValue({
         invitation: savedInvitation,
         token: 'tok-abc',
       });
+    });
+
+    afterEach(() => {
+      for (const key of envKeys) {
+        const prior = savedEnv[key];
+        if (prior === undefined) delete process.env[key];
+        else process.env[key] = prior;
+      }
     });
 
     it('returns the acceptUrl when the email backend is noop', async () => {
