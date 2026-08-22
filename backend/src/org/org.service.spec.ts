@@ -318,6 +318,22 @@ describe('OrgService', () => {
 
   describe('invite', () => {
     const inviter = { id: 1, username: 'admin' };
+    let savedEmailBackend: string | undefined;
+
+    // These cases assert the shape `{ id }` with no acceptUrl, which only holds
+    // for a real email backend. `noop` is the value in .env.example and in
+    // production, so leaving it to the ambient environment turns them red in any
+    // shell that exports it. Pin it, and restore the prior value (including
+    // "was unset") so the acceptUrl block below still drives its own.
+    beforeEach(() => {
+      savedEmailBackend = process.env.EMAIL_BACKEND;
+      process.env.EMAIL_BACKEND = 'resend';
+    });
+
+    afterEach(() => {
+      if (savedEmailBackend === undefined) delete process.env.EMAIL_BACKEND;
+      else process.env.EMAIL_BACKEND = savedEmailBackend;
+    });
 
     it('rejects when an active member with the same email already exists', async () => {
       userRepo.findOne.mockResolvedValue({ id: 5 });

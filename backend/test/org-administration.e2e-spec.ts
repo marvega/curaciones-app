@@ -13,6 +13,7 @@ import { v4 as uuid } from 'uuid';
 import request from 'supertest';
 import { createTestApp, cleanDatabase } from './setup';
 import { KMS_SERVICE } from 'src/kms/kms.service';
+import { AuditChainService } from 'src/audit-log/audit-chain.service';
 
 interface OrgFixture {
   orgId: string;
@@ -424,9 +425,13 @@ describe('Org administration (e2e)', () => {
         .send({ email: 'newperson@test.cl', role: 'clinician' })
         .expect(201);
       // EMAIL_BACKEND=noop in tests, so the acceptUrl comes back in the body.
+      // The token is 32 random bytes as base64url — exactly 43 URL-safe chars.
+      // Match the length so an empty or truncated token fails here.
       expect(res.body).toEqual({
         id: expect.any(String),
-        acceptUrl: expect.stringContaining('/accept-invitation?token='),
+        acceptUrl: expect.stringMatching(
+          /^https?:\/\/\S+\/accept-invitation\?token=[A-Za-z0-9_-]{43}$/,
+        ),
       });
 
       const list = await request(app.getHttpServer())
@@ -439,6 +444,96 @@ describe('Org administration (e2e)', () => {
           role: 'clinician',
         }),
       );
+    });
+
+    it('audits the invitation without ever persisting its token', async () => {
+      const ds = app.get(DataSource);
+      const res = await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ email: 'audited@test.cl', role: 'clinician' })
+        .expect(201);
+      const token = new URL(res.body.acceptUrl).searchParams.get('token');
+      expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+      // The interceptor detaches its write so an audit failure cannot break the
+      // response, so the row may land just after supertest resolves. Poll for it
+      // instead of sleeping a guessed interval.
+      let rows: any[] = [];
+      for (let attempt = 0; attempt < 50 && rows.length === 0; attempt += 1) {
+        rows = await ds.query(
+          `SELECT * FROM "audit_logs" WHERE "organizationId" = $1 ORDER BY id DESC`,
+          [fx.orgId],
+        );
+        if (rows.length === 0) await new Promise((r) => setTimeout(r, 20));
+      }
+
+      // The trace of who invited whom must survive — that is the point of the
+      // audit trail — while the token must not appear in any column of the row.
+      expect(rows).toHaveLength(1);
+      const row = rows[0];
+      expect(row.entity).toBe('org');
+      expect(row.action).toBe('CREATE');
+      expect(row.userId).toBe(fx.adminId);
+      expect(row.payload).toEqual({
+        email: 'audited@test.cl',
+        role: 'clinician',
+      });
+      expect(row.afterJson).toEqual({
+        id: res.body.id,
+        acceptUrl: '[REDACTED]',
+      });
+      expect(JSON.stringify(row)).not.toContain(token);
+
+      // And nowhere else in the table either, under any column.
+      const [{ hits }] = await ds.query(
+        `SELECT count(*)::int AS hits FROM "audit_logs" WHERE to_jsonb("audit_logs")::text LIKE $1`,
+        [`%${token}%`],
+      );
+      expect(hits).toBe(0);
+    });
+
+    it('keeps the hash chain intact across the redacted invitation row', async () => {
+      const ds = app.get(DataSource);
+      await request(app.getHttpServer())
+        .post('/api/org/invitations')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ email: 'chained@test.cl', role: 'clinician' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post('/api/org/establishments')
+        .set('Authorization', `Bearer ${fx.adminToken}`)
+        .send({ name: 'Post-invitation', comuna: 'Ñuñoa' })
+        .expect(201);
+
+      let rows: any[] = [];
+      for (let attempt = 0; attempt < 50 && rows.length < 2; attempt += 1) {
+        rows = await ds.query(
+          `SELECT * FROM "audit_logs" WHERE "organizationId" = $1 ORDER BY id ASC`,
+          [fx.orgId],
+        );
+        if (rows.length < 2) await new Promise((r) => setTimeout(r, 20));
+      }
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0].afterJson.acceptUrl).toBe('[REDACTED]');
+
+      // Replay exactly what `npm run audit:verify` does (src/cli/audit-verify.ts)
+      // over rows read back out of Postgres, using the production chain service.
+      // The redacted row must be an ordinary link: it hashes like any other and
+      // the row written after it chains onto it. Redacting at write time is what
+      // makes that possible — an after-the-fact scrub would invalidate every
+      // hash from that row onwards.
+      const chain = app.get(AuditChainService);
+      let prev: string | null = null;
+      for (const row of rows) {
+        const payloadHash = chain.computePayloadHash(row);
+        expect(payloadHash).toBe(row.payloadHash);
+        expect(row.prevHash).toBe(prev);
+        expect(chain.computeChainHash(prev, payloadHash)).toBe(row.chainHash);
+        prev = row.chainHash;
+      }
+      expect(prev).toBe(rows[1].chainHash);
     });
 
     it('rejects when inviting an existing active member with 409', async () => {
