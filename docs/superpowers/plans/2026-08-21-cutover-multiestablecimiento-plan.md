@@ -944,12 +944,14 @@ Guardar ese valor: es el tag de las imágenes.
 
 ### Task 12: Correr las migraciones OAuth contra Neon
 
+> **`sslrootcert=system` sólo vale para clientes libpq.** Los comandos de esta tarea que pasan por el `pg` de Node (`migration:show`, `migration:run`, `audit:verify`) usan el secreto **verbatim**: `pg-connection-string` hace `readFileSync` del valor sin tratar `system` como caso especial, así que añadirlo lanza `ENOENT: open 'system'`. Con `?sslmode=verify-full` a secas, `pg` produce `ssl = {}` y Node aplica verificación de certificado por defecto — que es exactamente lo que se quiere. Los comandos `psql` y `pg_dump` de este plan sí lo llevan, porque libpq lo soporta desde Postgres 16.
+
 Aditivas: crean tablas, tipos e índices `oauth_*` nuevos. El código live las ignora.
 
 - [ ] **Step 1: Medir el estado de la cadena de auditoría antes (F6)**
 
 ```bash
-cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)&sslrootcert=system" \
+cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)" \
   npm run audit:verify 2>&1 | tail -20
 ```
 
@@ -958,7 +960,7 @@ Guardar la salida. Cualquier desajuste que aparezca aquí es **preexistente**, n
 - [ ] **Step 2: Ver qué migraciones faltan**
 
 ```bash
-cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)&sslrootcert=system" \
+cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)" \
   npm run migration:show
 ```
 
@@ -967,7 +969,7 @@ Esperado: 4 con `[X]` y 6 con `[ ]`.
 - [ ] **Step 3: Correrlas**
 
 ```bash
-cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)&sslrootcert=system" \
+cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)" \
   npm run migration:run
 ```
 
@@ -1405,7 +1407,7 @@ Los tokens emitidos durante la validación llevaban el issuer del canal preview 
 - [ ] **Step 3: Cadena de auditoría después del cutover (F6)**
 
 ```bash
-cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)&sslrootcert=system" \
+cd backend && DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)" \
   npm run audit:verify 2>&1 | tail -20
 ```
 
