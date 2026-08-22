@@ -8,21 +8,21 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "curaciones-api",
+          "serviceId": "curaciones-api-next",
           "region": "us-west1"
         }
       },
       {
         "source": "/oauth/**",
         "run": {
-          "serviceId": "curaciones-api",
+          "serviceId": "curaciones-api-next",
           "region": "us-west1"
         }
       },
       {
         "source": "/.well-known/**",
         "run": {
-          "serviceId": "curaciones-api",
+          "serviceId": "curaciones-api-next",
           "region": "us-west1"
         }
       },
