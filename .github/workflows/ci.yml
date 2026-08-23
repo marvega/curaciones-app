@@ -44,6 +44,15 @@ jobs:
 
       - run: npm ci
       - run: npm test -- --ci
+
+      # `npm test` uses the jest block in package.json, whose rootDir is `src`,
+      # so everything under `test/` was outside the gate — including the whole
+      # org-isolation net. See test/jest-e2e-ci.cjs for why this needs its own
+      # config and which suites it excludes.
+      - run: npm run test:e2e:ci
+        env:
+          DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_test
+
       - run: npm run build
 
   frontend:
