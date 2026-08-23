@@ -96,6 +96,29 @@ describe('UsersService', () => {
       expect(result).toHaveProperty('id');
     });
 
+    it('returns only the findAll projection, never the password hash', async () => {
+      // `save()` resolves to the full entity and `passwordHash` is a plain
+      // @Column with no `select: false`, with no ClassSerializerInterceptor
+      // registered in main.ts — so returning it shipped the bcrypt hash to the
+      // HTTP client *and*, this route being audited, into
+      // `audit_logs.afterJson`, which is hash-chained and cannot be scrubbed
+      // afterwards. The exact-shape assertion is what keeps a future column
+      // from widening the response silently.
+      mockRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.create(
+        { username: 'newuser', password: 'secret123' },
+        { id: 1, role: 'admin' },
+      );
+
+      expect(result).toEqual({
+        id: 1,
+        username: 'newuser',
+        createdAt: new Date('2026-01-01'),
+      });
+      expect(JSON.stringify(result)).not.toContain('hashed-password');
+    });
+
     it('throws ConflictException when username exists', async () => {
       mockRepo.findOne.mockResolvedValue(mockUser);
 

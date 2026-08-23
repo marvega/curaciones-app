@@ -118,6 +118,20 @@ const REDACTED_FIELDS: ReadonlySet<string> = new Set([
   // it. POST /api/auth/invitations/accept returns the same field.
   'accessToken',
   'access_token',
+  // The bcrypt hash of a user's password. `POST /api/users` returned the saved
+  // `User` entity, and `passwordHash` is a plain `@Column()` with no
+  // `select: false` (user.entity.ts) — so, exactly like `accessToken` above,
+  // this leaked *through* the shipped redaction rather than around it: the
+  // route is audited and the field simply was not in this set. The handler now
+  // projects the response down to `{ id, username, createdAt }`
+  // (users.service.ts), which is the real fix; the name stays here as defence
+  // in depth, so the next route that returns a `User` — or an entity with a
+  // loaded `User` relation, which is not hypothetical: see
+  // wound-notes.service.ts `create`, whose `relations: ['recordedBy']` puts a
+  // whole `User` in an audited POST response — cannot reintroduce the leak
+  // into a hash-chained table. Never a legitimate audit value: the trail
+  // records that an account was created, not the credential material.
+  'passwordHash',
   // DCR issues a client_secret. /oauth/register is unauthenticated so nothing
   // audits it today, but a client-management endpoint under /api/org is the
   // obvious next step and this is the name it will use.

@@ -347,6 +347,55 @@ describe('AuditLogInterceptor — credentials in the request payload', () => {
     expect(JSON.stringify(entry)).not.toContain('Sup3rSecret');
   });
 
+  it('redacts a password hash returned by POST /api/users, keeping the account', async () => {
+    // The response-side twin of the test above, and the same failure mode as
+    // `accessToken`: the route was audited and `afterJson` was already being
+    // redacted, so the hash leaked *through* the shipped redaction rather than
+    // around it. users.service.ts now projects the response down to
+    // { id, username, createdAt }; this asserts the interceptor is a second
+    // line of defence, for the next route that returns a User entity — or an
+    // entity with a loaded `recordedBy`/`uploadedBy` User relation.
+    const entry = await audit(
+      '/api/users',
+      { username: 'nurse', password: 'Sup3rSecret!!' },
+      { id: 3, username: 'nurse', passwordHash: '$2b$10$LIVEBCRYPTHASH' },
+    );
+
+    expect(entry.afterJson).toEqual({
+      id: 3,
+      username: 'nurse',
+      passwordHash: REDACTED_MARKER,
+    });
+    expect(JSON.stringify(entry)).not.toContain('LIVEBCRYPTHASH');
+  });
+
+  it('redacts a password hash nested in a loaded User relation', async () => {
+    // POST /api/wound-notes returns the saved note with `relations:
+    // ['recordedBy']` (wound-notes.service.ts), i.e. a whole User entity — so
+    // the nested spelling is the one that actually occurs on this branch, not a
+    // hypothetical. Field-name keying is what makes it covered at any depth.
+    const entry = await audit(
+      '/api/wound-notes',
+      { curacionId: 9 },
+      {
+        id: 4,
+        curacionId: 9,
+        recordedBy: {
+          id: 7,
+          username: 'nurse',
+          passwordHash: '$2b$10$LIVEBCRYPTHASH',
+        },
+      },
+    );
+
+    expect(entry.afterJson.recordedBy).toEqual({
+      id: 7,
+      username: 'nurse',
+      passwordHash: REDACTED_MARKER,
+    });
+    expect(JSON.stringify(entry)).not.toContain('LIVEBCRYPTHASH');
+  });
+
   it('redacts the patient signature on POST /api/consent — not in the brief', async () => {
     // The worst of them. `consent_signatures` deliberately stores a `filename`
     // and writes the PNG to disk (consent.service.ts), so the audit row was the
