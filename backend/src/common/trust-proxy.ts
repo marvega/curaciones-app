@@ -28,12 +28,28 @@
  *     the original bug, reintroduced.
  *
  * Since it cannot be told apart from here, the default is the value that is
- * correct in the first case and merely coarse in the second. Coarse is cheap:
- * every authenticated request is already keyed on `user:<sub>`, so the IP path
- * only groups anonymous traffic.
+ * correct in the first case and merely coarse in the second.
+ *
+ * Coarse is *not* free, and the comment that used to sit here — "every
+ * authenticated request is already keyed on `user:<sub>`, so the IP path only
+ * groups anonymous traffic" — got that exactly backwards. `firebase.json` routes
+ * `/api/**` through Firebase Hosting, so at `n = 1` the right-most
+ * `X-Forwarded-For` element is Hosting's egress address: the same value for
+ * every user of the app. The routes with the tightest caps — login at 5/minute
+ * in production, dynamic client registration at 10/hour — are unauthenticated by
+ * definition, so `user:<sub>` never covers them and they were the ones sharing a
+ * single bucket clinic-wide.
+ *
+ * That is fixed where it belongs, in the tracker rather than here:
+ * `PerUserThrottlerGuard.anonymousTracker` discriminates anonymous callers by an
+ * identifying field in the request body (the submitted username on login, the
+ * `client_id` at the token endpoint) instead of by IP alone. What remains
+ * IP-bound is dynamic client registration, whose request body is entirely
+ * caller-chosen and so offers nothing trustworthy to key on.
  *
  * To raise it, measure first — see `GET /api/health/proxy`, which reports the
- * chain this process actually receives.
+ * chain this process actually receives. Raising it is what finally makes the IP
+ * component of those keys meaningful; until then it is carried but constant.
  */
 export const DEFAULT_TRUST_PROXY_HOPS = 1;
 
