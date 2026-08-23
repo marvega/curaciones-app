@@ -188,8 +188,64 @@ export async function buildOidcProvider(
         return `/account/oauth/consent?interaction=${interaction.uid}`;
       },
     },
+    // Firebase Hosting, when it rewrites a request to Cloud Run, drops every
+    // incoming cookie except one named exactly `__session`. The AS is served
+    // on the same origin as the SPA (https://curaciones.web.app), so every
+    // cookie oidc-provider relies on is subject to that filter. This block is
+    // what makes the authorization flow survive it. It reads like a hack; it
+    // is not. The reasoning, per cookie:
+    //
+    //   resume       REQUIRED. `lib/actions/authorization/resume.js:14-23`
+    //                reads it to recover the interaction uid when the SPA
+    //                redirects back after consent. Missing => SessionNotFound,
+    //                which is exactly the bug this fixes. It therefore gets
+    //                the single name Hosting forwards.
+    //   interaction  Unused. `consent.controller.ts` never calls
+    //                `provider.interactionResult()` — it looks the Interaction
+    //                up by the uid in the URL and persists the result itself,
+    //                precisely because this cookie is path-scoped to the SPA
+    //                route and never reaches the API.
+    //   session      Unused. The SPA authenticates to the consent endpoint
+    //                with its own JWT, so the AS never establishes a login
+    //                session. `Interaction` persists a session only when
+    //                `session.accountId` is set (`lib/models/interaction.js:11`
+    //                stores `session: undefined` otherwise), so the
+    //                origin-session check in `resume.js:43` short-circuits.
+    //
+    // Accepted consequence: with no session cookie there is no SSO between
+    // authorizations, so every authorization shows the consent screen. For an
+    // MCP client that authorizes occasionally this is fine, arguably better.
+    //
+    // The two unused names are set to inert, self-documenting values rather
+    // than left at their defaults, so nobody reads a default name and assumes
+    // the cookie still carries state.
     cookies: {
       keys: [process.env.OAUTH_COOKIE_SECRET || 'change-in-production'],
+      names: {
+        resume: '__session',
+        interaction: '__unused_stripped_by_hosting_interaction',
+        session: '__unused_stripped_by_hosting_session',
+      },
+      // A signed cookie is physically two cookies: the `cookies` package puts
+      // the signature in a companion `<name>.sig` and, whenever `keys` are
+      // configured, defaults `signed` to true on read as well
+      // (`node_modules/cookies/index.js:86`). Hosting forwards ONE name, so
+      // `__session.sig` never arrives, the signed read of `__session` returns
+      // undefined, and we are back to SessionNotFound. Signing is therefore
+      // impossible for a cookie that has to cross Hosting, and must be
+      // explicitly disabled — `cookies.short.signed` is a documented option
+      // (`lib/helpers/defaults.js:840`).
+      //
+      // What the signature protected: tampering with the cookie value. That
+      // value is a random nanoid that must match a live server-side
+      // Interaction row, and that row's `result` is written by the consent
+      // endpoint against a JWT-authenticated user. So the cookie is an
+      // unguessable handle to server-held state, never a trusted assertion,
+      // and the authorization code it leads to is still bound to the client's
+      // registered redirect_uri and its PKCE verifier. `web.app` is on the
+      // Public Suffix List, so a sibling site cannot toss a `__session`
+      // cookie onto our origin either.
+      short: { httpOnly: true, sameSite: 'lax', signed: false },
     },
     issueRefreshToken(_ctx, client, code) {
       return code.scopes?.has('offline_access') ?? false;
@@ -233,7 +289,17 @@ export async function buildOidcProvider(
     // comment above for context.
     (eval('(m) => import(m)') as (m: string) => Promise<any>)(mod);
   const { default: ProviderCtor } = await dynamicImport('oidc-provider');
-  return new ProviderCtor(deps.issuer, config);
+  const provider = new ProviderCtor(deps.issuer, config);
+  // TLS terminates at Firebase Hosting; the API only ever sees plain HTTP
+  // from the Cloud Run ingress. Without trusting the proxy, koa reports
+  // `ctx.secure === false` and `ctx.ip` as the proxy's address, so
+  // oidc-provider omits `Secure` on its cookies, mis-derives absolute URLs,
+  // and the DCR audit entry records the proxy IP instead of the client's.
+  // `provider.proxy` is the documented setter for koa's `app.proxy`
+  // (`lib/provider.js:360`). Not typed by @types/oidc-provider, hence the
+  // cast. Mirrors `app.set('trust proxy', true)` in `main.ts` for Express.
+  (provider as { proxy: boolean }).proxy = true;
+  return provider;
 }
 
 function randomClientId(): string {
