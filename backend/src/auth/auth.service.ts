@@ -43,6 +43,31 @@ export class AuthService {
     return this.userRepo.findOne({ where: { emailHash: this.emailHash(usernameOrEmail) } });
   }
 
+  /**
+   * The only authorised reader of `User.passwordHash` (see user.entity.ts,
+   * where the column is `select: false`).
+   *
+   * Deliberately returns a raw scalar rather than widening the `User` objects
+   * the rest of the app passes around: no `User` instance in this codebase
+   * carries the bcrypt hash, so no relation load and no response body can carry
+   * it either. That invariant — not a list of patched routes — is what
+   * `test/password-hash-never-serialized.e2e-spec.ts` asserts.
+   *
+   * Throws instead of returning `undefined` when the row is gone: a caller
+   * about to `bcrypt.compare` against nothing is a bug, not a failed login.
+   */
+  private async loadPasswordHash(userId: number): Promise<string> {
+    const row = await this.userRepo
+      .createQueryBuilder('u')
+      .select('u.passwordHash', 'passwordHash')
+      .where('u.id = :userId', { userId })
+      .getRawOne<{ passwordHash: string }>();
+    if (!row?.passwordHash) {
+      throw new Error(`User ${userId} has no passwordHash`);
+    }
+    return row.passwordHash;
+  }
+
   async signAccessToken(user: User, organizationId: string): Promise<{ accessToken: string; jti: string; orgName: string; role: OrgRole }> {
     const membership = await this.membershipRepo.findOne({
       where: { userId: user.id, organizationId, status: MembershipStatus.ACTIVE },
@@ -66,7 +91,11 @@ export class AuthService {
 
   async login(usernameOrEmail: string, password: string, ip?: string, userAgent?: string | null): Promise<LoginResult> {
     const user = await this.findUserByUsernameOrEmail(usernameOrEmail);
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user) {
+      throw new UnauthorizedException('Usuario o contraseña incorrectos');
+    }
+    const passwordHash = await this.loadPasswordHash(user.id);
+    if (!(await bcrypt.compare(password, passwordHash))) {
       throw new UnauthorizedException('Usuario o contraseña incorrectos');
     }
 
@@ -138,7 +167,8 @@ export class AuthService {
     if (newPassword.length < 12) throw new BadRequestException('Password must be at least 12 chars');
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
-    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    const passwordHash = await this.loadPasswordHash(user.id);
+    if (!(await bcrypt.compare(currentPassword, passwordHash))) {
       throw new UnauthorizedException('Current password incorrect');
     }
     user.passwordHash = await bcrypt.hash(newPassword, 10);

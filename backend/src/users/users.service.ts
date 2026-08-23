@@ -29,10 +29,12 @@ export class UsersService {
    * Returns the same projection `findAll` exposes for a user — never the saved
    * entity.
    *
-   * `User.passwordHash` is a plain `@Column()` with no `select: false`, and
-   * `main.ts` registers no ClassSerializerInterceptor, so returning what
-   * `repo.save()` resolves to put the bcrypt hash in two places at once: the
-   * HTTP response body, and `audit_logs.afterJson` — this route is
+   * `User.passwordHash` is `select: false` (user.entity.ts), so no read can
+   * surface it — but `repo.save()` resolves to the in-memory entity we just
+   * built, which still holds the hash we assigned, and `main.ts` registers no
+   * ClassSerializerInterceptor. So returning what `repo.save()` resolves to put
+   * the bcrypt hash in two places at once: the HTTP response body, and
+   * `audit_logs.afterJson` — this route is
    * authenticated, only `/api/users/seed` is in the interceptor's SKIP_PATHS,
    * so every account creation was audited. That table is hash-chained, so a
    * hash written there cannot be scrubbed afterwards without invalidating the

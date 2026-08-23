@@ -20,10 +20,13 @@ jest.mock('bcrypt', () => ({
 describe('AuthService', () => {
   let service: AuthService;
 
+  // No `passwordHash`: the column is `select: false` (user.entity.ts), so a
+  // `User` handed back by `findOne` never carries the hash. The hash reaches
+  // `bcrypt.compare` only through `AuthService.loadPasswordHash`, which is
+  // stubbed via `mockQueryBuilder.getRawOne` below.
   const mockUser = {
     id: 1,
     username: 'admin',
-    passwordHash: 'hashed-pw',
     email: null,
     emailHash: null,
     emailVerifiedAt: null,
@@ -39,10 +42,16 @@ describe('AuthService', () => {
     status: MembershipStatus.ACTIVE,
   };
 
+  const mockQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn(),
+  };
   const mockUserRepo = {
     findOne: jest.fn(),
     update: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(() => mockQueryBuilder),
   };
   const mockMembershipRepo = {
     findOne: jest.fn(),
@@ -87,6 +96,9 @@ describe('AuthService', () => {
     }).compile();
     service = module.get(AuthService);
     jest.clearAllMocks();
+    mockQueryBuilder.select.mockReturnThis();
+    mockQueryBuilder.where.mockReturnThis();
+    mockQueryBuilder.getRawOne.mockResolvedValue({ passwordHash: 'hashed-pw' });
   });
 
   // TODO(phase-13.1b): validateUser was removed; the equivalent gate is now
@@ -116,6 +128,26 @@ describe('AuthService', () => {
       });
       expect(result.organizations).toHaveLength(1);
       expect(result.organizations[0]).toMatchObject({ id: '10', name: 'Org A', role: OrgRole.OWNER });
+    });
+
+    it('reads the bcrypt hash through an explicit raw select, never off the User entity', async () => {
+      mockUserRepo.findOne.mockResolvedValueOnce(mockUser);
+      mockMembershipRepo.find.mockResolvedValueOnce([mockMembership]);
+      mockMembershipRepo.findOne.mockResolvedValueOnce(mockMembership);
+      mockOrgRepo.findOne.mockResolvedValueOnce({ id: '10', name: 'Org A' });
+      mockOrgRepo.findByIds.mockResolvedValueOnce([{ id: '10', name: 'Org A' }]);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await service.login('admin', 'correct-pw');
+
+      // The `User` returned by findOne has no `passwordHash` (select: false),
+      // so if login ever went back to reading `user.passwordHash` bcrypt would
+      // be handed `undefined` and this assertion would fail.
+      expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+        'u.passwordHash',
+        'passwordHash',
+      );
+      expect(bcrypt.compare).toHaveBeenCalledWith('correct-pw', 'hashed-pw');
     });
 
     it('throws UnauthorizedException on unknown user', async () => {
