@@ -13,7 +13,8 @@
 ## Global Constraints
 
 - Proyecto GCP `gws-marcelo-2026`, región `us-west1`, cuenta `me@marcelovega.com`.
-- `OAUTH_ISSUER` en producción debe ser exactamente `https://curaciones.web.app`. Durante la validación, exactamente el URL del canal preview.
+- `OAUTH_ISSUER` en producción debe ser exactamente `https://curaciones.web.app`. Durante la validación, exactamente el URL del canal preview. Es obligatoria al arrancar: `assertOauthEnv()` lanza antes de abrir el puerto si falta con `NODE_ENV=production`, así que **tiene que ir en el `--set-env-vars` del `deploy`**, nunca solo en un `update` posterior.
+- `MCP_RESOURCE_URL` es obligatoria para el MCP (zod, `mcp-server/src/config.ts`) y su valor es el **origen propio** del servicio Cloud Run, que no se conoce hasta que el servicio existe. Los dos deploys del MCP arrancan con un placeholder `https://…invalid` y lo fijan con un `update` inmediatamente después. Debe ser un origen `https` sin path, query ni fragmento.
 - Puntos de rollback que **no se pueden perder**: revisión `curaciones-api-00001-zjj`, release de Hosting `f3479db990d5f000`, imagen `api:3dc69f5` (digest `sha256:8c0e4226b6b48bd103ca32a6a15b3960e72cc1d998287a1544a1e5ac488ab115`).
 - Secret Manager: máximo **6 secretos** (free tier). Tras agregar `OAUTH_COOKIE_SECRET` queda en 6/6. **No crear un séptimo.**
 - Imágenes para Cloud Run: `--platform linux/amd64`. El Mac es arm64 y una imagen arm no arranca en Cloud Run.
@@ -1069,12 +1070,14 @@ Hay una dependencia circular: el canal preview necesita que exista `curaciones-a
 
 - [ ] **Step 1: Desplegar el servicio con su propio URL como issuer provisional**
 
+`OAUTH_ISSUER` va en el **primer** `--set-env-vars`, no solo en el `update` que viene después. `assertOauthEnv()` corre en `main.ts` antes de `NestFactory.create` y lanza si `OAUTH_ISSUER` falta con `NODE_ENV=production`: sin él el contenedor muere al arrancar, la revisión nunca queda healthy, `gcloud run deploy` termina en error y el `update` de la línea siguiente no se alcanza. El valor de arranque es un placeholder bajo `.invalid` (RFC 2606, nunca resuelve) porque el URL real del servicio no existe hasta que el servicio existe; se reemplaza dos comandos más abajo, antes de que llegue tráfico, y otra vez en el Step 4 de esta misma tarea por el URL del canal preview.
+
 ```bash
 SHA=$(cat /tmp/cutover-sha)
 gcloud run deploy curaciones-api-next --region us-west1 \
   --image us-west1-docker.pkg.dev/gws-marcelo-2026/curaciones/api:$SHA \
   --service-account curaciones-api@gws-marcelo-2026.iam.gserviceaccount.com \
-  --set-env-vars "NODE_ENV=production,EMAIL_BACKEND=noop,KMS_BACKEND=memory,OWNER_EMAIL=me@marcelovega.com,NODE_OPTIONS=--max-old-space-size=400" \
+  --set-env-vars "NODE_ENV=production,EMAIL_BACKEND=noop,KMS_BACKEND=memory,OWNER_EMAIL=me@marcelovega.com,NODE_OPTIONS=--max-old-space-size=400,OAUTH_ISSUER=https://issuer-placeholder.invalid" \
   --set-secrets "DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest,JWT_REFRESH_SECRET=JWT_REFRESH_SECRET:latest,KMS_LOCAL_MASTER_KEY=KMS_LOCAL_MASTER_KEY:latest,HEALTH_TOKEN=HEALTH_TOKEN:latest,OAUTH_COOKIE_SECRET=OAUTH_COOKIE_SECRET:latest" \
   --add-volume "name=uploads,type=cloud-storage,bucket=curaciones-uploads" \
   --add-volume-mount "volume=uploads,mount-path=/app/uploads" \
@@ -1142,27 +1145,44 @@ echo "$JWKS" | tee /tmp/preview-jwks
 
 Esperado: un URL bajo el origen del canal preview. Si sale vacío, el rewrite de `/.well-known/**` no está funcionando y hay que volver a la Task 9.
 
-- [ ] **Step 2: Desplegar el servicio**
+- [ ] **Step 2: Desplegar el servicio con un `MCP_RESOURCE_URL` provisional**
+
+`MCP_RESOURCE_URL` es obligatorio: el schema zod de `mcp-server/src/config.ts` lo exige y `loadConfig()` lanza `Invalid env: MCP_RESOURCE_URL: Required` antes de abrir el puerto. No se puede omitir y agregarlo después.
+
+Y su valor es el **origen propio** de este servicio — es el identificador RFC 9728 que aparece en `/.well-known/oauth-protected-resource` y en el challenge `WWW-Authenticate` (`src/server.ts`) —, que no se conoce hasta que el servicio existe. Mismo huevo-y-gallina que la Task 15, y se resuelve igual: arrancar con un placeholder bajo `.invalid` (RFC 2606, nunca resuelve), leer el URL asignado y fijarlo. El schema exige `https` con host no-loopback, sin path, query ni fragmento, así que el placeholder debe ser un origen `https` desnudo.
 
 ```bash
 SHA=$(cat /tmp/cutover-sha); PREVIEW=$(cat /tmp/preview-url); JWKS=$(cat /tmp/preview-jwks)
 gcloud run deploy curaciones-mcp-next --region us-west1 \
   --image us-west1-docker.pkg.dev/gws-marcelo-2026/curaciones/mcp:$SHA \
   --service-account curaciones-api@gws-marcelo-2026.iam.gserviceaccount.com \
-  --set-env-vars "NODE_ENV=production,LOG_LEVEL=info,BACKEND_URL=$PREVIEW/api,OAUTH_ISSUER=$PREVIEW,OAUTH_JWKS_URL=$JWKS,OAUTH_AUDIENCE=$PREVIEW" \
+  --set-env-vars "NODE_ENV=production,LOG_LEVEL=info,BACKEND_URL=$PREVIEW/api,OAUTH_ISSUER=$PREVIEW,OAUTH_JWKS_URL=$JWKS,OAUTH_AUDIENCE=$PREVIEW,MCP_RESOURCE_URL=https://mcp-resource-placeholder.invalid" \
   --max-instances 2 --allow-unauthenticated
 ```
 
 `BACKEND_URL` apunta al canal preview, no al URL de `run.app`: así el MCP atraviesa el mismo rewrite que el navegador y se valida la ruta real.
 
-- [ ] **Step 3: Verificar el health**
+- [ ] **Step 3: Fijar `MCP_RESOURCE_URL` al URL real del servicio**
 
 ```bash
-MCP_URL=$(gcloud run services describe curaciones-mcp-next --region us-west1 --format='value(status.url)')
-curl -s "$MCP_URL/health"
+MCP_URL=$(gcloud run services describe curaciones-mcp-next --region us-west1 \
+  --format='value(status.url)' | tee /tmp/mcp-next-url)
+gcloud run services update curaciones-mcp-next --region us-west1 \
+  --update-env-vars "MCP_RESOURCE_URL=$MCP_URL"
 ```
 
-Esperado: respuesta JSON de salud. Si el proceso muere al arrancar, es la validación zod de `mcp-server/src/config.ts`: revisar en los logs qué variable falta.
+Esperado: un URL `https://curaciones-mcp-next-…run.app` en `/tmp/mcp-next-url`. El `update` crea una revisión nueva; hasta que quede healthy el servicio sigue anunciando el placeholder, así que el Step 4 es el que confirma que el valor llegó.
+
+- [ ] **Step 4: Verificar el health y que el recurso anunciado es el propio**
+
+```bash
+MCP_URL=$(cat /tmp/mcp-next-url)
+curl -s "$MCP_URL/health"; echo
+curl -s "$MCP_URL/.well-known/oauth-protected-resource" \
+  | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['resource'])"
+```
+
+Esperado: respuesta JSON de salud, y `resource` **exactamente igual** a `$MCP_URL`. Si sigue diciendo `mcp-resource-placeholder.invalid`, la revisión del Step 3 no tomó tráfico. Si el proceso muere al arrancar, es la validación zod de `mcp-server/src/config.ts`: revisar en los logs qué variable falta.
 
 ### Task 17: Verificar el canal preview completo
 
@@ -1328,7 +1348,9 @@ Entrar a `https://curaciones.web.app` con el bundle **viejo** todavía servido, 
 
 ### Task 20: Desplegar `curaciones-mcp` definitivo
 
-- [ ] **Step 1: Desplegar apuntando al backend live**
+- [ ] **Step 1: Desplegar apuntando al backend live, con `MCP_RESOURCE_URL` provisional**
+
+`curaciones-mcp` se crea aquí por primera vez (el rollback lo borra, §Rollback), así que su URL no existe todavía y aplica el mismo huevo-y-gallina de la Task 16: `MCP_RESOURCE_URL` es obligatorio por zod, y su valor correcto es el origen propio del servicio. Se arranca con el placeholder y se fija en el Step 2.
 
 ```bash
 SHA=$(cat /tmp/cutover-sha); LIVE=https://curaciones.web.app
@@ -1336,17 +1358,29 @@ JWKS=$(curl -s "$LIVE/.well-known/openid-configuration" | python3 -c "import sys
 gcloud run deploy curaciones-mcp --region us-west1 \
   --image us-west1-docker.pkg.dev/gws-marcelo-2026/curaciones/mcp:$SHA \
   --service-account curaciones-api@gws-marcelo-2026.iam.gserviceaccount.com \
-  --set-env-vars "NODE_ENV=production,LOG_LEVEL=info,BACKEND_URL=$LIVE/api,OAUTH_ISSUER=$LIVE,OAUTH_JWKS_URL=$JWKS,OAUTH_AUDIENCE=$LIVE" \
+  --set-env-vars "NODE_ENV=production,LOG_LEVEL=info,BACKEND_URL=$LIVE/api,OAUTH_ISSUER=$LIVE,OAUTH_JWKS_URL=$JWKS,OAUTH_AUDIENCE=$LIVE,MCP_RESOURCE_URL=https://mcp-resource-placeholder.invalid" \
   --max-instances 2 --allow-unauthenticated
 ```
 
-- [ ] **Step 2: Verificar el health**
+- [ ] **Step 2: Fijar `MCP_RESOURCE_URL` al URL real del servicio**
 
 ```bash
-curl -s "$(gcloud run services describe curaciones-mcp --region us-west1 --format='value(status.url)')/health"
+MCP_URL=$(gcloud run services describe curaciones-mcp --region us-west1 \
+  --format='value(status.url)' | tee /tmp/mcp-live-url)
+gcloud run services update curaciones-mcp --region us-west1 \
+  --update-env-vars "MCP_RESOURCE_URL=$MCP_URL"
 ```
 
-Esperado: respuesta de salud. Anotar el URL: es el que se configura en los clientes MCP.
+- [ ] **Step 3: Verificar el health y el recurso anunciado**
+
+```bash
+MCP_URL=$(cat /tmp/mcp-live-url)
+curl -s "$MCP_URL/health"; echo
+curl -s "$MCP_URL/.well-known/oauth-protected-resource" \
+  | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['resource'])"
+```
+
+Esperado: respuesta de salud, y `resource` **exactamente igual** a `$MCP_URL`. Ese es el URL que se configura en los clientes MCP: si `resource` no coincide con el origen por el que el cliente entra, RFC 9728 §3.3 obliga al cliente a rechazar el documento. Si dice `mcp-resource-placeholder.invalid`, la revisión del Step 2 no tomó tráfico.
 
 ### Task 21: Job de Cloud Scheduler para la limpieza diaria
 
