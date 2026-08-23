@@ -2,8 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { assertOauthEnv } from './oauth/oauth-env';
 
 async function bootstrap() {
+  // Before anything else: a production deploy missing OAUTH_ISSUER or
+  // OAUTH_COOKIE_SECRET must die here, not open a port and a database pool
+  // and then serve traffic with a repository-published cookie key.
+  assertOauthEnv();
+
   const app = await NestFactory.create(AppModule);
 
   // Trust the platform's reverse proxy so req.ip is X-Forwarded-For

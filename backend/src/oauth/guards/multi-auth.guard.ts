@@ -3,9 +3,20 @@ import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { OAuthJwtGuard } from './oauth-jwt.guard';
 import { NO_OAUTH_ACCESS_KEY } from '../decorators/no-oauth-access.decorator';
+import { oauthIssuer } from '../oauth-env';
 
 @Injectable()
 export class MultiAuthGuard implements CanActivate {
+  /**
+   * Resolved once, here, and not per request. Nest instantiates providers
+   * during `app.init()`, so a production deploy with `OAUTH_ISSUER` unset
+   * fails to boot — which is the point. Reading it inside `canActivate`
+   * would instead turn a deploy-time misconfiguration into a per-request
+   * throw, i.e. an app that starts, reports healthy, and 500s on every
+   * authenticated call.
+   */
+  private readonly expectedOauthIss = oauthIssuer();
+
   constructor(
     private readonly jwt: JwtAuthGuard,
     private readonly oauth: OAuthJwtGuard,
@@ -28,8 +39,7 @@ export class MultiAuthGuard implements CanActivate {
       /* malformed */
     }
 
-    const expectedOauthIss = process.env.OAUTH_ISSUER || 'http://localhost:3000';
-    if (issuer === expectedOauthIss) {
+    if (issuer === this.expectedOauthIss) {
       // Check if this endpoint explicitly opts out of OAuth
       const noOAuthAccess = this.reflector.getAllAndOverride<boolean>(NO_OAUTH_ACCESS_KEY, [
         ctx.getHandler(),

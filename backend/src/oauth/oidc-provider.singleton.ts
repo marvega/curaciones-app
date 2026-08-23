@@ -11,6 +11,7 @@ import { OAuthBootstrapService } from './services/oauth-bootstrap.service';
 import { AccountAdapterService } from './adapters/account.adapter';
 import { OAuthGrantService } from './services/oauth-grant.service';
 import { buildOidcProvider } from './oidc-provider.factory';
+import { oauthIssuer } from './oauth-env';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.entity';
 
@@ -40,7 +41,7 @@ export class OidcProviderSingleton implements OnApplicationBootstrap {
     // process lifetime. Awaiting `ensureActiveKey()` here makes the
     // dependency explicit and idempotent (no-op if a key already exists).
     await this.bootstrap.ensureActiveKey();
-    const issuer = process.env.OAUTH_ISSUER || 'http://localhost:3000';
+    const issuer = oauthIssuer();
     this.provider = await buildOidcProvider({
       issuer,
       signingKeys: this.signingKeys,

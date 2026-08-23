@@ -7,6 +7,7 @@ import { User } from '../../users/user.entity';
 import { OrganizationMembership, MembershipStatus } from '../../organizations/organization-membership.entity';
 import { OAuthRevocation } from '../entities/oauth-revocation.entity';
 import { OAuthGrant } from '../entities/oauth-grant.entity';
+import { oauthIssuer } from '../oauth-env';
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -29,7 +30,7 @@ export class OAuthJwtStrategy {
   ) {}
 
   async validate(token: string, httpMethod: string): Promise<any> {
-    const issuer = process.env.OAUTH_ISSUER || 'http://localhost:3000';
+    const issuer = oauthIssuer();
     const audience = process.env.OAUTH_AUDIENCE || issuer;
     const keys = await this.getJwks();
 

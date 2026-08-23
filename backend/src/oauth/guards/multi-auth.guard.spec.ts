@@ -68,4 +68,32 @@ describe('MultiAuthGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow('OAuth tokens not accepted');
     expect(oauthGuard.canActivate).not.toHaveBeenCalled();
   });
+
+  describe('OAUTH_ISSUER resolution happens once, at construction', () => {
+    const original = { ...process.env };
+    afterEach(() => {
+      process.env = { ...original };
+    });
+
+    it('does not re-read the env per request', () => {
+      // The check must be a startup concern. If canActivate read the env, a
+      // production deploy missing OAUTH_ISSUER would boot healthy and then
+      // throw on every authenticated request instead of failing the deploy.
+      process.env.OAUTH_ISSUER = 'http://issuer';
+      const g = new MultiAuthGuard(jwtGuard as any, oauthGuard as any, reflector);
+      delete process.env.OAUTH_ISSUER;
+      process.env.NODE_ENV = 'production';
+
+      const token = makePayload({ iss: 'http://issuer', sub: '12' });
+      return expect(g.canActivate(makeCtx(`Bearer ${token}`))).resolves.toBe(true);
+    });
+
+    it('refuses to construct in production without OAUTH_ISSUER', () => {
+      delete process.env.OAUTH_ISSUER;
+      process.env.NODE_ENV = 'production';
+      expect(
+        () => new MultiAuthGuard(jwtGuard as any, oauthGuard as any, reflector),
+      ).toThrow(/OAUTH_ISSUER/);
+    });
+  });
 });

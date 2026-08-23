@@ -17,6 +17,7 @@ import {
   MembershipStatus,
 } from '../organizations/organization-membership.entity';
 import { makePostgresAdapterFactory } from './adapters/postgres.adapter';
+import { oauthCookieSecret } from './oauth-env';
 import { ClientAdapter } from './adapters/client.adapter';
 
 export const SUPPORTED_SCOPES = [
@@ -220,7 +221,7 @@ export async function buildOidcProvider(
     // than left at their defaults, so nobody reads a default name and assumes
     // the cookie still carries state.
     cookies: {
-      keys: [process.env.OAUTH_COOKIE_SECRET || 'change-in-production'],
+      keys: [oauthCookieSecret()],
       names: {
         resume: '__session',
         interaction: '__unused_stripped_by_hosting_interaction',
