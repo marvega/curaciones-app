@@ -2,63 +2,22 @@ import { ExecutionContext, Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { verify, JwtPayload } from 'jsonwebtoken';
 import { createHash } from 'crypto';
+import {
+  THROTTLE_IDENTITY_KEY,
+  ThrottleIdentitySource,
+} from './throttle-identity.decorator';
 
-// Health-check paths the platform (Render) probes frequently. Throttling
-// these returns 429, which Render interprets as "unhealthy" and restarts
-// the container — caused our prod crash-loop.
+// Health-check paths the platform probes frequently. Throttling these returns
+// 429, which the platform interprets as "unhealthy" and restarts the
+// container — caused our prod crash-loop.
 const ALWAYS_SKIP_PATHS = new Set(['/api/health', '/api/health/memory']);
-
-/**
- * Request-body field names that identify an otherwise anonymous caller, in
- * priority order.
- *
- * Why this exists. `req.ip` is not a per-caller value here. `trust proxy` is 1
- * (see trust-proxy.ts, deliberately, because the real chain depth is still
- * unmeasured), so `req.ip` is the right-most `X-Forwarded-For` element — the
- * address of the last proxy in front of this container. `firebase.json` routes
- * `/api/**` through Firebase Hosting, so for every user of the app that element
- * is one and the same Hosting egress address. Falling back to it collapsed every
- * unauthenticated caller into a single bucket, and `POST /api/auth/login` is
- * capped at 5/minute in production (auth.controller.ts): one clinic, one bucket,
- * and any single caller — or one user mistyping a password — locks out everyone
- * else for the rest of the minute. Login is unauthenticated by definition, so the
- * "every authenticated request is already keyed on user:<sub>" argument for
- * tolerating a coarse IP does not cover the routes where the cap actually bites.
- *
- * Why field names and not a route table. The same reason the audit redaction
- * rule is keyed on a field name (audit-log.interceptor.ts): Express runs with
- * `strict routing` and `case sensitive routing` off, so a route pattern silently
- * fails to match spellings that reach the handler anyway. A field name present
- * in the parsed body cannot be missed that way, and a route that grows a second
- * spelling or a second mount point keeps its discriminator.
- *
- * Order matters only where a body carries more than one of these. `/oauth/token`
- * with `grant_type=refresh_token` carries both `client_id` and `refresh_token`;
- * `client_id` wins because the client is the entity whose request rate the cap
- * is meant to bound, and it is stable across that client's requests.
- */
-const ANON_IDENTITY_FIELDS = [
-  // POST /oauth/token, POST /oauth/revoke. Claiming an arbitrary client_id gets
-  // a fresh bucket, but the attempt then fails as invalid_client; an attack that
-  // makes progress against a real client necessarily carries that client's id.
-  'client_id',
-  // POST /api/auth/login (LoginDto.usernameOrEmail).
-  'usernameOrEmail',
-  // POST /api/auth/forgot-password (ForgotPasswordDto.email).
-  'email',
-  // POST /api/auth/refresh (RefreshDto.refreshToken).
-  'refreshToken',
-  'refresh_token',
-  // POST /api/auth/reset-password, POST /api/auth/invitations/{preview,accept}.
-  'token',
-] as const;
 
 /**
  * A stable, non-reversible stand-in for an identity, safe to use as a
  * rate-limit key.
  *
- * Hashed for two reasons: half of ANON_IDENTITY_FIELDS are secrets (refresh and
- * reset tokens) and the other half are PII (a username, an email) in a clinical
+ * Hashed for two reasons: some declared discriminators are secrets (refresh and
+ * reset tokens) and the rest are PII (a username, an email) in a clinical
  * system, and a throttler key is not a place either belongs. The field name is
  * folded in so that the same string arriving under two different names cannot
  * merge two callers into one bucket.
@@ -98,34 +57,38 @@ function basicAuthClientId(req: Record<string, any>): string | null {
 }
 
 /**
- * Identifies an anonymous caller, or null when the request carries nothing that
- * distinguishes one caller from another.
+ * Reads one declared source out of the request, or null when this request does
+ * not carry it.
  *
- * Null is the honest answer for dynamic client registration (`POST
- * /oauth/register`, 10/hour): every field in a DCR body — `client_name`,
- * `redirect_uris`, `software_id` — is chosen by the caller, so keying on any of
- * them would let one caller mint unlimited buckets and remove the cap outright.
- * That endpoint therefore keeps the coarse shared-IP bucket on purpose. It is a
- * real availability limit at cutover (10 registrations per hour for the whole
- * app) and the only thing that lifts it is measuring the true proxy depth via
- * `GET /api/health/proxy` and raising TRUST_PROXY_HOPS — deliberately out of
- * scope here, because raising it on a guess reintroduces the forgeable IP.
+ * Only strings count. A caller may send `{"usernameOrEmail": {...}}`, and an
+ * object coerced into a key would bucket every such caller together.
  */
-function anonymousIdentity(req: Record<string, any>): string | null {
-  const body: unknown = req.body;
-  if (body !== null && typeof body === 'object') {
-    const fields = body as Record<string, unknown>;
-    for (const field of ANON_IDENTITY_FIELDS) {
-      const value = fields[field];
-      // Only strings. A caller may send `{"usernameOrEmail": {...}}`, and an
-      // object coerced into a key would bucket every such caller together.
-      if (typeof value === 'string' && value.trim() !== '') {
-        return fingerprint(field, value);
-      }
+function readSource(
+  req: Record<string, any>,
+  source: ThrottleIdentitySource,
+): string | null {
+  switch (source.kind) {
+    case 'body': {
+      const body: unknown = req.body;
+      if (body === null || typeof body !== 'object') return null;
+      const value = (body as Record<string, unknown>)[source.field];
+      if (typeof value !== 'string' || value.trim() === '') return null;
+      return fingerprint(source.field, value);
     }
+    case 'basic-auth-client-id': {
+      const clientId = basicAuthClientId(req);
+      return clientId === null ? null : fingerprint('client_id', clientId);
+    }
+    default:
+      // Exhaustiveness, enforced by the compiler: a new source kind must be
+      // handled here rather than silently reading as "no discriminator", which
+      // would degrade a route's cap without any test noticing.
+      return assertNever(source);
   }
-  const clientId = basicAuthClientId(req);
-  return clientId === null ? null : fingerprint('client_id', clientId);
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled ThrottleIdentitySource: ${JSON.stringify(value)}`);
 }
 
 @Injectable()
@@ -137,13 +100,30 @@ export class PerUserThrottlerGuard extends ThrottlerGuard {
     return super.shouldSkip(context);
   }
 
-  protected async getTracker(req: Record<string, any>): Promise<string> {
+  /**
+   * The rate-limit bucket for this request.
+   *
+   * `context` is declared optional only because `@nestjs/throttler`'s
+   * `ThrottlerGuard.getTracker` is typed `(req) => Promise<string>` in its
+   * `.d.ts`, and an override cannot add a required parameter to a narrower base
+   * signature. At runtime the argument is always present — see the three
+   * independent confirmations in `getRequiredContext` — so a missing one is a
+   * broken assumption, not a case to degrade around, and it throws.
+   */
+  protected async getTracker(
+    req: Record<string, any>,
+    context?: ExecutionContext,
+  ): Promise<string> {
+    const ctx = getRequiredContext(context);
+
     const auth = req.headers?.authorization;
     if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
       const token = auth.slice(7);
       const secret =
         process.env.JWT_SECRET || 'curaciones-secret-key-change-in-production';
       try {
+        // A real signature check, not a decode: the subject below is used as a
+        // bucket label, so it has to be one this server issued.
         const payload = verify(token, secret) as JwtPayload;
         if (payload && payload.sub !== undefined) {
           return `user:${payload.sub}`;
@@ -152,7 +132,7 @@ export class PerUserThrottlerGuard extends ThrottlerGuard {
         // invalid/expired token — fall through to the anonymous tracker
       }
     }
-    return this.anonymousTracker(req);
+    return this.anonymousTracker(req, ctx);
   }
 
   /**
@@ -165,10 +145,82 @@ export class PerUserThrottlerGuard extends ThrottlerGuard {
    * here. `ThrottlerGuard.generateKey` already folds in the controller class and
    * handler name, so a caller's login bucket and forgot-password bucket are
    * distinct without this tracker having to say so.
+   *
+   * Falling back to the IP is a real availability limit on a route that
+   * declares no discriminator — behind Firebase Hosting `req.ip` is one shared
+   * egress address, so that route's cap is app-wide. The only thing that lifts
+   * it is measuring the true proxy depth via `GET /api/health/proxy` and raising
+   * TRUST_PROXY_HOPS; guessing at it reintroduces a forgeable IP, so it stays
+   * out of scope here.
    */
-  protected anonymousTracker(req: Record<string, any>): string {
+  protected anonymousTracker(
+    req: Record<string, any>,
+    context: ExecutionContext,
+  ): string {
     const ip = typeof req.ip === 'string' ? req.ip : 'unknown';
-    const identity = anonymousIdentity(req);
+    const identity = this.declaredIdentity(req, context);
     return identity === null ? `ip:${ip}` : `ip:${ip}|id:${identity}`;
   }
+
+  /**
+   * The caller's identity according to the handler's own `@ThrottleIdentity`
+   * declaration, or null when the handler declares none or the request does not
+   * carry what it declared.
+   *
+   * Nothing here inspects the request for anything the route did not name, which
+   * is the whole point: an undeclared field cannot influence the bucket.
+   */
+  private declaredIdentity(
+    req: Record<string, any>,
+    context: ExecutionContext,
+  ): string | null {
+    const sources = this.reflector.getAllAndOverride<
+      ThrottleIdentitySource[] | undefined
+    >(THROTTLE_IDENTITY_KEY, [context.getHandler(), context.getClass()]);
+    if (sources === undefined) return null;
+
+    for (const source of sources) {
+      const identity = readSource(req, source);
+      if (identity !== null) return identity;
+    }
+    return null;
+  }
+}
+
+/**
+ * The ExecutionContext `@nestjs/throttler` passes to `getTracker` at runtime,
+ * despite its `.d.ts` declaring the method as taking only `req`.
+ *
+ * Three independent confirmations, all against the pinned 6.5.0 in this repo:
+ *
+ * 1. `dist/throttler.guard.js:114` — `const tracker = await getTracker(req,
+ *    context);`
+ * 2. `dist/throttler.guard.js:57` — the `getTracker` it calls is
+ *    `this.getTracker.bind(this)` whenever the module options do not override
+ *    it, i.e. this very method.
+ * 3. `dist/throttler-module-options.interface.d.ts:35` — the library's own
+ *    public type for that value is
+ *    `(req: Record<string, any>, context: ExecutionContext) => …`, with
+ *    `context` **required**. The narrower method signature in
+ *    `throttler.guard.d.ts:19` is the outlier.
+ *
+ * And a fourth, which is the one that will keep being checked: the contract
+ * test in `per-user-throttler.guard.spec.ts` drives the real
+ * `ThrottlerGuard.canActivate` and asserts the override receives an
+ * ExecutionContext. If a future upgrade drops the argument, that test fails in
+ * CI rather than this guard silently losing every route's discriminator.
+ */
+function getRequiredContext(
+  context: ExecutionContext | undefined,
+): ExecutionContext {
+  if (context === undefined) {
+    throw new Error(
+      'PerUserThrottlerGuard.getTracker was called without an ExecutionContext. ' +
+        '@nestjs/throttler passes one at throttler.guard.js:114; if that has ' +
+        'changed, the per-route @ThrottleIdentity declarations cannot be read ' +
+        'and every declared route would silently collapse onto the shared-IP ' +
+        'bucket. Fix the call path rather than defaulting the argument.',
+    );
+  }
+  return context;
 }

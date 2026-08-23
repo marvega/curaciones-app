@@ -19,6 +19,7 @@ import { InvitationsService } from './invitations.service';
 import { InvitationPreviewDto } from './dto/invitation-preview.dto';
 import { InvitationAcceptDto } from './dto/invitation-accept.dto';
 import { NoOAuthAccess } from '../oauth/decorators/no-oauth-access.decorator';
+import { ThrottleIdentity, bodyField } from '../common/throttle-identity.decorator';
 
 const LOGIN_LIMIT = parseInt(
   process.env.THROTTLE_LOGIN_LIMIT ?? (process.env.NODE_ENV === 'production' ? '5' : '10000'),
@@ -39,12 +40,27 @@ export class AuthController {
 
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: LOGIN_LIMIT } })
+  // The account being logged into is the identity this cap bounds. Without the
+  // declaration every login from the clinic's one Hosting egress address shares
+  // a single 5-per-minute bucket, so one user mistyping a password locks out the
+  // whole clinic. With it, brute force against one account is still capped at
+  // LOGIN_LIMIT and no other account is affected — the trade the owner signed
+  // off on: per-account capping, no global ceiling.
+  @ThrottleIdentity(bodyField('usernameOrEmail'))
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.authService.login(dto.usernameOrEmail, dto.password, req.ip, req.headers['user-agent']);
   }
 
   @Post('refresh')
   @UseGuards(RefreshTokenGuard)
+  // One refresh token is one session, so this caps a session's refresh rate
+  // instead of the whole clinic's — every logged-in user refreshes on a timer,
+  // and a single shared bucket here is the outage this class of fix exists to
+  // avoid. A caller rotating made-up values does get a fresh bucket each time,
+  // but the token is an HS256 JWT signed with JWT_REFRESH_SECRET
+  // (sessions.service.ts:40), so it cannot be guessed into validity, and
+  // RefreshTokenGuard rejects every attempt regardless.
+  @ThrottleIdentity(bodyField('refreshToken'))
   async refresh(@Body() dto: RefreshDto, @Req() req: any) {
     return this.authService.refresh(dto.refreshToken, req.refreshPayload, req.ip, req.headers['user-agent']);
   }
@@ -88,11 +104,18 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  // Per-email, so that one address being hammered cannot deny password recovery
+  // to every other user of the clinic.
+  @ThrottleIdentity(bodyField('email'))
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     await this.passwordReset.forgot(dto.email);
   }
 
   @Post('reset-password')
+  // Per reset token, i.e. per recovery attempt in flight. 256-bit
+  // `randomBytes(32)` (password-reset.service.ts:29), so the same entropy
+  // argument as /refresh applies.
+  @ThrottleIdentity(bodyField('token'))
   async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
     return this.authService.resetPassword(dto.token, dto.newPassword, req.ip, req.headers['user-agent']);
   }
@@ -111,11 +134,15 @@ export class AuthController {
   }
 
   @Post('invitations/preview')
+  // Per invitation token, 256-bit `randomBytes(32)`
+  // (invitations.service.ts:32).
+  @ThrottleIdentity(bodyField('token'))
   async previewInvitation(@Body() dto: InvitationPreviewDto) {
     return this.invitations.preview(dto.token);
   }
 
   @Post('invitations/accept')
+  @ThrottleIdentity(bodyField('token'))
   async acceptInvitation(@Body() dto: InvitationAcceptDto, @Req() req: Request) {
     const user = await this.invitations.accept(dto.token, dto.password, dto.fullName);
     const memberships = await this.authService.findMemberships(user.id);

@@ -35,6 +35,18 @@ function validateRedirectUri(uri: string): void {
 export class OAuthRegisterController {
   constructor(private readonly oidc: OidcProviderSingleton) {}
 
+  // No @ThrottleIdentity, deliberately. Every field of a DCR body —
+  // `client_name`, `redirect_uris`, `software_id` — is invented by the caller
+  // and names no pre-existing identity, so declaring any of them would let one
+  // caller mint unlimited buckets and void this cap outright, which is what
+  // used to happen: before the discriminator became handler-declared, appending
+  // a `client_id` field to a registration body turned five requests into five
+  // buckets, measured. This endpoint therefore keeps the coarse shared-IP
+  // bucket on purpose. It is a real availability limit at cutover — 10
+  // registrations per hour for the whole app — and the only thing that lifts it
+  // is measuring the true proxy depth via `GET /api/health/proxy` and raising
+  // TRUST_PROXY_HOPS. Raising it on a guess reintroduces a forgeable IP, so it
+  // stays out of scope.
   @Public()
   @Throttle({ default: { ttl: 60 * 60 * 1000, limit: 10 } })
   @Post()

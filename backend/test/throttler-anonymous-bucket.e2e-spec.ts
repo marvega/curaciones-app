@@ -4,6 +4,10 @@ import { Test } from '@nestjs/testing';
 import { Throttle, ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
 import { PerUserThrottlerGuard } from '../src/common/per-user-throttler.guard';
+import {
+  ThrottleIdentity,
+  bodyField,
+} from '../src/common/throttle-identity.decorator';
 
 /**
  * End-to-end proof that two anonymous callers arriving from the *same* IP get
@@ -31,10 +35,12 @@ const LIMIT = 3;
 
 @Controller('api/auth')
 class LoginStubController {
-  // Mirrors AuthController.login: same throttler, same body field. The limit is
-  // the production shape (a small per-minute cap), shrunk so the test is quick.
+  // Mirrors AuthController.login: same throttler, same declared discriminator.
+  // The limit is the production shape (a small per-minute cap), shrunk so the
+  // test is quick.
   @Post('login')
   @Throttle({ default: { ttl: 60_000, limit: LIMIT } })
+  @ThrottleIdentity(bodyField('usernameOrEmail'))
   login(@Body() body: { usernameOrEmail?: string }) {
     return { ok: true, who: body?.usernameOrEmail ?? null };
   }
@@ -43,7 +49,8 @@ class LoginStubController {
 @Controller('oauth')
 class RegisterStubController {
   // Mirrors OAuthRegisterController.register: a DCR body carries nothing
-  // trustworthy to key on, so these requests must all share the IP bucket.
+  // trustworthy to key on, so it declares nothing and these requests must all
+  // share the IP bucket.
   @Post('register')
   @Throttle({ default: { ttl: 60_000, limit: LIMIT } })
   register(@Body() body: { client_name?: string }) {

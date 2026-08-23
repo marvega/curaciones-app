@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { decode } from 'jsonwebtoken';
 import { PerUserThrottlerGuard } from '../../common/per-user-throttler.guard';
 
@@ -8,7 +8,10 @@ import { PerUserThrottlerGuard } from '../../common/per-user-throttler.guard';
 // in MultiAuthGuard, so fail-open here is safe.
 @Injectable()
 export class OAuthClientThrottlerGuard extends PerUserThrottlerGuard {
-  protected async getTracker(req: Record<string, any>): Promise<string> {
+  protected async getTracker(
+    req: Record<string, any>,
+    context?: ExecutionContext,
+  ): Promise<string> {
     const auth = (req.headers as Record<string, unknown>)?.authorization;
     if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
       const decoded = decode(auth.slice(7), { complete: true });
@@ -19,6 +22,6 @@ export class OAuthClientThrottlerGuard extends PerUserThrottlerGuard {
         return `oauth:${clientId}:${userId}`;
       }
     }
-    return super.getTracker(req);
+    return super.getTracker(req, context);
   }
 }
