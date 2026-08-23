@@ -12,7 +12,8 @@ MCP server for the Curaciones platform. Exposes 19 tools v1 + `whoami` to Claude
 ## Endpoints
 
 - `GET /health` — public, returns `{ status, version, uptime }`
-- `POST /mcp` — MCP streamable-HTTP, requires `Authorization: Bearer <jwt>` validated against `OAUTH_ISSUER` / `OAUTH_JWKS_URL`
+- `GET /.well-known/oauth-protected-resource` — public, RFC 9728 protected resource metadata. `resource` is `MCP_RESOURCE_URL`, `authorization_servers` is `[OAUTH_ISSUER]`. This is how an MCP client discovers that the Authorization Server lives on a **different origin** than this server.
+- `POST /mcp` — MCP streamable-HTTP, requires `Authorization: Bearer <jwt>` validated against `OAUTH_ISSUER` / `OAUTH_JWKS_URL`. Every 401 carries `WWW-Authenticate: Bearer …, resource_metadata="<MCP_RESOURCE_URL>/.well-known/oauth-protected-resource"`.
 
 ## Smoke test with MCP Inspector
 

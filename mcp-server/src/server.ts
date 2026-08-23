@@ -11,6 +11,11 @@ import { createJwtVerifier, type VerifiedToken } from './auth/jwt-verifier.js';
 import { createBackendClient, type BackendClient } from './http/backend-client.js';
 import { registerTools } from './tools/register.js';
 import type { ToolContext } from './tools/catalog.js';
+import {
+  PROTECTED_RESOURCE_METADATA_PATH,
+  bearerChallenge,
+  buildProtectedResourceMetadata,
+} from './auth/protected-resource-metadata.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -32,10 +37,23 @@ export async function buildServer(cfg: Config): Promise<FastifyInstance> {
     uptime: process.uptime(),
   }));
 
+  // RFC 9728 §3. Unauthenticated by design: this is the document a client reads
+  // *before* it has any token, and §7 treats it as public information.
+  const resourceMetadata = buildProtectedResourceMetadata({
+    resource: cfg.resourceUrl,
+    issuer: cfg.oauth.issuer,
+  });
+  app.get(PROTECTED_RESOURCE_METADATA_PATH, async (_req, reply) =>
+    reply.type('application/json').send(resourceMetadata),
+  );
+
   app.post('/mcp', async (req, reply) => {
     const auth = req.headers['authorization'];
     if (typeof auth !== 'string' || !auth.startsWith('Bearer ')) {
-      reply.header('WWW-Authenticate', 'Bearer error="invalid_request"');
+      reply.header(
+        'WWW-Authenticate',
+        bearerChallenge({ error: 'invalid_request' }, cfg.resourceUrl),
+      );
       return reply.code(401).send({ error: 'missing_bearer' });
     }
     const bearer = auth.slice(7);
@@ -43,8 +61,14 @@ export async function buildServer(cfg: Config): Promise<FastifyInstance> {
     try {
       token = await verifier.verify(bearer);
     } catch (e) {
-      const msg = (e as Error).message.replace(/"/g, '');
-      reply.header('WWW-Authenticate', `Bearer error="invalid_token", error_description="${msg}"`);
+      const msg = (e as Error).message;
+      reply.header(
+        'WWW-Authenticate',
+        bearerChallenge(
+          { error: 'invalid_token', error_description: msg },
+          cfg.resourceUrl,
+        ),
+      );
       return reply.code(401).send({ error: 'invalid_token' });
     }
     const correlationId = correlationFromHeaders(req.headers as any);
