@@ -1,9 +1,15 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { OAuthJwtGuard } from './oauth-jwt.guard';
 import { NO_OAUTH_ACCESS_KEY } from '../decorators/no-oauth-access.decorator';
 import { oauthIssuer } from '../oauth-env';
+import { unverifiedIssuer } from '../unverified-issuer';
 
 @Injectable()
 export class MultiAuthGuard implements CanActivate {
@@ -29,24 +35,20 @@ export class MultiAuthGuard implements CanActivate {
     const m = /^Bearer (.+)$/.exec(auth);
     if (!m) throw new UnauthorizedException('No bearer token');
 
-    // Decide which strategy by inspecting the issuer claim
-    let issuer: string | undefined;
-    try {
-      const [, payloadB64] = m[1].split('.');
-      const decoded = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
-      issuer = decoded?.iss;
-    } catch {
-      /* malformed */
-    }
+    // Decide which strategy by inspecting the issuer claim. Unverified, and
+    // deliberately: it only chooses which verifier gets to reject the token.
+    const issuer = unverifiedIssuer(m[1]);
 
     if (issuer === this.expectedOauthIss) {
       // Check if this endpoint explicitly opts out of OAuth
-      const noOAuthAccess = this.reflector.getAllAndOverride<boolean>(NO_OAUTH_ACCESS_KEY, [
-        ctx.getHandler(),
-        ctx.getClass(),
-      ]);
+      const noOAuthAccess = this.reflector.getAllAndOverride<boolean>(
+        NO_OAUTH_ACCESS_KEY,
+        [ctx.getHandler(), ctx.getClass()],
+      );
       if (noOAuthAccess) {
-        throw new UnauthorizedException('OAuth tokens not accepted on this endpoint');
+        throw new UnauthorizedException(
+          'OAuth tokens not accepted on this endpoint',
+        );
       }
 
       const ok = await this.oauth.canActivate(ctx);

@@ -29,12 +29,35 @@ export class OAuthJwtStrategy {
     @InjectRepository(OAuthGrant) private readonly grantRepo: Repository<OAuthGrant>,
   ) {}
 
-  async validate(token: string, httpMethod: string): Promise<any> {
+  /**
+   * The cryptographic half of `validate`: signature against the published
+   * JWKS, `iss`, `aud`, and an allow-list of algorithms — which is what makes
+   * `alg: none` and a self-signed HS256 token both fail here rather than later.
+   *
+   * Split out because `OAuthClientThrottlerGuard` needs the same answer for a
+   * different question. It runs as a global APP_GUARD, i.e. before
+   * `MultiAuthGuard`, so `req.user` does not exist yet, and it used to reach for
+   * `client_id` out of an unverified `decode()` to build its bucket key. That
+   * let any caller choose their own bucket. It now calls this, so the claims it
+   * keys on are claims this server signed — and it is this method rather than a
+   * second copy of it, because two implementations of "is this token real" is
+   * exactly one more than a system should have.
+   *
+   * Throws UnauthorizedException for a token that fails verification. Anything
+   * else — the JWKS read, KMS — propagates as itself: a caller who cannot be
+   * verified is a 401, but a signing-key store that cannot be read is not, and
+   * must not be quietly reported as one.
+   *
+   * Cost per call is one `jwt.verify` against a key list cached for five
+   * minutes (`getJwks`). The cache lives on this provider, so the guard sharing
+   * the instance shares the cache and adds no database traffic of its own.
+   */
+  async verifyAccessToken(token: string): Promise<jwt.JwtPayload> {
     const issuer = oauthIssuer();
     const audience = process.env.OAUTH_AUDIENCE || issuer;
     const keys = await this.getJwks();
 
-    const payload = await new Promise<jwt.JwtPayload>((resolve, reject) => {
+    return new Promise<jwt.JwtPayload>((resolve, reject) => {
       jwt.verify(
         token,
         (header, cb) => {
@@ -49,6 +72,10 @@ export class OAuthJwtStrategy {
         },
       );
     });
+  }
+
+  async validate(token: string, httpMethod: string): Promise<any> {
+    const payload = await this.verifyAccessToken(token);
 
     if (!payload.sub) throw new UnauthorizedException('No sub');
     const orgId = (payload as any).org_id;
