@@ -1,7 +1,10 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { IsNull, LessThan } from 'typeorm';
-import { OAuthCleanupService } from './oauth-cleanup.service';
+import {
+  OAuthCleanupService,
+  UNAUTHORIZED_CLIENT_RETENTION_MS,
+} from './oauth-cleanup.service';
 import { OAuthClient } from '../entities/oauth-client.entity';
 import { OAuthToken } from '../entities/oauth-token.entity';
 import { OAuthRevocation } from '../entities/oauth-revocation.entity';
@@ -41,20 +44,42 @@ describe('OAuthCleanupService', () => {
     service = mod.get(OAuthCleanupService);
   });
 
-  it('deletes orphan clients (firstAuthorizedAt IS NULL, older than 30d)', async () => {
-    jest.useFakeTimers();
-    const now = new Date('2026-05-07T03:00:00Z');
-    jest.setSystemTime(now);
-
-    await service.runDailyCleanup();
-
-    const expected30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    expect(clientRepo.delete).toHaveBeenCalledWith({
-      firstAuthorizedAt: IsNull(),
-      createdAt: LessThan(expected30d),
+  describe('clients that never completed an authorization', () => {
+    // POST /oauth/register is public, so this is the only ceiling on an
+    // anonymous-write table sharing an 11 MB Neon free tier with the clinical
+    // records. The window is asserted in hours to keep a future edit from
+    // quietly returning it to days.
+    it('is bounded in hours, not days', () => {
+      expect(UNAUTHORIZED_CLIENT_RETENTION_MS).toBe(2 * 60 * 60 * 1000);
+      expect(UNAUTHORIZED_CLIENT_RETENTION_MS).toBeLessThan(24 * 60 * 60 * 1000);
     });
 
-    jest.useRealTimers();
+    it('outlives the 10-minute Interaction TTL by a wide margin', () => {
+      // firstAuthorizedAt is stamped at consent, so the row has to survive the
+      // whole register -> browser -> login -> consent leg.
+      expect(UNAUTHORIZED_CLIENT_RETENTION_MS).toBeGreaterThanOrEqual(
+        10 * 60 * 1000 * 6,
+      );
+    });
+
+    it('deletes them past the cutoff, and only them', async () => {
+      jest.useFakeTimers();
+      const now = new Date('2026-05-07T03:00:00Z');
+      jest.setSystemTime(now);
+
+      await service.runDailyCleanup();
+
+      const cutoff = new Date(now.getTime() - UNAUTHORIZED_CLIENT_RETENTION_MS);
+      expect(cutoff.toISOString()).toBe('2026-05-07T01:00:00.000Z');
+      expect(clientRepo.delete).toHaveBeenCalledWith({
+        // The IsNull() guard is what keeps an authorized client safe; a
+        // two-hour window without it would delete live integrations.
+        firstAuthorizedAt: IsNull(),
+        createdAt: LessThan(cutoff),
+      });
+
+      jest.useRealTimers();
+    });
   });
 
   it('deletes tokens expired more than 7 days ago', async () => {
