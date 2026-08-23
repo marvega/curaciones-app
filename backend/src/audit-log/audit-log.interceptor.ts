@@ -31,7 +31,8 @@ const CUSTOM_AUDIT_PATHS: Array<{ pattern: RegExp; method: string }> = [
 export const REDACTED_MARKER = '[REDACTED]';
 
 /**
- * Response fields that must never reach `audit_logs`.
+ * Response field names that must never reach `audit_logs`, redacted wherever
+ * they appear in an audited response body.
  *
  * `afterJson` is plaintext `jsonb` and every row is hash-chained, so a secret
  * that lands there cannot be scrubbed later without invalidating the chain
@@ -43,62 +44,93 @@ export const REDACTED_MARKER = '[REDACTED]';
  * marker keeps the redaction visible in the row instead of silently dropping
  * the key.
  *
- * `pattern` is matched against `req.path` — `/api/...` prefix included, no query
- * string. `fields` are top-level keys of the response body.
+ * Why this is keyed on the field name alone and not on `method` + a route
+ * pattern, which is what it used to be. Express is mounted with its defaults,
+ * so `strict routing` and `case sensitive routing` are both off: `POST
+ * /api/org/invitations`, `/api/org/invitations/` and `/api/org/Invitations` all
+ * reach the same handler and all return 200, and `req.path` hands the
+ * interceptor back whichever spelling the caller used. An anchored,
+ * case-sensitive `/^\/api\/org\/invitations$/` therefore matched exactly one of
+ * the three, and adding a trailing slash was enough to write the cleartext
+ * invitation token into `afterJson` — permanently. Tightening the regex to
+ * `/^\/api\/org\/invitations\/?$/i` closes those two spellings, but it leaves
+ * the shape intact: the next sensitive field declared here has to get its own
+ * pattern right against the same routing defaults, and a pattern that is merely
+ * too narrow fails open, silently, into an append-only table.
+ *
+ * A field name has no such degrees of freedom. It also covers the case route
+ * scoping structurally cannot: the same field returned by a second endpoint —
+ * a bulk invite, a resend, an error body that echoes the request — is redacted
+ * the day that endpoint is written rather than the day someone remembers to add
+ * a rule. The asymmetry justifies the bluntness: over-redacting costs one
+ * field's value in the trail, under-redacting persists a live credential that
+ * grants the invited role, up to and including OWNER.
+ *
+ * Names here must therefore be specific enough that redacting them anywhere is
+ * always right. `acceptUrl` qualifies; a name like `url` or `token` would not.
  */
-const REDACTED_RESPONSE_FIELDS: Array<{
-  pattern: RegExp;
-  method: string;
-  fields: string[];
-}> = [
+const REDACTED_RESPONSE_FIELDS: ReadonlySet<string> = new Set([
   // acceptUrl embeds the raw invitation token, valid for 7 days and good for the
   // invited role — including OWNER. Invitation itself stores only a SHA-256
   // tokenHash (invitation.entity.ts), so the audit row would be the one place
   // the plaintext survives.
-  {
-    pattern: /^\/api\/org\/invitations$/,
-    method: 'POST',
-    fields: ['acceptUrl'],
-  },
-];
+  'acceptUrl',
+]);
 
 /**
- * Returns a copy of `body` with every field declared in REDACTED_RESPONSE_FIELDS
- * for this route replaced by REDACTED_MARKER, or `body` itself when no rule
- * applies. Never mutates the caller's object — the client still gets the real
- * response.
+ * True for a container this function may take apart and rebuild.
+ *
+ * An object that defines its own `toJSON` decides its own serialized form —
+ * `Date` becomes an ISO string, `Buffer` a `{type,data}` pair — so rebuilding it
+ * from `Object.entries` would silently change what the `jsonb` column stores
+ * (`Object.entries(new Date())` is `[]`). Those are returned untouched; no
+ * declared field name can hide inside one.
  */
-export function redactResponseBody<T>(
-  method: string,
-  path: string,
-  body: T,
-): T {
-  const rules = REDACTED_RESPONSE_FIELDS.filter(
-    (r) => r.method === method && r.pattern.test(path),
-  );
-  if (rules.length === 0) {
-    return body;
+function isTraversable(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  return typeof (value as { toJSON?: unknown }).toJSON !== 'function';
+}
+
+function redactValue(value: unknown, done: WeakMap<object, unknown>): unknown {
+  if (!isTraversable(value)) return value;
+
+  // Repeated and circular references: hand back the copy already made for this
+  // object so a second reference cannot smuggle an unredacted duplicate through,
+  // and so a cycle terminates. The copy is registered before it is filled, which
+  // is what makes the cyclic case reach a fixed point.
+  const seen = done.get(value);
+  if (seen !== undefined) return seen;
+
+  if (Array.isArray(value)) {
+    const copy: unknown[] = [];
+    done.set(value, copy);
+    for (const item of value) copy.push(redactValue(item, done));
+    return copy;
   }
-  // A declared rule that cannot be applied is a misdeclaration, not a runtime
-  // condition to absorb: passing the body through unredacted is exactly the leak
-  // the rule exists to prevent, so fail loudly instead.
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new Error(
-      `Audit redaction is declared for ${method} ${path} but the response body ` +
-        `is ${Array.isArray(body) ? 'an array' : String(body)}, not an object`,
-    );
+
+  const copy: Record<string, unknown> = {};
+  done.set(value, copy);
+  for (const [key, item] of Object.entries(value)) {
+    copy[key] = REDACTED_RESPONSE_FIELDS.has(key)
+      ? REDACTED_MARKER
+      : redactValue(item, done);
   }
-  const redacted: Record<string, unknown> = {
-    ...(body as unknown as Record<string, unknown>),
-  };
-  for (const rule of rules) {
-    for (const field of rule.fields) {
-      if (field in redacted) {
-        redacted[field] = REDACTED_MARKER;
-      }
-    }
-  }
-  return redacted as T;
+  return copy;
+}
+
+/**
+ * Returns a copy of `body` with every field named in REDACTED_RESPONSE_FIELDS
+ * replaced by REDACTED_MARKER, at any depth. Never mutates the caller's object —
+ * the client still gets the real response, because the interceptor reads the
+ * stream through `tap` and cannot alter what it emits.
+ *
+ * A primitive body is returned as-is: there is no field in it to redact. The one
+ * shape this cannot see is a secret returned as a bare string rather than under
+ * a name, which no field rule can catch and which would be a deliberate change
+ * to a handler's contract.
+ */
+export function redactResponseBody<T>(body: T): T {
+  return redactValue(body, new WeakMap()) as T;
 }
 
 @Injectable()
@@ -152,9 +184,7 @@ export class AuditLogInterceptor implements NestInterceptor {
           entityId: logEntityId,
           payload: method !== 'DELETE' ? body : undefined,
           afterJson:
-            method !== 'DELETE'
-              ? redactResponseBody(method, path, responseBody)
-              : undefined,
+            method !== 'DELETE' ? redactResponseBody(responseBody) : undefined,
           ipAddress: ip,
           userAgent: headers['user-agent'] ?? null,
           requestId,

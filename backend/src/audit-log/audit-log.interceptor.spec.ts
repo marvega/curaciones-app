@@ -100,6 +100,31 @@ describe('AuditLogInterceptor', () => {
     });
   });
 
+  // Express is mounted with its defaults, so `strict routing` and `case
+  // sensitive routing` are both off: all three spellings below reach the same
+  // handler and return 200, and req.path reports whichever one the caller sent.
+  // The anchored, case-sensitive pattern this rule used to carry matched only
+  // the first, so adding a trailing slash was enough to write the cleartext
+  // token into an append-only, hash-chained table.
+  describe.each([
+    ['exact', '/api/org/invitations'],
+    ['trailing slash', '/api/org/invitations/'],
+    ['mixed case', '/api/org/Invitations'],
+    ['upper case', '/API/ORG/INVITATIONS'],
+    ['trailing slash and mixed case', '/api/Org/Invitations/'],
+  ])('POST %s (%s)', (_label, path) => {
+    it('redacts acceptUrl and never persists the token', async () => {
+      const entry = await run(makeReq({ path }), {
+        id: '42',
+        acceptUrl: ACCEPT_URL,
+      });
+
+      expect(entry).toBeDefined();
+      expect(entry.afterJson.acceptUrl).toBe('[REDACTED]');
+      expect(JSON.stringify(entry)).not.toContain(TOKEN);
+    });
+  });
+
   describe('other routes', () => {
     it('audits an unrelated route verbatim', async () => {
       const entry = await run(
@@ -110,13 +135,18 @@ describe('AuditLogInterceptor', () => {
       expect(entry.afterJson).toEqual({ id: 9, firstName: 'Ana' });
     });
 
-    it('does not redact a same-named field on a route with no rule', async () => {
+    // Inverted deliberately. This used to assert that acceptUrl survives on a
+    // route with no rule, which is the route-scoped design stated as a
+    // guarantee. Redaction is keyed on the field name now, so the same token
+    // returned by any audited handler is caught without anyone declaring the
+    // route first.
+    it('redacts the declared field on a route that never declared a rule', async () => {
       const entry = await run(makeReq({ path: '/api/patients' }), {
         id: 9,
         acceptUrl: ACCEPT_URL,
       });
 
-      expect(entry.afterJson.acceptUrl).toBe(ACCEPT_URL);
+      expect(entry.afterJson.acceptUrl).toBe('[REDACTED]');
     });
 
     it('does not redact GET /api/org/invitations — it is never audited at all', async () => {
@@ -129,31 +159,93 @@ describe('AuditLogInterceptor', () => {
 });
 
 describe('redactResponseBody', () => {
-  it('is a no-op for a route with no declared redaction', () => {
-    const body = { acceptUrl: ACCEPT_URL };
-    expect(redactResponseBody('POST', '/api/patients', body)).toBe(body);
+  it('redacts the declared field at the top level', () => {
+    expect(redactResponseBody({ id: '42', acceptUrl: ACCEPT_URL })).toEqual({
+      id: '42',
+      acceptUrl: '[REDACTED]',
+    });
   });
 
-  it('only matches the declared method', () => {
-    const body = { acceptUrl: ACCEPT_URL };
-    expect(redactResponseBody('PUT', '/api/org/invitations', body)).toBe(body);
+  it('leaves a body with no declared field alone', () => {
+    expect(redactResponseBody({ id: 9, firstName: 'Ana' })).toEqual({
+      id: 9,
+      firstName: 'Ana',
+    });
   });
 
-  it('does not match a sibling path', () => {
-    const body = { acceptUrl: ACCEPT_URL };
-    expect(redactResponseBody('POST', '/api/org/invitations/9', body)).toBe(
-      body,
+  it('redacts inside an array body — the shape the old rule threw on', () => {
+    // A bulk-invite handler returning a list used to be a hard error ("declared
+    // for POST /api/org/invitations but the body is an array"), which meant the
+    // interceptor crashed the request rather than redact it.
+    const out = redactResponseBody([
+      { id: '1', acceptUrl: ACCEPT_URL },
+      { id: '2', acceptUrl: ACCEPT_URL },
+    ]);
+
+    expect(out).toEqual([
+      { id: '1', acceptUrl: '[REDACTED]' },
+      { id: '2', acceptUrl: '[REDACTED]' },
+    ]);
+    expect(JSON.stringify(out)).not.toContain(TOKEN);
+  });
+
+  it('redacts a nested occurrence', () => {
+    const out = redactResponseBody({
+      invitation: { id: '42', acceptUrl: ACCEPT_URL },
+    });
+
+    expect(out).toEqual({
+      invitation: { id: '42', acceptUrl: '[REDACTED]' },
+    });
+  });
+
+  it('returns a primitive body unchanged', () => {
+    expect(redactResponseBody(undefined)).toBeUndefined();
+    expect(redactResponseBody(null)).toBeNull();
+    expect(redactResponseBody('ok')).toBe('ok');
+    expect(redactResponseBody(7)).toBe(7);
+  });
+
+  it('preserves values that serialise themselves, such as Date', () => {
+    // Rebuilding a Date from Object.entries would store `{}` in the jsonb
+    // column instead of the ISO string the audit trail is read back as.
+    const createdAt = new Date('2026-08-21T10:00:00.000Z');
+    const out = redactResponseBody({ createdAt, acceptUrl: ACCEPT_URL }) as {
+      createdAt: Date;
+      acceptUrl: string;
+    };
+
+    expect(out.createdAt).toBe(createdAt);
+    expect(JSON.parse(JSON.stringify(out)).createdAt).toBe(
+      '2026-08-21T10:00:00.000Z',
     );
+    expect(out.acceptUrl).toBe('[REDACTED]');
   });
 
-  it('throws when a declared rule matches a body it cannot redact', () => {
-    expect(() =>
-      redactResponseBody('POST', '/api/org/invitations', [
-        { acceptUrl: ACCEPT_URL },
-      ]),
-    ).toThrow(/POST \/api\/org\/invitations/);
-    expect(() =>
-      redactResponseBody('POST', '/api/org/invitations', undefined),
-    ).toThrow(/POST \/api\/org\/invitations/);
+  it('does not mutate the object it was given', () => {
+    const body = { id: '42', acceptUrl: ACCEPT_URL };
+    redactResponseBody(body);
+    expect(body.acceptUrl).toBe(ACCEPT_URL);
+  });
+
+  it('redacts every reference when one object appears twice', () => {
+    const shared = { acceptUrl: ACCEPT_URL };
+    const out = redactResponseBody({ a: shared, b: shared });
+
+    expect(JSON.stringify(out)).not.toContain(TOKEN);
+    expect(out).toEqual({
+      a: { acceptUrl: '[REDACTED]' },
+      b: { acceptUrl: '[REDACTED]' },
+    });
+  });
+
+  it('terminates on a circular body', () => {
+    const body: Record<string, unknown> = { acceptUrl: ACCEPT_URL };
+    body.self = body;
+
+    const out = redactResponseBody(body) as Record<string, unknown>;
+
+    expect(out.acceptUrl).toBe('[REDACTED]');
+    expect(out.self).toBe(out);
   });
 });
