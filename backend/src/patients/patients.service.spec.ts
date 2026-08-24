@@ -519,9 +519,11 @@ describe('PatientsService', () => {
     });
 
     it('returns nextCursor when more results exist', inOrg(async () => {
-      const t1 = new Date('2026-01-01T00:00:00.000Z');
-      const t2 = new Date('2026-01-02T00:00:00.000Z');
-      const t3 = new Date('2026-01-03T00:00:00.000Z');
+      // Built from local components, not a UTC literal, so the wall clock the
+      // cursor must encode is the same text on every host.
+      const t1 = new Date(2026, 0, 1, 0, 0, 0, 0);
+      const t2 = new Date(2026, 0, 2, 0, 0, 0, 0);
+      const t3 = new Date(2026, 0, 3, 0, 0, 0, 0);
       // Service requests limit + 1 = 3 rows; that signals more data exists.
       mockQueryBuilder.getMany.mockResolvedValue([
         cursorPatient(3, t3),
@@ -538,9 +540,17 @@ describe('PatientsService', () => {
       const decoded = JSON.parse(
         Buffer.from(result.nextCursor!, 'base64url').toString('utf8'),
       );
-      expect(decoded).toEqual({ id: 2, createdAt: t2.toISOString() });
+      // Local wall-clock text, not `t2.toISOString()`. `createdAt` is
+      // `timestamp without time zone`, which node-postgres reads as
+      // process-local time; the cursor has to be the inverse of that read or it
+      // compares against a value hours off the column on any non-UTC host. See
+      // `common/cursor-pagination.ts`.
+      expect(decoded).toEqual({ id: 2, createdAt: '2026-01-02 00:00:00.000' });
       expect(mockQueryBuilder.take).toHaveBeenCalledWith(3);
-      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('p."createdAt"', 'DESC');
+      // A property path, not pre-quoted SQL: TypeORM re-resolves order-by keys
+      // through entity metadata when `take` forces its DISTINCT-id pagination
+      // rewrite, and a quoted key crashes that rewrite.
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('p.createdAt', 'DESC');
       expect(mockQueryBuilder.addOrderBy).toHaveBeenCalledWith('p.id', 'DESC');
     }));
 

@@ -114,7 +114,10 @@ export class CuracionesService {
       .createQueryBuilder('c')
       .where('c."organizationId" = :orgId', { orgId })
       .andWhere('c."patientId" = :patientId', { patientId: args.patientId })
-      .orderBy('c."createdAt"', 'DESC')
+      // Property path, not pre-quoted SQL — see the note in
+      // `PatientsService.findByCursor`. No joins here today; written in the
+      // resolvable form so adding one cannot turn this into a 500.
+      .orderBy('c.createdAt', 'DESC')
       .addOrderBy('c.id', 'DESC')
       .take(cappedLimit + 1);
 
@@ -131,7 +134,7 @@ export class CuracionesService {
     const last = items[items.length - 1];
     const nextCursor =
       hasMore && last
-        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt })
         : undefined;
 
     return { items, nextCursor };

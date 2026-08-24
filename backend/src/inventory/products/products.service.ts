@@ -91,7 +91,14 @@ export class ProductsService {
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.codes', 'codes')
       .where('p."organizationId" = :orgId', { orgId })
-      .orderBy('p."createdAt"', 'DESC')
+      // Property path, not pre-quoted SQL — `take` plus the joined-and-selected
+      // `codes` relation sends this through TypeORM's DISTINCT-id subquery,
+      // whose ORDER BY rewrite resolves each key through entity metadata and
+      // cannot resolve `'p."createdAt"'`. See the note in
+      // `WoundNotesService.findByPatientCursor`. `take` (not `limit`) is
+      // required here because `codes` is `@OneToMany`: pages are entities, not
+      // rows.
+      .orderBy('p.createdAt', 'DESC')
       .addOrderBy('p.id', 'DESC')
       .take(cappedLimit + 1);
 
@@ -111,7 +118,7 @@ export class ProductsService {
     const last = items[items.length - 1];
     const nextCursor =
       hasMore && last
-        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt })
         : undefined;
 
     return { items, nextCursor };

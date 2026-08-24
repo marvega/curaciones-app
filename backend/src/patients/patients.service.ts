@@ -281,7 +281,12 @@ export class PatientsService {
     const qb = this.patientRepo
       .createQueryBuilder('p')
       .where('p."organizationId" = :orgId', { orgId })
-      .orderBy('p."createdAt"', 'DESC')
+      // Property path, not pre-quoted SQL. This query joins nothing today, so
+      // it never enters TypeORM's DISTINCT-id pagination rewrite — but adding
+      // one `joinAndSelect` would be enough to send it there, and a pre-quoted
+      // key crashes that rewrite (see `WoundNotesService.findByPatientCursor`).
+      // Written in the resolvable form so the trap is not left armed.
+      .orderBy('p.createdAt', 'DESC')
       .addOrderBy('p.id', 'DESC')
       .take(cappedLimit + 1);
 
@@ -304,7 +309,7 @@ export class PatientsService {
     const last = sliced[sliced.length - 1];
     const nextCursor =
       hasMore && last
-        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt })
         : undefined;
 
     const items = await this.decryptMany(sliced);

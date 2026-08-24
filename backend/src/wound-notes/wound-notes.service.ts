@@ -113,7 +113,16 @@ export class WoundNotesService {
       .innerJoinAndSelect('wn.recordedBy', 'u')
       .where('c.patientId = :patientId', { patientId: args.patientId })
       .andWhere('wn.organizationId = :orgId', { orgId })
-      .orderBy('wn."createdAt"', 'DESC')
+      // Property paths, never pre-quoted SQL. `take` plus a joined-and-selected
+      // relation makes TypeORM paginate entities rather than rows: it wraps the
+      // query in a `DISTINCT`-id subquery and rewrites the ORDER BY into it via
+      // `createOrderByCombinedWithSelectExpression`, which splits each key on
+      // `.` and resolves the remainder through entity metadata. `'wn."createdAt"'`
+      // resolves to a property literally named `"createdAt"`, matches no column,
+      // and the request dies with `Cannot read properties of undefined (reading
+      // 'databaseName')` before any SQL is emitted. `where()` fragments are
+      // passed through as SQL and may stay quoted; orderBy keys may not.
+      .orderBy('wn.createdAt', 'DESC')
       .addOrderBy('wn.id', 'DESC')
       .take(cappedLimit + 1);
 
@@ -131,7 +140,7 @@ export class WoundNotesService {
     const last = items[items.length - 1];
     const nextCursor =
       hasMore && last
-        ? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt })
         : undefined;
 
     return { items, nextCursor };
