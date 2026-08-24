@@ -88,28 +88,32 @@ export class UsersService {
     return user.preferences as UserPreferences;
   }
 
+  /**
+   * Creates the first user of a brand-new installation.
+   *
+   * The credentials come from SEED_USERNAME and SEED_PASSWORD and nothing is
+   * created when they are unset, so an existing deployment boots without this
+   * doing anything. They used to be literals in this file, which put two real
+   * production passwords in a public repository — see
+   * docs/runbooks/2026-08-24-credential-exposure.md.
+   *
+   * Members are added by invitation (POST /api/org/invitations), so this only
+   * exists to solve the bootstrap problem of the very first account, before
+   * anyone exists who could invite.
+   */
   async seed() {
-    // TODO(phase-13.1b): seed should also create default Organization +
-    // OrganizationMembership for admin users. For now this just inserts the
-    // bare User rows so tsc compiles; org membership wiring is out of scope.
-    const users = [
-      { username: 'admin', password: '***REMOVED-CREDENTIAL***' },
-      { username: 'cynthia', password: '***REMOVED-CREDENTIAL***' },
-    ];
+    const username = process.env.SEED_USERNAME;
+    const password = process.env.SEED_PASSWORD;
+    if (!username || !password) return { created: 0 };
 
-    const created: User[] = [];
-    for (const u of users) {
-      const existing = await this.findByUsername(u.username);
-      if (!existing) {
-        const hash = await bcrypt.hash(u.password, 10);
-        const user = this.userRepo.create({
-          username: u.username,
-          passwordHash: hash,
-        });
-        const saved = await this.userRepo.save(user);
-        created.push(saved);
-      }
-    }
-    return { created: created.length };
+    const existing = await this.findByUsername(username);
+    if (existing) return { created: 0 };
+
+    const user = this.userRepo.create({
+      username,
+      passwordHash: await bcrypt.hash(password, 10),
+    });
+    await this.userRepo.save(user);
+    return { created: 1 };
   }
 }
