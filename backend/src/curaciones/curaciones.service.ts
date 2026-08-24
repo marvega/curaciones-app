@@ -11,6 +11,7 @@ import type { KmsService } from '../kms/kms.service';
 import type { EncryptedField } from '../kms/encrypted-field';
 import { getCurrentOrgId } from '../common/org-context';
 import { findScoped, findOneScoped } from '../common/org-scoped.repository';
+import { encodeCursor, decodeCursor } from '../common/cursor-pagination';
 
 @Injectable()
 export class CuracionesService {
@@ -82,6 +83,61 @@ export class CuracionesService {
       relations: ['appointment', 'edits', 'edits.editedBy'],
       order: { date: 'DESC' },
     });
+  }
+
+  /**
+   * Cursor-paginated listing of a patient's curaciones for stable iteration
+   * (used by the MCP server and any client that wants to walk a patient's
+   * history without offset drift). Orders by (createdAt DESC, id DESC) so the
+   * cursor tuple is unique — `date` alone is a date-only column with frequent
+   * ties.
+   *
+   * Note: `findByPatient` returns relations (appointment, edits, edits.editedBy)
+   * but for the cursor walk we keep the row shape lean — relations balloon the
+   * payload and the cursor branch's purpose is bulk export. Observations stay
+   * encrypted on the wire (matching `findByPatient` behaviour, which also does
+   * not decrypt; see kms/encrypted-column.transformer.ts).
+   *
+   * Contract: returns `{ items, nextCursor }`. `nextCursor` is `undefined`
+   * when there are no more rows.
+   */
+  async findByPatientCursor(args: {
+    patientId: number;
+    limit: number;
+    cursor?: string;
+  }): Promise<{ items: Curacion[]; nextCursor?: string }> {
+    const orgId = this.requireOrgId();
+    const cappedLimit = Math.max(1, Math.min(args.limit, 100));
+    const decoded = decodeCursor(args.cursor);
+
+    const qb = this.curacionRepo
+      .createQueryBuilder('c')
+      .where('c."organizationId" = :orgId', { orgId })
+      .andWhere('c."patientId" = :patientId', { patientId: args.patientId })
+      // Property path, not pre-quoted SQL — see the note in
+      // `PatientsService.findByCursor`. No joins here today; written in the
+      // resolvable form so adding one cannot turn this into a 500.
+      .orderBy('c.createdAt', 'DESC')
+      .addOrderBy('c.id', 'DESC')
+      .take(cappedLimit + 1);
+
+    if (decoded) {
+      qb.andWhere(
+        '(c."createdAt", c.id) < (:cursorCreatedAt, :cursorId)',
+        { cursorCreatedAt: decoded.createdAt, cursorId: decoded.id },
+      );
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > cappedLimit;
+    const items = hasMore ? rows.slice(0, cappedLimit) : rows;
+    const last = items[items.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? encodeCursor({ id: last.id, createdAt: last.createdAt })
+        : undefined;
+
+    return { items, nextCursor };
   }
 
   async getAgenda(from: string, to: string): Promise<any[]> {

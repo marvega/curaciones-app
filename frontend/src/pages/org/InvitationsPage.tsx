@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { listOrgInvitations } from '../../services/api';
 import { PageHeader, DataTable } from '../../components/ui';
 import type { ColumnDef } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
+import { OrgTabs } from '../../components/org/OrgTabs';
 
 interface Invite {
   id: string;
@@ -31,6 +32,8 @@ export default function InvitationsPage() {
   };
 
   useEffect(() => {
+    // Initial mount-only fetch; setState fires inside reload() after the async API call resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -47,6 +50,7 @@ export default function InvitationsPage() {
 
   return (
     <>
+      <OrgTabs />
       <PageHeader title="Invitaciones pendientes" />
       <DataTable
         columns={cols}

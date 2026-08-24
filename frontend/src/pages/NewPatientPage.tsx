@@ -36,7 +36,7 @@ export default function NewPatientPage() {
   };
 
   const validateRut = (rut: string): boolean => {
-    const clean = rut.replace(/[.\-]/g, '');
+    const clean = rut.replace(/[.-]/g, '');
     if (clean.length < 2) return false;
     const body = clean.slice(0, -1);
     const dv = clean.slice(-1).toUpperCase();
@@ -73,9 +73,10 @@ export default function NewPatientPage() {
     try {
       const patient = await createPatient(form);
       navigate(`/paciente/${patient.id}`);
-    } catch (err: any) {
+    } catch (err) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
       setError(
-        err.response?.data?.message || 'Error al crear el paciente',
+        apiErr.response?.data?.message || 'Error al crear el paciente',
       );
     } finally {
       setLoading(false);

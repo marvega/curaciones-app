@@ -29,6 +29,10 @@ export default function CatalogAdminPage() {
   const debouncedSearch = useDebouncedValue(search, 300);
 
   useEffect(() => {
+    // Debounced search side-effect: setLoading(true) toggles a UI flag while we fetch
+    // the new product list; the fetched result is then applied via setProducts/setTotal in
+    // the .then callback, which is the documented "subscribe to external system" pattern.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     listProducts({ search: debouncedSearch, limit: 100 })
       .then((r) => {

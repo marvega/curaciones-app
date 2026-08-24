@@ -23,6 +23,11 @@ export class InvitationsService {
 
   private hash(s: string): string { return createHash('sha256').update(s).digest('hex'); }
 
+  acceptUrlFor(token: string): string {
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return `${baseUrl}/accept-invitation?token=${token}`;
+  }
+
   async create(organizationId: string, inviterId: number, inviterName: string, email: string, role: OrgRole): Promise<{ invitation: Invitation; token: string }> {
     const token = randomBytes(32).toString('base64url');
     const inv = this.invRepo.create({
@@ -35,7 +40,6 @@ export class InvitationsService {
     });
     const saved = await this.invRepo.save(inv);
     const org = await this.orgRepo.findOne({ where: { id: organizationId } });
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     await this.email.send({
       to: email,
       subject: `Invitación para unirte a ${org?.name}`,
@@ -44,7 +48,7 @@ export class InvitationsService {
         organizationName: org?.name ?? '',
         inviterName,
         role,
-        acceptUrl: `${baseUrl}/accept-invitation?token=${token}`,
+        acceptUrl: this.acceptUrlFor(token),
         expiresInDays: 7,
       }),
     });

@@ -33,6 +33,6 @@ import { RefreshTokenGuard } from './refresh-token.guard';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, SessionsService, InvitationsService, PasswordResetService, RefreshTokenGuard],
-  exports: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtStrategy, InvitationsService],
 })
 export class AuthModule {}

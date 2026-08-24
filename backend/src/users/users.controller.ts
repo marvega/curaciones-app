@@ -3,10 +3,13 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './create-user.dto';
 import { UpdatePreferencesDto } from './update-preferences.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { MultiAuthGuard } from '../oauth/guards/multi-auth.guard';
+import { OAuthScopeGuard } from '../oauth/guards/oauth-scope.guard';
+import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
+import { NoOAuthAccess } from '../oauth/decorators/no-oauth-access.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -15,33 +18,43 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me/preferences')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(MultiAuthGuard, OAuthScopeGuard)
+  @RequiredScopes('org:admin')
   @ApiOperation({ summary: 'Get current user preferences' })
   async getPreferences(@CurrentUser() user: any) {
     return this.usersService.getPreferences(user.id);
   }
 
   @Put('me/preferences')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(MultiAuthGuard, OAuthScopeGuard)
+  @RequiredScopes('org:admin')
   @ApiOperation({ summary: 'Update current user preferences' })
   async updatePreferences(@CurrentUser() user: any, @Body() dto: UpdatePreferencesDto) {
     return this.usersService.updatePreferences(user.id, dto);
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(MultiAuthGuard, OAuthScopeGuard, RolesGuard)
+  @RequiredScopes('org:admin')
   @Roles('admin')
   async findAll() {
     return this.usersService.findAll();
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(MultiAuthGuard, OAuthScopeGuard, RolesGuard)
+  @RequiredScopes('org:admin')
   @Roles('admin')
   async create(@Body() dto: CreateUserDto, @CurrentUser() user: { id: number; role: string }) {
     return this.usersService.create(dto, user);
   }
 
+  // Dev-only bootstrap endpoint: intentionally anonymous (no auth guard).
+  // @NoOAuthAccess suppresses governance lint only — it does NOT restrict
+  // access. The endpoint is reachable by any unauthenticated caller; the
+  // decorator merely tells the OAuth scope-coverage governance test that
+  // this surface is intentionally not exposed via OAuth tokens.
+  @NoOAuthAccess()
   @Post('seed')
   async seed() {
     return this.usersService.seed();

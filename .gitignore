@@ -11,6 +11,9 @@ dist/
 backend/dist/
 frontend/dist/
 
+# Firebase CLI cache
+.firebase/
+
 # Environment
 .env
 .env.local
@@ -47,3 +50,17 @@ backend/uploads/
 
 # Brainstorming companion
 .superpowers/
+
+# Claude Code project state
+.claude/
+
+# Browser automation artifacts
+.playwright-mcp/
+
+# Local DB dumps (PHI; keep outside the repo)
+backup-prd-*.sql
+backup-*.sql
+
+# Smoke test screenshots
+smoke-*.png
+qr-paciente-*.png

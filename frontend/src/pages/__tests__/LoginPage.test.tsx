@@ -12,7 +12,7 @@ vi.mock('react-router-dom', () => ({
   Navigate: ({ to }: { to: string }) => <div data-testid="navigate-to">{to}</div>,
 }));
 
-vi.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/useAuth', () => ({
   useAuth: vi.fn(),
 }));
 
@@ -21,7 +21,7 @@ vi.mock('lucide-react', () => ({
   Loader2: (props: Record<string, unknown>) => <span data-testid="loader" {...props} />,
 }));
 
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 const mockedUseAuth = useAuth as ReturnType<typeof vi.fn>;
 
 describe('LoginPage', () => {

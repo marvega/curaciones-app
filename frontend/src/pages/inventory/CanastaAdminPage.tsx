@@ -33,8 +33,8 @@ import {
   Textarea,
 } from '../../components/ui';
 import { formatCode, toSentenceCase } from '../../formatters/text';
-import { useToast } from '../../contexts/ToastContext';
-import { useConfirm } from '../../contexts/ConfirmContext';
+import { useToast } from '../../contexts/useToast';
+import { useConfirm } from '../../contexts/useConfirm';
 
 function primaryCode(p: Product): string {
   if (!p.codes || p.codes.length === 0) return '—';
@@ -94,6 +94,8 @@ export default function CanastaAdminPage() {
   }
 
   useEffect(() => {
+    // Initial mount-only fetch; setState fires inside refresh()/listProducts() after async API resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
     listProducts({ limit: 5000 }).then((r) => setAllProducts(r.data));
   }, []);

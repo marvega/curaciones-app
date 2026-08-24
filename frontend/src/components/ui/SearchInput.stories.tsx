@@ -6,16 +6,20 @@ const meta: Meta<typeof SearchInput> = { title: 'UI/SearchInput', component: Sea
 export default meta;
 type Story = StoryObj<typeof SearchInput>;
 
+function SearchInputDefaultStory() {
+  const [v, setV] = useState('');
+  return <div className="w-96"><SearchInput value={v} onChange={setV} placeholder="Buscar pacientes…" /></div>;
+}
+
+function SearchInputWithValueStory() {
+  const [v, setV] = useState('Juan Pérez');
+  return <div className="w-96"><SearchInput value={v} onChange={setV} placeholder="Buscar…" /></div>;
+}
+
 export const Default: Story = {
-  render: () => {
-    const [v, setV] = useState('');
-    return <div className="w-96"><SearchInput value={v} onChange={setV} placeholder="Buscar pacientes…" /></div>;
-  },
+  render: () => <SearchInputDefaultStory />,
 };
 
 export const WithValue: Story = {
-  render: () => {
-    const [v, setV] = useState('Juan Pérez');
-    return <div className="w-96"><SearchInput value={v} onChange={setV} placeholder="Buscar…" /></div>;
-  },
+  render: () => <SearchInputWithValueStory />,
 };

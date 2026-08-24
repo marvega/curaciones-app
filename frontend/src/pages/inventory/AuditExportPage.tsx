@@ -3,7 +3,7 @@ import { saveAs } from 'file-saver';
 import { Download } from 'lucide-react';
 import { downloadAuditExport } from '../../services/api';
 import { Button, Card, Input, PageHeader, Select } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
 
 const MONTH_OPTIONS = [
   { value: '1', label: 'Enero' },

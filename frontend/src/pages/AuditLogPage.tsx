@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { getAuditLogs } from '../services/api';
 import { Navigate } from 'react-router-dom';
 import { Loader2, Search } from 'lucide-react';
@@ -13,7 +13,7 @@ interface AuditLogEntry {
   action: 'CREATE' | 'UPDATE' | 'DELETE';
   entity: string;
   entityId: number;
-  payload: Record<string, any> | null;
+  payload: Record<string, unknown> | null;
   ipAddress: string | null;
   createdAt: string;
 }
@@ -63,7 +63,10 @@ export default function AuditLogPage() {
   const fetchLogs = useCallback(async (p: number, filters: { entity: string; from: string; to: string }) => {
     setLoading(true);
     try {
-      const params: Record<string, any> = { page: p, limit: 20 };
+      const params: { page: number; limit: number; entity?: string; from?: string; to?: string } = {
+        page: p,
+        limit: 20,
+      };
       if (filters.entity) params.entity = filters.entity;
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
@@ -82,6 +85,8 @@ export default function AuditLogPage() {
 
   useEffect(() => {
     if (isAdmin) {
+      // Initial mount-only fetch; setState fires inside fetchLogs() after the async API call resolves.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchLogs(1, { entity, from, to });
     }
   }, [isAdmin, fetchLogs]); // eslint-disable-line react-hooks/exhaustive-deps

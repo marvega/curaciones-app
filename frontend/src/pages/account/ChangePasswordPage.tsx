@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { changePassword } from '../../services/api';
 import { Button, Input, Card, PageHeader } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
 
 export default function ChangePasswordPage() {
   const [current, setCurrent] = useState('');

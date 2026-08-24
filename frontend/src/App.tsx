@@ -25,8 +25,11 @@ import UiGalleryPage from './pages/dev/UiGalleryPage';
 import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import HelpPage from './pages/HelpPage';
 import SessionsPage from './pages/account/SessionsPage';
 import ChangePasswordPage from './pages/account/ChangePasswordPage';
+import ConnectedAppsPage from './pages/account/ConnectedAppsPage';
+import { ConsentScreen } from './pages/account/ConsentScreen';
 import MembersPage from './pages/org/MembersPage';
 import InvitationsPage from './pages/org/InvitationsPage';
 import EstablishmentsPage from './pages/org/EstablishmentsPage';
@@ -61,8 +64,11 @@ function App() {
               <Route path="inventory/audit-export" element={<AuditExportPage />} />
               <Route path="inventory/admin/catalog" element={<CatalogAdminPage />} />
               <Route path="inventory/admin/canasta" element={<CanastaAdminPage />} />
+              <Route path="ayuda" element={<HelpPage />} />
               <Route path="account/sessions" element={<SessionsPage />} />
               <Route path="account/change-password" element={<ChangePasswordPage />} />
+              <Route path="account/connected-apps" element={<ConnectedAppsPage />} />
+              <Route path="account/oauth/consent" element={<ConsentScreen />} />
               <Route path="org/members" element={<MembersPage />} />
               <Route path="org/invitations" element={<InvitationsPage />} />
               <Route path="org/establishments" element={<EstablishmentsPage />} />

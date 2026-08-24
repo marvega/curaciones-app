@@ -261,7 +261,13 @@ export const getAgenda = async (
   return data;
 };
 
-export const getAvailability = async (date: string): Promise<any[]> => {
+export interface AvailabilitySlot {
+  time: string;
+  available: boolean;
+  patient?: { firstName: string; lastName: string };
+}
+
+export const getAvailability = async (date: string): Promise<AvailabilitySlot[]> => {
   const { data } = await api.get('/curaciones/availability', {
     params: { date },
   });
@@ -568,7 +574,12 @@ export const downloadAuditExport = async (params: { mode: 'current' | 'month'; e
 
 // Org - members
 export const listMembers = async () => (await api.get('/org/members')).data;
-export const inviteMember = async (email: string, role: string) =>
+// `acceptUrl` only comes back when the server has email delivery off
+// (EMAIL_BACKEND=noop); with a real backend the response is exactly `{ id }`.
+export const inviteMember = async (
+  email: string,
+  role: string,
+): Promise<{ id: string; acceptUrl?: string }> =>
   (await api.post('/org/invitations', { email, role })).data;
 export const updateMemberRole = async (userId: number, role: string) =>
   (await api.patch(`/org/members/${userId}`, { role })).data;

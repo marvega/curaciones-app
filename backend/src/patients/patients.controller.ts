@@ -11,6 +11,7 @@ import {
   UseGuards,
   Req,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -18,24 +19,42 @@ import { PatientsService } from './patients.service';
 import { PatientPdfService } from './patient-pdf.service';
 import { CreatePatientDto } from './create-patient.dto';
 import { UpdatePatientDto } from './update-patient.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
+import { MultiAuthGuard } from '../oauth/guards/multi-auth.guard';
+import { OAuthScopeGuard } from '../oauth/guards/oauth-scope.guard';
+import { RequiredScopes } from '../oauth/decorators/required-scopes.decorator';
 
 @ApiTags('Patients')
 @ApiBearerAuth()
 @Controller('api/patients')
-@UseGuards(JwtAuthGuard)
+@UseGuards(MultiAuthGuard, OAuthScopeGuard)
 export class PatientsController {
   constructor(
     private readonly patientsService: PatientsService,
     private readonly patientPdfService: PatientPdfService,
   ) {}
 
+  /**
+   * Parse the ?limit= query param for the cursor branch with safe bounds.
+   * - Non-numeric / non-positive / non-finite → fallback to 20.
+   * - Capped at 100 so a hostile MCP client cannot request a huge page.
+   * (The service also caps; defence in depth.)
+   */
+  private parseLimit(raw: string | undefined): number {
+    const n = parseInt(raw || '20', 10);
+    if (!Number.isFinite(n) || n <= 0) return 20;
+    return Math.min(n, 100);
+  }
+
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
+  @RequiredScopes('patients:read')
   @Get()
   async find(
     @Query('rut') rut?: string,
     @Query('q') q?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
     @Query('status') status?: string,
     @Query('gender') gender?: string,
     @Query('curacionType') curacionType?: string,
@@ -47,6 +66,26 @@ export class PatientsController {
     if (rut) {
       const patient = await this.patientsService.findByRut(rut);
       return patient ? patient : { found: false };
+    }
+
+    // Cursor branch: when ?cursor= is present (even empty) the client opts
+    // into the cursor-paginated contract and `page` is ignored.
+    if (cursor !== undefined) {
+      try {
+        return await this.patientsService.findByCursor({
+          cursor: cursor || undefined,
+          limit: this.parseLimit(limit),
+          q: q?.trim().slice(0, 100) || undefined,
+        });
+      } catch (e) {
+        // decodeCursor() throws plain Error('invalid cursor[...]') on bad
+        // client input. Convert to 400 so the contract for an opaque cursor
+        // (bad input → BadRequest, not 500) is honoured.
+        if ((e as Error).message?.toLowerCase().includes('invalid cursor')) {
+          throw new BadRequestException('invalid cursor');
+        }
+        throw e;
+      }
     }
 
     const trimmedQ = q?.trim();
@@ -77,6 +116,8 @@ export class PatientsController {
     return this.patientsService.findAll();
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
+  @RequiredScopes('patients:read')
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Download patient clinical record as PDF' })
   async downloadPdf(
@@ -92,21 +133,29 @@ export class PatientsController {
     res.end(buffer);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
+  @RequiredScopes('patients:read')
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.patientsService.findById(id);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @RequiredScopes('patients:write')
   @Post()
   async create(@Body() dto: CreatePatientDto) {
     return this.patientsService.create(dto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @RequiredScopes('patients:write')
   @Post('seed')
   async seed() {
     return this.patientsService.seed();
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @RequiredScopes('patients:write')
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -115,11 +164,15 @@ export class PatientsController {
     return this.patientsService.update(id, dto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @RequiredScopes('patients:write')
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.patientsService.remove(id);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @RequiredScopes('patients:write')
   @Post(':id/discharge')
   async discharge(
     @Param('id', ParseIntPipe) id: number,
@@ -130,6 +183,8 @@ export class PatientsController {
     return this.patientsService.discharge(id, user.id, body.cancelAppointment || false);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @RequiredScopes('patients:write')
   @Post(':id/readmit')
   async readmit(
     @Param('id', ParseIntPipe) id: number,
@@ -139,6 +194,8 @@ export class PatientsController {
     return this.patientsService.readmit(id, user.id);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 300 } })
+  @RequiredScopes('patients:read')
   @Get(':id/status-history')
   async getStatusHistory(@Param('id', ParseIntPipe) id: number) {
     return this.patientsService.getStatusHistory(id);

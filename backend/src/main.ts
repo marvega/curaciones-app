@@ -2,14 +2,22 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { assertOauthEnv } from './oauth/oauth-env';
+import { resolveTrustProxyHops } from './common/trust-proxy';
 
 async function bootstrap() {
+  // Before anything else: a production deploy missing OAUTH_ISSUER or
+  // OAUTH_COOKIE_SECRET must die here, not open a port and a database pool
+  // and then serve traffic with a repository-published cookie key.
+  assertOauthEnv();
+
   const app = await NestFactory.create(AppModule);
 
-  // Trust the platform's reverse proxy so req.ip is X-Forwarded-For
-  // (the real client IP) rather than the load-balancer IP. Required for
-  // per-IP throttling to behave per-user instead of per-edge-node.
-  app.getHttpAdapter().getInstance().set('trust proxy', true);
+  // Trust a bounded number of reverse-proxy hops, never the whole chain.
+  // `true` made req.ip the left-most X-Forwarded-For element, which is
+  // whatever the caller sent — see src/common/trust-proxy.ts.
+  const trustProxyHops = resolveTrustProxyHops();
+  app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   app.enableCors({
@@ -39,6 +47,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Backend corriendo en puerto ${port}`);
+  console.log(`Backend corriendo en puerto ${port} (trust proxy hops: ${trustProxyHops})`);
 }
 bootstrap();

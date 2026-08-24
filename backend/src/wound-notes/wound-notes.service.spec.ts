@@ -16,6 +16,8 @@ describe('WoundNotesService', () => {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
     getMany: jest.fn(),
   };
 
@@ -38,6 +40,8 @@ describe('WoundNotesService', () => {
     mockQb.where.mockClear().mockReturnThis();
     mockQb.andWhere.mockClear().mockReturnThis();
     mockQb.orderBy.mockClear().mockReturnThis();
+    mockQb.addOrderBy.mockClear().mockReturnThis();
+    mockQb.take.mockClear().mockReturnThis();
     mockQb.getMany.mockReset();
   });
 
@@ -61,6 +65,56 @@ describe('WoundNotesService', () => {
       expect(result[0].notes as unknown as string).toBe('herida cicatrizando bien');
       expect(result[1].notes as unknown as string).toBe('exudado moderado');
       expect(result[2].notes).toBeNull();
+    }));
+  });
+
+  describe('findByPatientCursor', () => {
+    it('decrypts notes and returns nextCursor when more pages exist', inOrg(async () => {
+      const kms = (
+        service as unknown as { kms: import('../kms/kms.service').KmsService }
+      ).kms;
+      const enc1 = await kms.encrypt('herida 1', 'WoundNote.notes:31', '1');
+      const enc2 = await kms.encrypt('herida 2', 'WoundNote.notes:32', '1');
+
+      // Return cappedLimit + 1 rows so the service slices and emits a cursor.
+      mockQb.getMany.mockResolvedValueOnce([
+        {
+          id: 32,
+          curacionId: 200,
+          notes: enc2,
+          createdAt: new Date('2026-04-02T10:00:00Z'),
+        },
+        {
+          id: 31,
+          curacionId: 199,
+          notes: enc1,
+          createdAt: new Date('2026-04-01T10:00:00Z'),
+        },
+        {
+          id: 30,
+          curacionId: 198,
+          notes: null,
+          createdAt: new Date('2026-03-31T10:00:00Z'),
+        },
+      ]);
+
+      const result = await service.findByPatientCursor({ patientId: 7, limit: 2 });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].notes as unknown as string).toBe('herida 2');
+      expect(result.items[1].notes as unknown as string).toBe('herida 1');
+      expect(result.nextCursor).toBeDefined();
+    }));
+
+    it('returns no nextCursor on the last page', inOrg(async () => {
+      mockQb.getMany.mockResolvedValueOnce([
+        { id: 1, curacionId: 1, notes: null, createdAt: new Date('2026-04-01T10:00:00Z') },
+      ]);
+
+      const result = await service.findByPatientCursor({ patientId: 7, limit: 10 });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.nextCursor).toBeUndefined();
     }));
   });
 

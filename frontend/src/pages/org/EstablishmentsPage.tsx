@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { listEstablishments, createEstablishment } from '../../services/api';
 import { Button, Input, PageHeader, DataTable, Modal } from '../../components/ui';
 import type { ColumnDef } from '../../components/ui';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
+import { OrgTabs } from '../../components/org/OrgTabs';
 
 interface Est {
   id: string;
@@ -33,6 +34,8 @@ export default function EstablishmentsPage() {
   };
 
   useEffect(() => {
+    // Initial mount-only fetch; setState fires inside reload() after the async API call resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -44,6 +47,7 @@ export default function EstablishmentsPage() {
 
   return (
     <>
+      <OrgTabs />
       <PageHeader
         title="Establecimientos"
         actions={<Button onClick={() => setOpen(true)}>Agregar</Button>}

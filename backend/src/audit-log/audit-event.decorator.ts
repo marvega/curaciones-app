@@ -37,7 +37,10 @@ export class AuditEventInterceptor implements NestInterceptor {
           organizationId: String(user.organizationId),
           action: AuditAction.EVENT,
           entity: eventName,
-          entityId: res?.id || 0,
+          // Number(): a bigint primary key arrives as a string, and hashing the
+          // string leaves the row unverifiable against the `int` column it is read
+          // back from. See audit-log.interceptor.ts for the full note.
+          entityId: Number(res?.id) || 0,
           payload: body,
           afterJson: res ?? null,
           ipAddress: ip,

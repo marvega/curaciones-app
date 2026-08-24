@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { listLots, openStockCount, patchStockCountEntry, closeStockCount } from '../../services/api';
 import type { Lot, StockCount } from '../../types';
-import { useConfirm } from '../../contexts/ConfirmContext';
+import { useConfirm } from '../../contexts/useConfirm';
 import {
   Button,
   Card,

@@ -10,7 +10,7 @@ import {
   Textarea,
 } from '../../components/ui';
 import { formatCode, toSentenceCase } from '../../formatters/text';
-import { useToast } from '../../contexts/ToastContext';
+import { useToast } from '../../contexts/useToast';
 
 function primaryCode(p: Product): string {
   if (!p.codes || p.codes.length === 0) return '—';
@@ -31,6 +31,9 @@ export default function ReceptionPage() {
 
   useEffect(() => {
     if (productSearch.length < 2) {
+      // Reset match list synchronously when search is too short — guarded by length check,
+      // so this does not loop.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMatches([]);
       return;
     }

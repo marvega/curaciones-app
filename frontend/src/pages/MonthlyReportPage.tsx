@@ -66,6 +66,9 @@ export default function MonthlyReportPage() {
 
   useEffect(() => {
     if (showCycleConfig) {
+      // Side-effect when cycle config panel opens or year changes; setState fires inside
+      // loadCycles() after the async API call resolves.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadCycles(year);
     }
   }, [showCycleConfig, year, loadCycles]);

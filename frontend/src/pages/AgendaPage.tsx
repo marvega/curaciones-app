@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAgenda } from '../services/api';
 import type { AgendaItem, CuracionType } from '../types';
@@ -52,7 +52,7 @@ export default function AgendaPage() {
     };
   };
 
-  const loadAgenda = async () => {
+  const loadAgenda = useCallback(async () => {
     setLoading(true);
     try {
       const { from, to } = getDateRange();
@@ -63,11 +63,16 @@ export default function AgendaPage() {
     } finally {
       setLoading(false);
     }
-  };
+    // getDateRange is defined in the same render and reads `date`/`viewMode` directly
+    // through closure, so we only need those as deps to know when to refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, viewMode]);
 
   useEffect(() => {
+    // Date/view side-effect: setState fires inside loadAgenda() after the async API call resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAgenda();
-  }, [date, viewMode]);
+  }, [loadAgenda]);
 
   const navigateDate = (direction: number) => {
     const d = new Date(date + 'T00:00:00');
