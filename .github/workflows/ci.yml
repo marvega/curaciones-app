@@ -49,9 +49,20 @@ jobs:
       # so everything under `test/` was outside the gate — including the whole
       # org-isolation net. See test/jest-e2e-ci.cjs for why this needs its own
       # config and which suites it excludes.
+      #
+      # Its own database, because it cannot share one with `npm test`:
+      # src/oauth/adapters/postgres.adapter.spec.ts runs with `synchronize: true`,
+      # which creates the schema without recording anything in `migrations`.
+      # `pretest:e2e` then migrates from scratch and dies on `CREATE TYPE` with
+      # 42710, the type already existing. A separate database keeps the two
+      # schema-management strategies from colliding.
+      - name: Create the e2e database
+        run: PGPASSWORD=curaciones psql -h localhost -U curaciones -d postgres -c 'CREATE DATABASE curaciones_e2e OWNER curaciones'
+
       - run: npm run test:e2e:ci
         env:
-          DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_test
+          TEST_DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_e2e
+          DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_e2e
 
       - run: npm run build
 
