@@ -5,29 +5,47 @@ Be extremely concise. Sacrifice grammar for concision. Tables > prose. Fragments
 
 ## Branching model
 
-Two long-lived branches with distinct purposes — never conflate them.
+One production branch: **`main`**. Everything lands there by pull request with CI green
+(`backend (build + test)`, `frontend (build + test)`, `mcp (build + test)` — strict, so the
+branch must be up to date with `main` before merging).
 
-| Branch | Purpose | Render auto-deploys? |
-|---|---|---|
-| **`prd`** | Live single-tenant app currently in production. Receives **bug fixes only**. | Yes — both `curaciones-app` (frontend) and `curaciones-api` (backend) deploy on every commit to `prd`. |
-| **`main`** | Integration branch for the **new multi-establishment / commercial platform** (Sub #1 multi-tenancy, Sub #2 OAuth, Sub #3 MCP). | No. Does not auto-deploy anywhere. |
+**Deployment is not automatic.** It runs from `main` with the commands in
+`docs/runbooks/`: build and push the images to Artifact Registry, `gcloud run deploy` for
+`curaciones-api` and `curaciones-mcp`, and `firebase deploy --only hosting`.
 
-### Where to branch from
+`prd` is **archived**. It points at the single-tenant code that ran before the cutover of
+2026-08-24 and receives no commits. The return point for that code is the tag
+`prd-gcp-live-2026-08-21`.
 
-- **Hotfix for the live app** (a bug a current user reports): branch off `prd` → PR to `prd` → after merge & smoke test, cherry-pick the squash commit to `main` so `main` keeps tracking PRD's bugfix history.
-- **New multi-establishment / OAuth / MCP / platform work**: branch off `main` → PR to `main`. Never to `prd`. Only promote to `prd` when the multi-tenant version is ready to replace what's live.
+### Production
 
-### Enforcement
+| Piece | Where |
+|---|---|
+| Frontend | Firebase Hosting, site `curaciones` → https://curaciones.web.app |
+| Backend | Cloud Run `curaciones-api`, `us-west1`. Also serves the OAuth Authorization Server |
+| MCP | Cloud Run `curaciones-mcp`, `us-west1` |
+| Database | Neon Postgres, project `Curaciones`, branch `production` |
+| Secrets | Secret Manager, **6 of 6** on the free tier — adding a seventh has a cost |
+| Daily cleanup | Cloud Scheduler job `oauth-cleanup`, 03:00 America/Santiago |
 
-Both `prd` and `main` are GitHub-protected:
-- No direct pushes (PR-only, applies to admins too)
-- No force-pushes, no deletions
-- `main` additionally requires `backend (build + test)` and `frontend (build + test)` GitHub Actions checks (strict — the PR branch must be up to date with `main` before merge)
-- `prd` does not gate on CI yet; tests must pass locally before merging. When the GH Actions workflow is extended to also trigger on PRs to `prd`, swap Render's trigger to "After CI Checks Pass" and add the same required checks here.
+`OAUTH_ISSUER` must be exactly the public origin, `https://curaciones.web.app`. The
+Authorization Server sits behind Hosting, which forwards only a cookie named `__session`,
+so `oidc-provider`'s resume cookie is renamed to it and left unsigned — a signed cookie is
+two cookies and only one name survives. Do not restore signing without moving the
+Authorization Server off Hosting.
 
-### Render
+Rollback of the cutover, should it ever be needed:
 
-Both services are pinned to `prd` with `autoDeploy=on commit`. Don't suggest changing them. Every commit to `prd` ships within ~2 minutes — never merge to `prd` something that hasn't been validated locally.
+```bash
+firebase hosting:clone curaciones:f3479db990d5f000 curaciones:live
+gcloud run services update-traffic curaciones-api --region us-west1 \
+  --to-revisions curaciones-api-00001-zjj=100
+gcloud run services delete curaciones-mcp --region us-west1
+gcloud scheduler jobs pause oauth-cleanup --location us-west1
+```
+
+The database is **not** rolled back: the OAuth migrations are additive and the old code
+runs on the new schema, so reverting them would discard whatever users wrote in between.
 
 ## UI Standards
 
