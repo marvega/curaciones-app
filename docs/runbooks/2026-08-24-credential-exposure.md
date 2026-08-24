@@ -72,6 +72,27 @@ Por eso la rotación no es opcional ni posterior: es *la* mitigación. La reescr
 del historial es limpieza cosmética que sólo tiene sentido después de rotar, y es
 una decisión del dueño por el costo que implica.
 
+## Qué se hizo con el historial
+
+El 2026-08-24 se reescribió el historial completo con `git filter-repo`,
+reemplazando ambas contraseñas por `***REMOVED-CREDENTIAL***` en los 4 commits
+que las contenían, y se hizo force-push de las 6 ramas y el tag. Se verificó
+sobre **todos los blobs** del repositorio: cero ocurrencias.
+
+Eso no alcanzó. Un clon espejo desde GitHub seguía devolviendo las credenciales,
+porque sobrevivían en 37 referencias `refs/pull/N/head`. Esas referencias las
+crea GitHub del lado servidor y no se pueden borrar ni reescribir desde el
+cliente; cerrar o borrar un pull request tampoco las elimina.
+
+Por eso se borró y recreó el repositorio, empujando únicamente el historial ya
+limpio. El repositorio no tenía forks, estrellas ni watchers, así que el costo
+externo fue nulo. Las discusiones de los 37 pull requests están archivadas en
+`docs/archive/pull-requests-2026-08-24.md`.
+
+Consecuencia asumida: los números de pull request se reinician, así que los
+enlaces `#N` que aparecen en mensajes de commit antiguos ya no resuelven. El
+contenido de esas discusiones sí se conserva en el archivo.
+
 ## Acciones pendientes del dueño
 
 1. **Rotar la contraseña de `admin` y la de `cynthia`.** Prioridad inmediata.
