@@ -11,6 +11,12 @@ import { UsersService } from '../src/users/users.service';
 
 const PER_TRACKER_LIMIT = 5;
 
+// Two accounts created by this suite. They exist only inside the truncated test
+// database — the suite used to log in with the real production passwords of
+// `admin` and `cynthia`, which is how those ended up in a public repository.
+const USER_A = { username: 'throttle-a', password: 'throttle-a-password' };
+const USER_B = { username: 'throttle-b', password: 'throttle-b-password' };
+
 async function createTestApp(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
@@ -62,11 +68,14 @@ describe('PerUserThrottlerGuard (e2e)', () => {
     for (const entity of ds.entityMetadatas) {
       await ds.getRepository(entity.name).query(`TRUNCATE TABLE "${entity.tableName}" CASCADE`);
     }
-    await app.get(UsersService).seed();
+    const users = app.get(UsersService);
+    for (const u of [USER_A, USER_B]) {
+      await users.create({ username: u.username, password: u.password });
+    }
   });
 
   it('throttles a single user after the limit is reached', async () => {
-    const token = await loginAs(app, 'admin', '***REMOVED-CREDENTIAL***');
+    const token = await loginAs(app, USER_A.username, USER_A.password);
 
     for (let i = 0; i < PER_TRACKER_LIMIT; i++) {
       await request(app.getHttpServer())
@@ -82,8 +91,8 @@ describe('PerUserThrottlerGuard (e2e)', () => {
   });
 
   it('keeps user B working after user A is throttled (same IP)', async () => {
-    const tokenA = await loginAs(app, 'admin', '***REMOVED-CREDENTIAL***');
-    const tokenB = await loginAs(app, 'cynthia', '***REMOVED-CREDENTIAL***');
+    const tokenA = await loginAs(app, USER_A.username, USER_A.password);
+    const tokenB = await loginAs(app, USER_B.username, USER_B.password);
 
     for (let i = 0; i < PER_TRACKER_LIMIT; i++) {
       await request(app.getHttpServer())

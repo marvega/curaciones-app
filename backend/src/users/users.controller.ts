@@ -49,11 +49,18 @@ export class UsersController {
     return this.usersService.create(dto, user);
   }
 
-  // Dev-only bootstrap endpoint: intentionally anonymous (no auth guard).
+  // Bootstrap endpoint, reachable by any unauthenticated caller — there is by
+  // definition nobody to authenticate as before the first user exists.
+  //
+  // What keeps it safe is that UsersService.seed() does nothing unless
+  // SEED_USERNAME and SEED_PASSWORD are set, so on a running deployment this
+  // is inert and answers {created: 0}. Do not give it a body or parameters:
+  // the moment a caller can choose the username or password, an anonymous
+  // endpoint becomes an account-creation endpoint.
+  //
   // @NoOAuthAccess suppresses governance lint only — it does NOT restrict
-  // access. The endpoint is reachable by any unauthenticated caller; the
-  // decorator merely tells the OAuth scope-coverage governance test that
-  // this surface is intentionally not exposed via OAuth tokens.
+  // access. It tells the OAuth scope-coverage test that this surface is
+  // intentionally not exposed via OAuth tokens.
   @NoOAuthAccess()
   @Post('seed')
   async seed() {

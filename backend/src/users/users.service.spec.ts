@@ -201,17 +201,60 @@ describe('UsersService', () => {
   });
 
   describe('seed', () => {
-    it('creates default users when they do not exist', async () => {
+    const prevUser = process.env.SEED_USERNAME;
+    const prevPass = process.env.SEED_PASSWORD;
+
+    afterEach(() => {
+      if (prevUser === undefined) delete process.env.SEED_USERNAME;
+      else process.env.SEED_USERNAME = prevUser;
+      if (prevPass === undefined) delete process.env.SEED_PASSWORD;
+      else process.env.SEED_PASSWORD = prevPass;
+    });
+
+    // The bootstrap credentials used to be literals in the service, which put
+    // two real production passwords in a public repository. They now come from
+    // the environment, and an unconfigured deployment must create nothing at
+    // all — that is what makes the anonymous POST /api/users/seed endpoint
+    // inert on a running installation.
+    it('creates nothing when the seed credentials are unset', async () => {
+      delete process.env.SEED_USERNAME;
+      delete process.env.SEED_PASSWORD;
+
+      const result = await service.seed();
+
+      expect(result).toEqual({ created: 0 });
+      expect(mockRepo.save).not.toHaveBeenCalled();
+      expect(mockRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('creates nothing when only one of the two is set', async () => {
+      process.env.SEED_USERNAME = 'bootstrap';
+      delete process.env.SEED_PASSWORD;
+
+      const result = await service.seed();
+
+      expect(result).toEqual({ created: 0 });
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('creates the configured user when both are set and it does not exist', async () => {
+      process.env.SEED_USERNAME = 'bootstrap';
+      process.env.SEED_PASSWORD = 'bootstrap-password';
       mockRepo.findOne.mockResolvedValue(null);
 
       const result = await service.seed();
 
-      expect(result).toEqual({ created: 2 });
-      expect(mockRepo.save).toHaveBeenCalledTimes(2);
-      expect(bcrypt.hash).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ created: 1 });
+      expect(mockRepo.save).toHaveBeenCalledTimes(1);
+      expect(bcrypt.hash).toHaveBeenCalledWith('bootstrap-password', 10);
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ username: 'bootstrap' }),
+      );
     });
 
-    it('skips existing users', async () => {
+    it('skips a user that already exists', async () => {
+      process.env.SEED_USERNAME = 'bootstrap';
+      process.env.SEED_PASSWORD = 'bootstrap-password';
       mockRepo.findOne.mockResolvedValue(mockUser);
 
       const result = await service.seed();

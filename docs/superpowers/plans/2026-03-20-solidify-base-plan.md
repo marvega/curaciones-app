@@ -1402,7 +1402,7 @@ test.describe('Authentication', () => {
   test('should login and redirect to home', async ({ page }) => {
     await page.goto('/login');
     await page.fill('input[name="username"]', 'admin');
-    await page.fill('input[name="password"]', '***REMOVED-CREDENTIAL***');
+    await page.fill('input[name="password"]', '<redactado: era una contraseña real, ver docs/runbooks/2026-08-24-credential-exposure.md>');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL('/');
   });
@@ -1432,7 +1432,7 @@ test.describe('Patient Management', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
     await page.fill('input[name="username"]', 'admin');
-    await page.fill('input[name="password"]', '***REMOVED-CREDENTIAL***');
+    await page.fill('input[name="password"]', '<redactado: era una contraseña real, ver docs/runbooks/2026-08-24-credential-exposure.md>');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL('/');
   });
