@@ -56,13 +56,25 @@ jobs:
       # `pretest:e2e` then migrates from scratch and dies on `CREATE TYPE` with
       # 42710, the type already existing. A separate database keeps the two
       # schema-management strategies from colliding.
-      - name: Create the e2e database
-        run: PGPASSWORD=curaciones psql -h localhost -U curaciones -d postgres -c 'CREATE DATABASE curaciones_e2e OWNER curaciones'
+      - name: Create the e2e database and its throwaway master key
+        run: |
+          PGPASSWORD=curaciones psql -h localhost -U curaciones -d postgres \
+            -c 'CREATE DATABASE curaciones_e2e OWNER curaciones'
+          echo "KMS_LOCAL_MASTER_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
+      # The env below is what `backend/.env.test` supplies locally. That file is
+      # gitignored, so CI has none of it and the app fails to boot with
+      # "KMS unavailable" before a single test runs. Values are throwaway: the
+      # master key is generated per job so nothing constant lands in the repo.
       - run: npm run test:e2e:ci
         env:
           TEST_DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_e2e
           DATABASE_URL: postgresql://curaciones:curaciones@localhost:5432/curaciones_e2e
+          NODE_ENV: test
+          JWT_SECRET: ci-e2e-jwt-secret
+          JWT_REFRESH_SECRET: ci-e2e-jwt-refresh-secret
+          KMS_BACKEND: memory
+          EMAIL_BACKEND: noop
 
       - run: npm run build
 
