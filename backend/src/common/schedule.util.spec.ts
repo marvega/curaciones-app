@@ -39,4 +39,19 @@ describe('getSlotsForDate', () => {
       '16:30',
     ]);
   });
+
+  it('returns the shortened morning slots on 2026-09-17, eve of the holiday', () => {
+    const slots = getSlotsForDate('2026-09-17');
+    expect(slots).toEqual(['08:30', '09:00', '09:30', '10:00', '10:30']);
+  });
+
+  it('keeps PM slots on the other Thursdays of September 2026', () => {
+    const pmSlots = [
+      '12:30', '13:00', '13:30', '14:00',
+      '14:30', '15:00', '15:30', '16:00',
+      '16:30',
+    ];
+    expect(getSlotsForDate('2026-09-10')).toEqual(pmSlots);
+    expect(getSlotsForDate('2026-09-24')).toEqual(pmSlots);
+  });
 });
