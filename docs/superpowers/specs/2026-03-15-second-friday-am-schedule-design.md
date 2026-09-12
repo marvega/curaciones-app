@@ -87,3 +87,22 @@ No changes needed. The agenda displays existing appointments regardless of their
 - Holiday calendar.
 - Other special schedule days.
 - Retroactive enforcement of AM rules on existing appointments.
+
+## Update 2026-09-12 — one-off date overrides
+
+"Other special schedule days" left the original scope. They are now supported,
+in the narrowest form that solves the case: a `DATE_OVERRIDES` map in
+`schedule.util.ts`, keyed by ISO date, consulted before the second-Friday rule.
+
+| Date | Slots | Reason |
+|------|-------|--------|
+| 2026-09-17 | 08:30, 09:00, 09:30, 10:00, 10:30 | Eve of the national holiday; the clinic closes early |
+
+Adding a date is a code change and a backend deploy — the map is not
+configurable from the app, and it applies to every organization, since
+`getSlotsForDate` takes no organization. A per-organization, admin-managed
+calendar remains out of scope.
+
+Existing appointments are never rewritten. A booking that predates an override
+survives in the agenda but its time no longer appears in availability, so check
+`SELECT date, time FROM appointments WHERE date = '<date>'` before adding one.
